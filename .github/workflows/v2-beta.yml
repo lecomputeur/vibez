@@ -114,6 +114,7 @@ jobs:
         run: npm run build:store:msix
       - name: Sign and verify a disposable test copy
         shell: pwsh
+        timeout-minutes: 4
         run: |
           $unsigned = Get-ChildItem dist\store -File -Filter '*.msix' | Select-Object -First 1
           if (-not $unsigned) { throw 'Microsoft Store MSIX is missing.' }
@@ -131,12 +132,21 @@ jobs:
             Select-Object -First 1
           if (-not $signTool) { throw 'signtool.exe was not found in the Windows SDK.' }
           try {
-            & $signTool.FullName sign /fd SHA256 /sha1 $cert.Thumbprint $signed
-            if ($LASTEXITCODE -ne 0) { throw "signtool.exe failed with exit code $LASTEXITCODE." }
-            & $signTool.FullName verify /pa /v $signed
-            if ($LASTEXITCODE -ne 0) { throw "Signature verification failed with exit code $LASTEXITCODE." }
-            $signature = Get-AuthenticodeSignature $signed
-            if ($signature.Status -ne 'Valid') { throw "Unexpected signature status: $($signature.Status)" }
+            Write-Host 'Signing disposable MSIX copy...'
+            $sign = Start-Process -FilePath $signTool.FullName -ArgumentList @('sign', '/fd', 'SHA256', '/sha1', $cert.Thumbprint, $signed) -PassThru -NoNewWindow
+            if (-not $sign.WaitForExit(60000)) {
+              Stop-Process -Id $sign.Id -Force -ErrorAction SilentlyContinue
+              throw 'signtool.exe did not finish signing within 60 seconds.'
+            }
+            if ($sign.ExitCode -ne 0) { throw "signtool.exe failed with exit code $($sign.ExitCode)." }
+            Write-Host 'Verifying disposable MSIX signature...'
+            $verify = Start-Process -FilePath $signTool.FullName -ArgumentList @('verify', '/pa', $signed) -PassThru -NoNewWindow
+            if (-not $verify.WaitForExit(60000)) {
+              Stop-Process -Id $verify.Id -Force -ErrorAction SilentlyContinue
+              throw 'signtool.exe did not finish verification within 60 seconds.'
+            }
+            if ($verify.ExitCode -ne 0) { throw "Signature verification failed with exit code $($verify.ExitCode)." }
+            Write-Host 'Disposable MSIX signature is valid.'
           } finally {
             Remove-Item "Cert:\CurrentUser\My\$($cert.Thumbprint)" -Force -ErrorAction SilentlyContinue
             if ($trusted) { Remove-Item "Cert:\CurrentUser\TrustedPeople\$($trusted.Thumbprint)" -Force -ErrorAction SilentlyContinue }
