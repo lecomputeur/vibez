@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-09-16
+
+### Added
+- A native VibeZ toolbar around the official Mistral Vibe web app using Electron `WebContentsView`.
+- Integrated Back, Forward, Reload, Screenshot and Settings controls without browser-style address chrome.
+- A Microsoft Store x64 MSIX build using the reserved `LeComputeur.VibeZDesktop` Partner Center identity.
+- Developer ID signing, Apple notarization, stapling and Gatekeeper verification for Intel and Apple Silicon macOS packages.
+- Production packages for Linux x86_64 in AppImage, DEB, RPM, Pacman and Flatpak formats.
+
+### Changed
+- Promoted the VibeZ 2 shell to version 2.0.0 and restored the stable `com.vibez.app` identity, `vibez` executable, normal profile and `vibez://` protocol.
+- Replaced the development-only update placeholder with production GitHub Release update checks and supported installer updates.
+- Consolidated verification into one VibeZ CI workflow and removed unused Windows ARM64 and Linux ARM64 package jobs.
+- Kept the direct Windows x64 NSIS installer unsigned and made the Microsoft Store the recommended trusted Windows route.
+
+### Security
+- Restricted embedded navigation and permissions to trusted Mistral pages while opening external links in the default browser.
+- Kept private signing material in GitHub Secrets and verified final macOS signatures and notarization before publication.
+- Added SHA-256 checksums for published release assets and explicit verification that the direct Windows installer is unsigned.
+
 ## [1.4.1] - 2026-09-09
 
 ### Added
@@ -150,7 +170,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 - Fixed Screenshot button overlap with Vibe's star and share controls.
 
-[Unreleased]: https://github.com/lecomputeur/vibez/compare/v1.4.1...HEAD
+[Unreleased]: https://github.com/lecomputeur/vibez/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/lecomputeur/vibez/compare/v1.4.1...v2.0.0
 [1.4.1]: https://github.com/lecomputeur/vibez/releases/tag/v1.4.1
 [1.4.0]: https://github.com/lecomputeur/vibez/releases/tag/v1.4.0
 [1.3.2]: https://github.com/lecomputeur/vibez/releases/tag/v1.3.2

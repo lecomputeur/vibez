@@ -145,6 +145,26 @@ jobs:
             dist/*.blockmap
           if-no-files-found: error
 
+  windows-store-msix:
+    needs: test
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build and validate Partner Center MSIX
+        shell: pwsh
+        run: npm run build:store:msix
+      - uses: actions/upload-artifact@v5
+        with:
+          name: partner-center-windows-x64-msix
+          path: dist/store/*.msix
+          if-no-files-found: error
+          retention-days: 90
+
   macos-intel:
     needs: test
     uses: ./.github/workflows/macos-signed-release.yml
@@ -166,7 +186,7 @@ jobs:
     secrets: inherit
 
   publish:
-    needs: [linux-x64, flatpak-x64, windows-x64, macos-intel, macos-arm64]
+    needs: [linux-x64, flatpak-x64, windows-x64, windows-store-msix, macos-intel, macos-arm64]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5

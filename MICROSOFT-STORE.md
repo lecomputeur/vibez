@@ -1,6 +1,6 @@
 # Microsoft Store submission plan
 
-This file contains the prepared Partner Center information for publishing VibeZ 2 on the Microsoft Store. Do not submit a beta artifact as the stable Store release.
+This file contains the prepared Partner Center information for publishing VibeZ 2 on the Microsoft Store. Submit only the final 2.0.0 artifact produced by the official workflow.
 
 ## Distribution decision
 
@@ -89,7 +89,7 @@ The artifact intended for Partner Center remains unsigned so Microsoft can re-si
 - CI successfully built and unpacked the Store MSIX and verified its identity, publisher, version and executable.
 - The normal unit, security and Windows packaged-app smoke tests pass.
 - The final MSIX is installed, launched and uninstalled once on a clean interactive Windows 11 system before Partner Center submission.
-- The final Store MSIX does not contain beta product names or test text.
+- The final Store MSIX contains only the production VibeZ product name, identity and executable.
 - Upgrade from the previous Store submission is tested when an earlier Store version exists.
 - The privacy, support and website URLs are publicly reachable.
 - Screenshots used in the Store listing show the final VibeZ 2 interface.

@@ -1,7 +1,7 @@
 {
   "name": "VibeZ",
-  "version": "2.0.0-beta.1",
-  "desktopName": "com.vibez.app.beta",
+  "version": "2.0.0",
+  "desktopName": "com.vibez.app",
   "description": "A cross-platform desktop client for Mistral Vibe",
   "license": "MIT",
   "homepage": "https://github.com/lecomputeur/vibez",
@@ -9,10 +9,10 @@
     "name": "Joe Pizza",
     "email": "info@lecomputeur.nl"
   },
-  "main": "main-v2-bootstrap.js",
+  "main": "main-v2.js",
   "scripts": {
     "start": "electron .",
-    "check": "node --check main.js && node --check main-v2-bootstrap.js && node --check main-v2.js && node --check screenshot.js && node --check screenshot-v2.js && node --check preload.js && node --check shell-preload.js && node --check shell.js && node --check settings-store.js && node --check settings-preload.js && node --check native-button-preload.js && node --check i18n.js && node --check ui-detection.js && node --check locales/*.js",
+    "check": "node --check main.js && node --check main-v2.js && node --check screenshot.js && node --check screenshot-v2.js && node --check preload.js && node --check shell-preload.js && node --check shell.js && node --check settings-store.js && node --check settings-preload.js && node --check native-button-preload.js && node --check i18n.js && node --check ui-detection.js && node --check locales/*.js",
     "test": "node --test test/*.test.js && npm run check && bash -n install.sh",
     "build": "electron-builder",
     "build:store:msix": "powershell -NoProfile -ExecutionPolicy Bypass -File build/build-store-msix.ps1"
@@ -25,14 +25,14 @@
     "electron-builder": "^26.15.3"
   },
   "build": {
-    "appId": "com.vibez.app.beta",
-    "productName": "VibeZ 2 Beta",
-    "executableName": "vibez2-beta",
+    "appId": "com.vibez.app",
+    "productName": "VibeZ",
+    "executableName": "vibez",
     "protocols": [
       {
-        "name": "VibeZ 2 Beta",
+        "name": "VibeZ",
         "schemes": [
-          "vibez-beta"
+          "vibez"
         ]
       }
     ],
@@ -40,7 +40,7 @@
       "provider": "github",
       "owner": "lecomputeur",
       "repo": "vibez",
-      "releaseType": "prerelease"
+      "releaseType": "release"
     },
     "directories": {
       "output": "dist"
@@ -54,9 +54,9 @@
         "pacman"
       ],
       "category": "Development",
-      "synopsis": "VibeZ 2 beta desktop client for Mistral Vibe",
-      "description": "VibeZ 2 Beta is an isolated test build of the cross-platform Mistral Vibe desktop client.",
-      "artifactName": "VibeZ-2-Beta-${version}-Linux-${arch}.${ext}",
+      "synopsis": "VibeZ desktop client for Mistral Vibe",
+      "description": "VibeZ is a cross-platform desktop client for Mistral Vibe.",
+      "artifactName": "VibeZ-${version}-Linux-${arch}.${ext}",
       "syncDesktopName": true
     },
     "win": {
@@ -64,7 +64,7 @@
       "target": [
         "nsis"
       ],
-      "artifactName": "VibeZ-2-Beta-${version}-Windows-${arch}.${ext}"
+      "artifactName": "VibeZ-${version}-Windows-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,
@@ -73,7 +73,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
-      "shortcutName": "VibeZ 2 Beta",
+      "shortcutName": "VibeZ",
       "deleteAppDataOnUninstall": false
     },
     "mac": {
@@ -83,14 +83,14 @@
         "dmg",
         "zip"
       ],
-      "artifactName": "VibeZ-2-Beta-${version}-macOS-${arch}.${ext}",
+      "artifactName": "VibeZ-${version}-macOS-${arch}.${ext}",
       "hardenedRuntime": true,
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.inherit.plist",
       "notarize": true
     },
     "dmg": {
-      "title": "VibeZ 2 Beta ${version}"
+      "title": "VibeZ ${version}"
     },
     "pacman": {
       "depends": [

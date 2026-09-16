@@ -31,17 +31,26 @@ test('VibeZ 2.0 toolbar does not expose a browser-style service or hostname pill
   assert.match(shell, /id="settings"/);
 });
 
-test('2.0 test branch uses an isolated beta bootstrap and package identity', () => {
+test('VibeZ 2.0 uses the stable production identity', () => {
   const pkg = JSON.parse(read('package.json'));
-  const bootstrap = read('main-v2-bootstrap.js');
-  assert.equal(pkg.main, 'main-v2-bootstrap.js');
-  assert.match(pkg.version, /^2\.0\.0-beta\./);
-  assert.equal(pkg.build.appId, 'com.vibez.app.beta');
-  assert.equal(pkg.build.productName, 'VibeZ 2 Beta');
-  assert.equal(pkg.build.executableName, 'vibez2-beta');
-  assert.match(bootstrap, /VibeZ-2\.0-test/);
-  assert.match(bootstrap, /setAsDefaultProtocolClient = \(\) => false/);
-  assert.match(bootstrap, /setLoginItemSettings = \(\) => \{\}/);
+  assert.equal(pkg.main, 'main-v2.js');
+  assert.equal(pkg.version, '2.0.0');
+  assert.equal(pkg.desktopName, 'com.vibez.app');
+  assert.equal(pkg.build.appId, 'com.vibez.app');
+  assert.equal(pkg.build.productName, 'VibeZ');
+  assert.equal(pkg.build.executableName, 'vibez');
+  assert.deepEqual(pkg.build.protocols[0].schemes, ['vibez']);
+  assert.equal(pkg.build.publish.releaseType, 'release');
+});
+
+test('VibeZ 2.0 production UI and updater contain no beta or test branding', () => {
+  const main = read('main-v2.js');
+  const shell = read('shell.html');
+  assert.doesNotMatch(main, /test shell|VibeZ 2\.0 Test|VIBEZ_V2_TEST/i);
+  assert.doesNotMatch(shell, /2\.0 TEST|class="beta"/i);
+  assert.match(main, /autoUpdater\.checkForUpdates/);
+  assert.match(main, /checkMacUpdates/);
+  assert.match(main, /process\.windowsStore/);
 });
 
 test('macOS 2.0 packaging is ready for Developer ID entitlements', () => {

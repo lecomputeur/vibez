@@ -13,17 +13,20 @@ const {
   session,
   systemPreferences,
 } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { setupScreenshot } = require('./screenshot-v2');
 const { createSettingsStore } = require('./settings-store');
-const { resolveLanguage, uiBundle } = require('./i18n');
+const { resolveLanguage, t, uiBundle } = require('./i18n');
 
 const REPO_URL = 'https://github.com/lecomputeur/vibez';
-const RELEASES_URL = `${REPO_URL}/releases`;
+const RELEASES_URL = `${REPO_URL}/releases/latest`;
+const MICROSOFT_STORE_URL = 'https://apps.microsoft.com/detail/9NR7L2G4MS08';
 const VIBE_URL = 'https://vibe.mistral.ai/';
 const APP_PROTOCOL = 'vibez';
+const LATEST_RELEASE_API = 'https://api.github.com/repos/lecomputeur/vibez/releases/latest';
 const TOOLBAR_HEIGHT = 54;
 
 if (process.argv.includes('--version')) {
@@ -56,6 +59,8 @@ let settingsWindow = null;
 let tray = null;
 let screenshotController = null;
 let isQuitting = false;
+let manualUpdateCheck = false;
+let updaterHandlersInstalled = false;
 let initialActionHandled = false;
 let vibeLoading = false;
 
@@ -75,7 +80,7 @@ function uiText() {
 }
 
 function windowTitle() {
-  return `VibeZ ${app.getVersion()} TEST`;
+  return `VibeZ v${app.getVersion()}`;
 }
 
 function vibeContents() {
@@ -103,6 +108,74 @@ function isSafeExternalUrl(value) {
     const url = new URL(value);
     return url.protocol === 'https:' || url.protocol === 'http:';
   } catch (_) {
+    return false;
+  }
+}
+
+function compareVersions(left, right) {
+  const parse = (value) => String(value || '')
+    .replace(/^v/i, '')
+    .split('-')[0]
+    .split('.')
+    .map((part) => Number.parseInt(part, 10) || 0);
+  const a = parse(left);
+  const b = parse(right);
+  const length = Math.max(a.length, b.length, 3);
+  for (let index = 0; index < length; index += 1) {
+    const av = a[index] || 0;
+    const bv = b[index] || 0;
+    if (av !== bv) return av > bv ? 1 : -1;
+  }
+  return 0;
+}
+
+async function fetchLatestRelease() {
+  const response = await fetch(LATEST_RELEASE_API, {
+    headers: {
+      Accept: 'application/vnd.github+json',
+      'User-Agent': `VibeZ/${app.getVersion()}`,
+    },
+  });
+  if (!response.ok) throw new Error(`GitHub update check failed (HTTP ${response.status}).`);
+  const release = await response.json();
+  const version = String(release.tag_name || release.name || '').replace(/^v/i, '').trim();
+  if (!version) throw new Error('GitHub release response did not contain a version.');
+  return {
+    version,
+    url: isSafeExternalUrl(release.html_url) ? release.html_url : RELEASES_URL,
+  };
+}
+
+async function checkMacUpdates(manual = false) {
+  const text = uiText();
+  try {
+    const latest = await fetchLatestRelease();
+    if (compareVersions(latest.version, app.getVersion()) > 0) {
+      const result = await showMessageBox({
+        type: 'info',
+        title: `VibeZ · ${text.updates}`,
+        message: `${text.updateReady} — VibeZ ${latest.version}`,
+        buttons: [text.openReleases, text.later],
+        defaultId: 0,
+        cancelId: 1,
+      });
+      if (result.response === 0) await shell.openExternal(latest.url);
+      return true;
+    }
+    if (manual) {
+      await showMessageBox({ type: 'info', title: `VibeZ · ${text.updates}`, message: text.latest });
+    }
+    return false;
+  } catch (error) {
+    console.error('macOS update check failed:', error);
+    if (manual) {
+      await showMessageBox({
+        type: 'error',
+        title: `VibeZ · ${text.updates}`,
+        message: text.updateFailed,
+        detail: error.message,
+      });
+    }
     return false;
   }
 }
@@ -417,7 +490,7 @@ function buildApplicationMenu() {
       submenu: [
         { label: text.screenshot, accelerator: 'CommandOrControl+Shift+S', click: triggerScreenshot },
         { label: text.settings, accelerator: 'CommandOrControl+,', click: openSettings },
-        { label: text.updates, click: () => shell.openExternal(RELEASES_URL) },
+        { label: text.updates, click: () => checkForUpdates(true) },
         { label: text.about, click: showAbout },
         { type: 'separator' },
         { label: text.quit, accelerator: 'CommandOrControl+Q', click: quitApp },
@@ -436,7 +509,7 @@ function trayTemplate() {
     { label: text.screenshot, click: triggerScreenshot },
     { type: 'separator' },
     { label: text.settings, click: openSettings },
-    { label: text.updates, click: () => shell.openExternal(RELEASES_URL) },
+    { label: text.updates, click: () => checkForUpdates(true) },
     { label: text.about, click: showAbout },
     { type: 'separator' },
     { label: text.quit, click: quitApp },
@@ -482,7 +555,7 @@ function operatingSystemName() {
 
 function systemInfoText() {
   const lines = [
-    `VibeZ: ${app.getVersion()} (2.0 test shell)`,
+    `VibeZ: ${app.getVersion()}`,
     `Electron: ${process.versions.electron}`,
     `Chromium: ${process.versions.chrome}`,
     `Node.js: ${process.versions.node}`,
@@ -507,7 +580,7 @@ async function showAbout() {
     type: 'info',
     title: `${text.about} · ${windowTitle()}`,
     message: windowTitle(),
-    detail: `VibeZ 2.0 test shell\n\n${systemInfoText()}`,
+    detail: `${text.desktopClient}\n\n${systemInfoText()}`,
     buttons: [text.copySystem, 'GitHub', text.close],
     defaultId: 2,
     cancelId: 2,
@@ -588,6 +661,7 @@ function installIpcHandlers() {
     const shortcutRegistered = registerGlobalScreenshot();
     const autostartApplied = syncAutostart(settings.startAtLogin);
     applyZoom();
+    if (process.platform !== 'darwin') autoUpdater.autoInstallOnAppQuit = Boolean(settings.installUpdatesOnQuit);
     rebuildTray();
     buildApplicationMenu();
     sendShellState();
@@ -596,15 +670,7 @@ function installIpcHandlers() {
 
   ipcMain.handle('vibez:updates:check', (event) => {
     if (!validSettingsSender(event)) throw new Error('Unauthorized update request.');
-    showMessageBox({
-      type: 'info',
-      title: 'VibeZ 2.0 Test',
-      message: 'This test branch is intentionally kept separate from the stable update channel.',
-      detail: 'Stable VibeZ 1.4.1 is unchanged. Test builds will receive their own prerelease update channel before VibeZ 2.0 is published.',
-      buttons: [uiText().openReleases, uiText().close],
-      defaultId: 0,
-      cancelId: 1,
-    }).then((result) => { if (result.response === 0) shell.openExternal(RELEASES_URL); });
+    checkForUpdates(true);
     return true;
   });
 
@@ -632,6 +698,67 @@ function installIpcHandlers() {
   ipcMain.on('vibez:settings:close', (event) => {
     if (validSettingsSender(event)) settingsWindow?.close();
   });
+}
+
+function installUpdaterHandlers() {
+  if (updaterHandlersInstalled) return;
+  updaterHandlersInstalled = true;
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = Boolean(settings.installUpdatesOnQuit);
+
+  autoUpdater.on('update-available', (info) => console.log(`VibeZ update available: ${info.version}`));
+  autoUpdater.on('update-not-available', () => {
+    if (!manualUpdateCheck) return;
+    manualUpdateCheck = false;
+    const text = uiText();
+    showMessageBox({ type: 'info', title: `VibeZ · ${text.updates}`, message: text.latest });
+  });
+  autoUpdater.on('error', (error) => {
+    console.error('VibeZ updater error:', error);
+    if (!manualUpdateCheck) return;
+    manualUpdateCheck = false;
+    const text = uiText();
+    showMessageBox({ type: 'error', title: `VibeZ · ${text.updates}`, message: text.updateFailed, detail: error.message });
+  });
+  autoUpdater.on('update-downloaded', async (info) => {
+    manualUpdateCheck = false;
+    const text = uiText();
+    const result = await showMessageBox({
+      type: 'info',
+      title: text.updateReady,
+      message: t(selectedLanguage(), 'readyInstall', { version: info.version }),
+      buttons: [text.restartUpdate, text.later],
+      defaultId: 0,
+      cancelId: 1,
+    });
+    if (result.response === 0) {
+      isQuitting = true;
+      autoUpdater.quitAndInstall(false, true);
+    }
+  });
+}
+
+function checkForUpdates(manual = false) {
+  manualUpdateCheck = Boolean(manual);
+  const text = uiText();
+  if (!app.isPackaged) {
+    if (manual) showMessageBox({ type: 'info', title: `VibeZ · ${text.updates}`, message: text.installedOnly });
+    return;
+  }
+  if (process.windowsStore) {
+    if (manual) shell.openExternal(MICROSOFT_STORE_URL);
+    return;
+  }
+  if (process.env.FLATPAK_ID) {
+    if (manual) showMessageBox({ type: 'info', title: `VibeZ · ${text.updates}`, message: text.flatpakBuild, buttons: [text.openReleases, text.close], defaultId: 0 }).then((result) => { if (result.response === 0) shell.openExternal(RELEASES_URL); });
+    return;
+  }
+  if (process.platform === 'darwin') {
+    void checkMacUpdates(manual);
+    return;
+  }
+  installUpdaterHandlers();
+  autoUpdater.checkForUpdates().catch((error) => console.error('Update check failed:', error));
 }
 
 function configureSessionSecurity() {
@@ -689,6 +816,11 @@ app.whenReady().then(() => {
   buildApplicationMenu();
   registerGlobalScreenshot();
   syncAutostart(settings.startAtLogin);
+
+  if (app.isPackaged) {
+    if (process.platform !== 'darwin') installUpdaterHandlers();
+    if (settings.autoUpdates && !process.env.FLATPAK_ID) checkForUpdates(false);
+  }
 });
 
 app.on('before-quit', () => { isQuitting = true; });
