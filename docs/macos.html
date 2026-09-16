@@ -47,12 +47,12 @@
     </ul>
     <h2>What does VibeZ add on macOS?</h2>
     <p>VibeZ provides a dedicated desktop window for the official Mistral Vibe service together with screenshot tools, multi-monitor capture, menu-bar access, start-at-login support, platform-aware keyboard labels and 34 VibeZ interface languages.</p>
-    <h2>Gatekeeper and free unsigned builds</h2>
-    <p>VibeZ does not use a paid Apple Developer certificate or notarization so the project can remain free. macOS may block the first launch. When the download came from the official VibeZ GitHub release, you can allow it through <strong>System Settings → Privacy & Security → Open Anyway</strong>. Release downloads include SHA-256 checksums.</p>
+    <h2>Developer ID signing and notarization</h2>
+    <p>VibeZ 2 macOS packages are signed with an Apple Developer ID certificate and notarized by Apple. GitHub Actions verifies the signature, Gatekeeper acceptance and notarization before publication. Release downloads also include SHA-256 checksums.</p>
     <h2>Screenshot permission on macOS</h2>
     <p>macOS protects screen capture at operating-system level. The first time you use VibeZ screenshots, you may need to allow VibeZ under <strong>System Settings → Privacy & Security → Screen & System Audio Recording</strong> or <strong>Screen Recording</strong>, depending on your macOS version.</p>
     <h2>Updates on Mac</h2>
-    <p>Unsigned macOS builds do not perform an unreliable in-place installation. VibeZ can check GitHub Releases and notify you when a newer version is available, then open the official release page for the manual update.</p>
+    <p>VibeZ can check GitHub Releases and notify you when a newer version is available. The installation step currently opens the official release page for a manual update.</p>
     <p class="notice">VibeZ is an independent open-source project and is not affiliated with or supported by Mistral AI.</p>
   </section>
 </main>

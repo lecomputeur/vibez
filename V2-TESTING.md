@@ -30,22 +30,22 @@ The former floating always-on-top Screenshot window is not used by `main-v2.js`.
 
 The `VibeZ 2.0 Beta Test` workflow validates the same shell on:
 
-- Linux x64 and ARM64
-- Windows x64 and ARM64
+- Linux x64
+- Windows x64
 - macOS Intel and Apple Silicon
 
 The workflow does not publish a release. It only uploads test artifacts.
 
-Windows and macOS beta artifacts are currently marked **UNSIGNED**. They are for development testing only and can still trigger SmartScreen or Gatekeeper warnings.
+Windows beta artifacts are **UNSIGNED** and can trigger SmartScreen warnings. Stable macOS packages are Developer ID signed and Apple-notarized; isolated beta artifacts may still be unsigned.
 
-## Signing direction for VibeZ 2.0 stable
+## Distribution direction for VibeZ 2.0 stable
 
-VibeZ 2.0 is being prepared so the eventual stable Windows and macOS packages can ship without the current unsigned-app warnings:
-
-- macOS keeps Hardened Runtime enabled and includes Developer ID-compatible Electron entitlements. The production pipeline will add Apple Developer ID signing and Apple notarization once credentials are available.
-- Windows production packages are intended to be code-signed through a trusted signing provider such as SignPath Foundation (subject to approval) or another trusted certificate route.
-- Signing credentials and private keys must stay outside the repository and be supplied only through protected CI secrets/signing services.
-- Stable 2.0 will not be promoted until signed packages and the update path have been verified on the real operating systems.
+- macOS production packages are Developer ID signed, Apple-notarized, stapled and verified in the release workflow.
+- The Windows x64 installer downloaded directly from GitHub is unsigned and must be identified as such. Every public release includes SHA-256 checksums.
+- A Microsoft Store listing is being prepared as the recommended Windows installation route because Store-distributed apps are validated and signed by Microsoft.
+- The SignPath Foundation application was declined due to VibeZ's current level of public adoption. The manual SignPath workflow remains available for a later reapplication.
+- Signing credentials and private keys stay outside the repository and are supplied only through protected CI secrets/signing services.
+- See `V2-SIGNING.md` and `MICROSOFT-STORE.md` for the production gates and prepared Store submission.
 
 ## Local development
 
