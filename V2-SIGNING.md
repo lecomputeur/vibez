@@ -6,7 +6,7 @@ This document describes the production signing path for VibeZ 2.0. Stable VibeZ 
 
 Production VibeZ 2.0 releases should ship as:
 
-- **Windows x64:** unsigned NSIS installer for direct GitHub distribution, with Microsoft Store distribution prepared as the recommended trusted route.
+- **Windows x64:** unsigned NSIS installer for direct GitHub distribution, plus a separate Microsoft Store MSIX as the recommended trusted route.
 - **macOS Intel and Apple Silicon:** Developer ID signed and Apple-notarized DMG/ZIP packages.
 - **Linux x64:** AppImage, DEB, RPM, Pacman and Flatpak packages with SHA-256 checksums.
 
@@ -16,7 +16,8 @@ Windows builds must be presented as unsigned unless Authenticode verification su
 
 VibeZ 2.0 deliberately keeps broad x86_64 Linux packaging as an ode to the Linux community while avoiding rarely used ARM64 desktop packages:
 
-- Windows x64: NSIS `.exe`.
+- Windows x64 direct download: NSIS `.exe`.
+- Windows x64 Microsoft Store: MSIX using the reserved `LeComputeur.VibeZDesktop` identity.
 - macOS Apple Silicon: notarized `.dmg` plus ZIP for update compatibility.
 - macOS Intel: notarized `.dmg` plus ZIP for update compatibility.
 - Linux x64: AppImage, DEB, RPM, Pacman and Flatpak.
@@ -32,7 +33,7 @@ Until VibeZ qualifies for sponsored signing:
 1. The Windows x64 installer downloaded directly from GitHub is published **unsigned**.
 2. Every GitHub release clearly displays the unsigned status and includes `SHA256SUMS`.
 3. The release workflow verifies that the direct Windows installer is unsigned, preventing it from being presented as signed by mistake.
-4. A Microsoft Store listing is prepared as the recommended Windows installation route. Store-distributed apps are validated and signed by Microsoft.
+4. A separate Microsoft Store MSIX is built with the reserved Store identity and validated in CI. Microsoft re-signs the MSIX after certification; an unsigned EXE/MSI is not submitted to the Store.
 5. The manual SignPath test workflow is retained but is not part of the production release gate.
 6. VibeZ can reapply to the SignPath Foundation after it gains broader public adoption.
 
@@ -116,7 +117,8 @@ This identity switch must happen only in the production release path, not in the
 VibeZ 2.0 must not be published as stable until all of these are true:
 
 - Linux x64 AppImage, DEB, RPM, Pacman and Flatpak builds pass.
-- Windows x64 build passes.
+- Windows x64 NSIS build passes.
+- The Microsoft Store MSIX builds, unpacks and reports the expected Store identity and executable on a clean Windows runner. Final Microsoft signing happens in Partner Center; install, launch and uninstall are checked on an interactive Windows 11 system before submission.
 - macOS Intel and Apple Silicon builds pass.
 - The direct GitHub Windows installer is explicitly identified and verified as unsigned; `SHA256SUMS` is published with it.
 - macOS apps are Developer ID signed and notarized.

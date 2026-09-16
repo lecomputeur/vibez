@@ -6,7 +6,7 @@ VibeZ provides native desktop packages for Windows and macOS alongside the Linux
 
 ### Recommended installation route
 
-A Microsoft Store listing is being prepared as the recommended Windows installation route. Store-distributed apps are validated and signed by Microsoft.
+A Microsoft Store listing named **VibeZ Desktop** is being prepared as the recommended Windows installation route. It uses a separate MSIX package that Microsoft validates and re-signs after certification.
 
 Until that listing is approved, use the direct GitHub download described below.
 

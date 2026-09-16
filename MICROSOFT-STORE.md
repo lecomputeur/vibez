@@ -5,16 +5,31 @@ This file contains the prepared Partner Center information for publishing VibeZ 
 ## Distribution decision
 
 - The Microsoft Store is the recommended Windows installation route.
-- The direct GitHub Windows x64 installer remains available and is explicitly labeled unsigned.
-- Store-distributed apps are validated and signed by Microsoft.
+- The Store product is **VibeZ Desktop** and uses a separate x64 MSIX package.
+- Microsoft validates and re-signs the Store MSIX after certification.
+- The direct GitHub Windows x64 NSIS installer remains available and is explicitly labeled unsigned.
+- An unsigned EXE/MSI is not submitted to the Store because that route requires a CA-trusted Authenticode signature.
 - Microsoft Defender false-positive submission is only used when Defender actually classifies a VibeZ file as malware or potentially unwanted software. It is not used as a SmartScreen reputation shortcut.
+
+## Reserved Partner Center identity
+
+| Field | Value |
+| --- | --- |
+| Product name | VibeZ Desktop |
+| Package identity name | `LeComputeur.VibeZDesktop` |
+| Publisher | `CN=613EFBB1-83C3-495D-9C3B-D4EE98C72B95` |
+| Publisher display name | Le Computeur |
+| Package family name | `LeComputeur.VibeZDesktop_dpqfg82bz4ywg` |
+| Store ID | `9NR7L2G4MS08` |
+| Store URL | https://apps.microsoft.com/detail/9NR7L2G4MS08 |
+
+These are public package identifiers, not secrets. The manifest values must match Partner Center exactly.
 
 ## Prepared listing
 
 | Field | Value |
 | --- | --- |
-| Product name | VibeZ |
-| App type | Desktop app / Win32 |
+| App type | MSIX or PWA app |
 | Architecture | x64 |
 | Category | Developer tools |
 | Price | Free |
@@ -40,42 +55,42 @@ VibeZ is free and open source. It is an independent desktop client and is not af
 
 Mistral Vibe, Mistral AI, developer tools, AI assistant, desktop client, screenshot
 
-## Installer data for VibeZ 2.0.0
+## MSIX build and validation
 
-Complete these values only after the final VibeZ 2.0.0 GitHub release exists:
+The Store build is produced with:
 
-- Installer URL: `https://github.com/lecomputeur/vibez/releases/download/v2.0.0/VibeZ-2.0.0-Windows-x64.exe`
-- Installer type: EXE
-- Architecture: x64
-- Silent install parameter: `/S`
-- Scope: per-user
-- Version: `2.0.0`
-- SHA-256: copy the exact value from the release's `SHA256SUMS`
-- Upgrade behavior: installs over the previous per-user VibeZ installation
-- Offline installation: supported after download
+```powershell
+npm run build:store:msix
+```
 
-The exact installer filename must be verified against the final release before submission. Never submit an Actions artifact URL because those artifacts expire and may require authentication.
+The build script:
+
+1. Creates the Windows x64 unpacked Electron application.
+2. Generates Store logo assets from the VibeZ icon.
+3. Writes the MSIX manifest with the reserved Partner Center identity.
+4. Packages the application with the Windows SDK `makeappx.exe`.
+5. Unpacks the result and verifies its identity, publisher, version and executable.
+
+The artifact intended for Partner Center remains unsigned so Microsoft can re-sign it during certification.
 
 ## Required manual Partner Center steps
 
-These steps require the repository owner's Microsoft account and identity verification:
-
-1. Enroll as an individual Microsoft Store developer.
-2. Reserve the product name **VibeZ**.
-3. Create the Store listing using the prepared text above.
-4. Add the final public VibeZ 2.0.0 installer URL and its SHA-256.
-5. Complete the age rating and declarations accurately.
-6. Submit the app for Microsoft certification.
-7. After approval, add the official Store URL to `README.md`, `docs/windows.html` and the GitHub release notes.
+1. Keep the reserved **VibeZ Desktop** product in draft until the final VibeZ 2.0.0 build is ready.
+2. Start the submission and upload the final x64 MSIX artifact.
+3. Complete the Store listing using the prepared text above.
+4. Complete the age rating and declarations accurately.
+5. Submit the app for Microsoft certification.
+6. After approval, add the official Store URL to `README.md`, `docs/windows.html` and the GitHub release notes.
 
 ## Pre-submission release gate
 
-- The final VibeZ 2.0.0 Windows x64 installer exists on a public GitHub release.
-- CI tests and the Windows packaged-app smoke test pass.
-- The filename, version and SHA-256 match the Store submission exactly.
-- Silent installation with `/S` is tested on a clean Windows environment.
-- Upgrade from VibeZ 1.4.1 is tested.
-- Uninstall is tested.
+- The final VibeZ 2.0.0 Store MSIX was produced by the official GitHub Actions workflow.
+- The package identity, publisher, package family, architecture and four-part version match Partner Center.
+- CI successfully built and unpacked the Store MSIX and verified its identity, publisher, version and executable.
+- The normal unit, security and Windows packaged-app smoke tests pass.
+- The final MSIX is installed, launched and uninstalled once on a clean interactive Windows 11 system before Partner Center submission.
+- The final Store MSIX does not contain beta product names or test text.
+- Upgrade from the previous Store submission is tested when an earlier Store version exists.
 - The privacy, support and website URLs are publicly reachable.
 - Screenshots used in the Store listing show the final VibeZ 2 interface.
 - The Store listing does not claim affiliation with Mistral AI.

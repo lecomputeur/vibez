@@ -10,11 +10,11 @@ VibeZ brings the same experience to all three major desktop platforms from one s
 
 | Platform | Architectures | Packages |
 | --- | --- | --- |
-| **Windows** | x64 | NSIS `.exe` (direct GitHub download is unsigned; Microsoft Store planned) |
+| **Windows** | x64 | NSIS `.exe` (unsigned direct download); MSIX for Microsoft Store |
 | **macOS** | Apple Silicon, Intel | Developer ID signed and Apple-notarized `.dmg` and `.zip` |
 | **Linux** | x86_64 | AppImage, DEB, RPM, Pacman and Flatpak |
 
-VibeZ 2 macOS builds are Developer ID signed and Apple-notarized. The Windows x64 installer downloaded directly from GitHub remains **unsigned** while VibeZ builds enough public adoption to qualify for sponsored signing. A Microsoft Store listing is being prepared as the recommended Windows route because Store-distributed apps are signed by Microsoft. See **[Windows & macOS installation](WINDOWS-MACOS.md)** for Windows SmartScreen guidance, macOS screenshot permission and checksum verification.
+VibeZ 2 macOS builds are Developer ID signed and Apple-notarized. The Windows x64 installer downloaded directly from GitHub remains **unsigned** while VibeZ builds enough public adoption to qualify for sponsored signing. A separate Store MSIX named **VibeZ Desktop** is being prepared as the recommended Windows route. Microsoft re-signs that MSIX after certification. See **[Windows & macOS installation](WINDOWS-MACOS.md)** for Windows SmartScreen guidance, macOS screenshot permission and checksum verification.
 
 ## Features
 

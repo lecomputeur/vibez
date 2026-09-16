@@ -3,13 +3,15 @@ name: VibeZ 2.0 Beta Test
 on:
   push:
     branches: [v2.0-dev]
+  pull_request:
+    branches: [v2.0-dev]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: vibez-v2-beta
+  group: vibez-v2-beta-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -93,6 +95,27 @@ jobs:
         with:
           name: VibeZ-2.0.0-beta.1-Windows-x64-UNSIGNED
           path: dist/*Windows-x64.exe
+          if-no-files-found: error
+
+  windows-store-msix:
+    needs: test
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - name: Refresh root lock metadata for beta version
+        run: npm install --package-lock-only --ignore-scripts
+      - run: npm ci
+      - name: Build Microsoft Store MSIX
+        shell: pwsh
+        run: npm run build:store:msix
+      - uses: actions/upload-artifact@v5
+        with:
+          name: VibeZ-2.0.0-beta.1-Windows-x64-MICROSOFT-STORE-MSIX-UNSIGNED
+          path: dist/store/*.msix
           if-no-files-found: error
 
   macos-intel:
