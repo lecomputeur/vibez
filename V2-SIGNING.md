@@ -1,6 +1,6 @@
 # VibeZ 2.0 Signing Plan
 
-This document describes the production signing path for VibeZ 2.0. Stable VibeZ 1.4.1 remains unchanged while the signing pipeline is prepared and tested.
+This document describes the production signing path for VibeZ 2.0.
 
 ## Goal
 
@@ -34,7 +34,7 @@ Until VibeZ qualifies for sponsored signing:
 2. Every GitHub release clearly displays the unsigned status and includes `SHA256SUMS`.
 3. The release workflow verifies that the direct Windows installer is unsigned, preventing it from being presented as signed by mistake.
 4. A separate Microsoft Store MSIX is built with the reserved Store identity and validated in CI. Microsoft re-signs the MSIX after certification; an unsigned EXE/MSI is not submitted to the Store.
-5. The manual SignPath test workflow is retained but is not part of the production release gate.
+5. The obsolete SignPath workflow has been removed because the Foundation application was declined and no paid SignPath subscription is configured.
 6. VibeZ can reapply to the SignPath Foundation after it gains broader public adoption.
 
 The Microsoft Security Intelligence submission portal may be used to resolve an actual Defender false positive. It is not a manual SmartScreen reputation or allow-list mechanism for consumer devices.
@@ -100,9 +100,7 @@ For resilience, the workflow stores the exact signed app, the pre-notarization D
 
 ## Production identity
 
-The isolated beta currently uses a beta-specific app ID, executable name, protocol and profile so it can coexist with VibeZ 1.4.1.
-
-Before VibeZ 2.0 stable, production builds must switch back to the stable identity:
+VibeZ 2.0 uses the stable identity:
 
 - App ID: `com.vibez.app`
 - Product name: `VibeZ`
@@ -110,7 +108,7 @@ Before VibeZ 2.0 stable, production builds must switch back to the stable identi
 - Protocol: `vibez://`
 - Normal VibeZ user-data profile
 
-This identity switch must happen only in the production release path, not in the isolated beta build.
+The production package uses the normal VibeZ user-data profile so an existing VibeZ installation can upgrade in place.
 
 ## Release gate for VibeZ 2.0 stable
 

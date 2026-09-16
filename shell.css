@@ -27,7 +27,6 @@ body { user-select: none; }
 .brand-copy { display: flex; flex-direction: column; line-height: 1.05; }
 .brand-row { display: flex; align-items: center; gap: 7px; }
 .brand { font-size: 16px; font-weight: 760; letter-spacing: -.02em; }
-.beta { padding: 2px 5px; border: 1px solid rgba(255,132,81,.45); border-radius: 5px; color: #ff9a70; font-size: 8px; font-weight: 800; letter-spacing: .08em; }
 .subtitle { margin-top: 3px; color: #8f96a3; font-size: 9px; letter-spacing: .02em; }
 
 .nav-controls { display: flex; align-items: center; gap: 3px; }
