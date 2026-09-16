@@ -16,6 +16,8 @@ VibeZ brings the same experience to all three major desktop platforms from one s
 
 VibeZ 2 macOS builds are Developer ID signed and Apple-notarized. The Windows x64 installer downloaded directly from GitHub remains **unsigned** while VibeZ builds enough public adoption to qualify for sponsored signing. A separate Store MSIX named **VibeZ Desktop** is being prepared as the recommended Windows route. Microsoft re-signs that MSIX after certification. See **[Windows & macOS installation](WINDOWS-MACOS.md)** for Windows SmartScreen guidance, macOS screenshot permission and checksum verification.
 
+See the **[Code signing policy](https://lecomputeur.github.io/vibez/code-signing-policy.html)** for the current Windows and macOS release policy.
+
 ## Features
 
 - Opens the official Mistral Vibe web app in a dedicated desktop window.
@@ -144,7 +146,7 @@ The executable name/path differs by operating system, so Windows and macOS users
 
 VibeZ checks GitHub Releases for updates. Linux and Windows packages support VibeZ's in-app update flow where their package type allows it. The signed and notarized macOS builds **check automatically and notify you when a newer release exists**. The macOS installation step currently remains manual.
 
-Automatic update checking can be configured in Settings on all three platforms. Install-on-quit is available where in-app installation is supported and remains hidden on unsigned macOS builds. On macOS, an update notification opens the matching GitHub Release so you can download the new DMG or ZIP yourself.
+Automatic update checking can be configured in Settings on all three platforms. Install-on-quit is available where in-app installation is supported and remains hidden on macOS. On macOS, an update notification opens the matching GitHub Release so you can download the new DMG or ZIP yourself.
 
 ## Build from source
 

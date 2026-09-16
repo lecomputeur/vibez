@@ -76,3 +76,5 @@ The calculated value must exactly match the corresponding line in `SHA256SUMS` o
 **macOS:** VibeZ checks GitHub Releases and notifies you when a newer release is available. The installation step currently opens the official release page for a manual update.
 
 Only download VibeZ from **https://github.com/lecomputeur/vibez**, the project website linked from that repository, or the future official Microsoft Store listing.
+
+See the public [code signing policy](https://lecomputeur.github.io/vibez/code-signing-policy.html) for the current Windows and macOS signing status.
