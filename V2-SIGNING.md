@@ -6,11 +6,11 @@ This document describes the production signing path for VibeZ 2.0. Stable VibeZ 
 
 Production VibeZ 2.0 releases should ship as:
 
-- **Windows x64:** signed NSIS installer.
+- **Windows x64:** unsigned NSIS installer for direct GitHub distribution, with Microsoft Store distribution prepared as the recommended trusted route.
 - **macOS Intel and Apple Silicon:** Developer ID signed and Apple-notarized DMG/ZIP packages.
 - **Linux x64:** AppImage, DEB, RPM, Pacman and Flatpak packages with SHA-256 checksums.
 
-Beta builds can remain unsigned until credentials are connected. A beta must never be presented as signed unless verification succeeds in CI.
+Windows builds must be presented as unsigned unless Authenticode verification succeeds in CI. macOS production artifacts must remain Developer ID signed and Apple-notarized.
 
 ## Public package policy
 
@@ -23,50 +23,22 @@ VibeZ 2.0 deliberately keeps broad x86_64 Linux packaging as an ode to the Linux
 
 Windows ARM64 and Linux ARM64 are not part of the VibeZ 2.0 public release set. They can be reconsidered later if actual user demand justifies them.
 
-## Windows — SignPath Foundation
+## Windows — current distribution decision
 
-VibeZ plans to use SignPath for free open-source Windows code signing.
+The SignPath Foundation application was declined on 16 September 2026 because VibeZ does not yet have enough external adoption signals, such as stars, forks, contributors and independent references. SignPath explicitly stated that this was not a judgment on the quality or potential of VibeZ.
 
-Required external setup:
+Until VibeZ qualifies for sponsored signing:
 
-1. Apply at https://signpath.org/apply.html.
-2. Enable MFA for GitHub and SignPath.
-3. Install the SignPath GitHub App for `lecomputeur/vibez` when requested.
-4. Create/link the predefined GitHub.com Trusted Build System in SignPath.
-5. Create the SignPath project and signing policy.
-6. Configure the SignPath artifact configuration for the VibeZ Windows installer.
-7. Record:
-   - SignPath Organization ID
-   - Project slug
-   - Signing policy slug
-8. Create a SignPath API token with submitter permission.
+1. The Windows x64 installer downloaded directly from GitHub is published **unsigned**.
+2. Every GitHub release clearly displays the unsigned status and includes `SHA256SUMS`.
+3. The release workflow verifies that the direct Windows installer is unsigned, preventing it from being presented as signed by mistake.
+4. A Microsoft Store listing is prepared as the recommended Windows installation route. Store-distributed apps are validated and signed by Microsoft.
+5. The manual SignPath test workflow is retained but is not part of the production release gate.
+6. VibeZ can reapply to the SignPath Foundation after it gains broader public adoption.
 
-Repository configuration to add after approval:
+The Microsoft Security Intelligence submission portal may be used to resolve an actual Defender false positive. It is not a manual SmartScreen reputation or allow-list mechanism for consumer devices.
 
-### GitHub secret
-
-- `SIGNPATH_API_TOKEN`
-
-### GitHub variables
-
-- `SIGNPATH_ORGANIZATION_ID`
-- `SIGNPATH_PROJECT_SLUG`
-- `SIGNPATH_SIGNING_POLICY_SLUG`
-
-The signing job must:
-
-1. Build the Windows installer on a GitHub-hosted Windows runner.
-2. Upload the unsigned installer as a GitHub Actions artifact.
-3. Submit that exact artifact to SignPath using `signpath/github-action-submit-signing-request@v2`.
-4. Wait for manual/required SignPath approval.
-5. Download the signed artifact.
-6. Verify the Authenticode signature before publication.
-7. Generate updater metadata and checksums from the final signed file, not from the unsigned file.
-8. Publish only the signed installer.
-
-The current code-signing policy is published at:
-
-https://lecomputeur.github.io/vibez/code-signing-policy.html
+See `MICROSOFT-STORE.md` for the Partner Center submission data and release procedure.
 
 ## macOS — Apple Developer ID + notarization
 
@@ -146,9 +118,9 @@ VibeZ 2.0 must not be published as stable until all of these are true:
 - Linux x64 AppImage, DEB, RPM, Pacman and Flatpak builds pass.
 - Windows x64 build passes.
 - macOS Intel and Apple Silicon builds pass.
-- Windows installers are signed and signature verification passes.
+- The direct GitHub Windows installer is explicitly identified and verified as unsigned; `SHA256SUMS` is published with it.
 - macOS apps are Developer ID signed and notarized.
-- Automatic/update metadata is generated from final signed artifacts.
+- Automatic/update metadata is generated from the final published artifacts.
 - Upgrade from VibeZ 1.4.1 to VibeZ 2.0 is tested.
 - A clean install is tested on Windows and macOS.
 - Screenshot, Settings, login/session persistence and tray/menu-bar behavior are tested on all three platforms.
@@ -160,4 +132,4 @@ VibeZ 2.0 must not be published as stable until all of these are true:
 - Signing secrets exist only in GitHub Secrets or the signing provider.
 - Production signing runs only from GitHub-hosted runners and the official repository.
 - Signed artifacts are never modified after signing; if a file changes, it must be signed again.
-- An unsigned Windows/macOS artifact must never replace a signed production artifact with the same release version.
+- An unsigned Windows artifact must never be presented as signed. An unsigned macOS artifact must never replace a signed and notarized production artifact with the same release version.

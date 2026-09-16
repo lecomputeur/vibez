@@ -6,15 +6,15 @@ A free cross-platform desktop client for [Mistral Vibe](https://vibe.mistral.ai/
 
 ## Platforms
 
-VibeZ 1.4.1 brings the same VibeZ experience to all three major desktop platforms from one shared Electron codebase.
+VibeZ brings the same experience to all three major desktop platforms from one shared Electron codebase.
 
 | Platform | Architectures | Packages |
 | --- | --- | --- |
-| **Windows** | x64 | NSIS `.exe` installer |
-| **macOS** | Apple Silicon, Intel | `.dmg` and `.zip` |
+| **Windows** | x64 | NSIS `.exe` (direct GitHub download is unsigned; Microsoft Store planned) |
+| **macOS** | Apple Silicon, Intel | Developer ID signed and Apple-notarized `.dmg` and `.zip` |
 | **Linux** | x86_64 | AppImage, DEB, RPM, Pacman and Flatpak |
 
-Windows and macOS builds are deliberately distributed **unsigned** so VibeZ can remain a zero-cost project. Windows SmartScreen or macOS Gatekeeper may therefore show a security warning on first launch. See **[Windows & macOS installation](WINDOWS-MACOS.md)** for the exact safe installation steps, screenshot permission on macOS and checksum verification.
+VibeZ 2 macOS builds are Developer ID signed and Apple-notarized. The Windows x64 installer downloaded directly from GitHub remains **unsigned** while VibeZ builds enough public adoption to qualify for sponsored signing. A Microsoft Store listing is being prepared as the recommended Windows route because Store-distributed apps are signed by Microsoft. See **[Windows & macOS installation](WINDOWS-MACOS.md)** for Windows SmartScreen guidance, macOS screenshot permission and checksum verification.
 
 ## Features
 
@@ -49,7 +49,7 @@ Public releases are available on the **[GitHub Releases page](https://github.com
 
 - Most Windows PCs: `VibeZ-<version>-Windows-x64.exe`
 
-Because these installers are unsigned, Windows may show **Windows protected your PC** or **Unknown publisher**. Use the steps in [WINDOWS-MACOS.md](WINDOWS-MACOS.md) when the installer came from this repository.
+The direct GitHub installer is unsigned, so Windows may show **Windows protected your PC** or **Unknown publisher**. Verify `SHA256SUMS` and use the steps in [WINDOWS-MACOS.md](WINDOWS-MACOS.md) only when the installer came from this official repository. The Microsoft Store version will become the recommended Windows installation route after its listing is approved.
 
 ### macOS
 
@@ -57,7 +57,7 @@ Because these installers are unsigned, Windows may show **Windows protected your
 - Intel Mac: `VibeZ-<version>-macOS-x64.dmg`
 - ZIP builds are also published for both architectures.
 
-Because these builds are unsigned and not notarized, macOS may block the first launch. Follow [WINDOWS-MACOS.md](WINDOWS-MACOS.md) to allow VibeZ through Gatekeeper. The Screenshot feature also requires macOS Screen & System Audio Recording / Screen Recording permission.
+VibeZ 2 macOS builds are Developer ID signed and Apple-notarized. The Screenshot feature still requires macOS Screen & System Audio Recording / Screen Recording permission.
 
 ### Linux quick install
 
@@ -95,18 +95,18 @@ chmod +x VibeZ-<version>.AppImage && ./VibeZ-<version>.AppImage
 flatpak install --user ./VibeZ-<version>-x86_64.flatpak
 ```
 
-## Security and unsigned Windows/macOS builds
+## Security and direct Windows downloads
 
-VibeZ does **not** bypass Windows SmartScreen, macOS Gatekeeper or administrator policies. The project simply does not buy the commercial developer certificates used to remove those warnings.
+VibeZ does **not** bypass Windows SmartScreen or administrator policies. Direct GitHub Windows installers remain unsigned and are clearly identified as such. VibeZ 2 macOS packages are Developer ID signed and Apple-notarized.
 
 For every release:
 
 1. Download VibeZ only from this repository or the website linked by this repository.
 2. Download `SHA256SUMS` from the same release.
 3. Verify the checksum if you want an additional integrity check.
-4. Follow the operating-system-specific first-launch instructions in [WINDOWS-MACOS.md](WINDOWS-MACOS.md).
+4. For a direct Windows download, follow the SmartScreen instructions in [WINDOWS-MACOS.md](WINDOWS-MACOS.md).
 
-Managed work/school computers can block unsigned software completely; an administrator may be required in that case.
+Managed work/school computers can block unsigned Windows software completely; an administrator may be required in that case.
 
 ## Languages
 
@@ -142,7 +142,7 @@ The executable name/path differs by operating system, so Windows and macOS users
 
 ## Updates
 
-VibeZ checks GitHub Releases for updates. Linux and Windows packages support VibeZ's in-app update flow where their package type allows it. The free unsigned macOS builds now **check automatically and notify you when a newer release exists**, while the actual macOS installation remains manual because reliable in-place updating requires a signed application.
+VibeZ checks GitHub Releases for updates. Linux and Windows packages support VibeZ's in-app update flow where their package type allows it. The signed and notarized macOS builds **check automatically and notify you when a newer release exists**. The macOS installation step currently remains manual.
 
 Automatic update checking can be configured in Settings on all three platforms. Install-on-quit is available where in-app installation is supported and remains hidden on unsigned macOS builds. On macOS, an update notification opens the matching GitHub Release so you can download the new DMG or ZIP yourself.
 
