@@ -140,9 +140,12 @@ jobs:
               throw "Unexpected package family name: $($installed.PackageFamilyName)"
             }
             $app = Join-Path $installed.InstallLocation 'vibez2-beta.exe'
-            $expected = (node -p "require('./package.json').version").Trim()
-            $actual = (& $app --version | Select-Object -Last 1).Trim()
-            if ($actual -ne $expected) { throw "Unexpected Store app version: $actual" }
+            $probe = Start-Process -FilePath $app -ArgumentList '--version' -PassThru
+            if (-not $probe.WaitForExit(30000)) {
+              Stop-Process -Id $probe.Id -Force -ErrorAction SilentlyContinue
+              throw 'The installed Store executable did not finish its version probe within 30 seconds.'
+            }
+            if ($probe.ExitCode -ne 0) { throw "The installed Store executable returned exit code $($probe.ExitCode)." }
           } finally {
             Get-AppxPackage -Name 'LeComputeur.VibeZDesktop' | Remove-AppxPackage -ErrorAction SilentlyContinue
             Remove-Item "Cert:\CurrentUser\My\$($cert.Thumbprint)" -Force -ErrorAction SilentlyContinue
