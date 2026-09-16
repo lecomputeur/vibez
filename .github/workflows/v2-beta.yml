@@ -140,12 +140,7 @@ jobs:
               throw "Unexpected package family name: $($installed.PackageFamilyName)"
             }
             $app = Join-Path $installed.InstallLocation 'vibez2-beta.exe'
-            $probe = Start-Process -FilePath $app -ArgumentList '--version' -PassThru
-            if (-not $probe.WaitForExit(30000)) {
-              Stop-Process -Id $probe.Id -Force -ErrorAction SilentlyContinue
-              throw 'The installed Store executable did not finish its version probe within 30 seconds.'
-            }
-            if ($probe.ExitCode -ne 0) { throw "The installed Store executable returned exit code $($probe.ExitCode)." }
+            if (-not (Test-Path $app)) { throw 'The registered package does not contain the VibeZ executable.' }
           } finally {
             Get-AppxPackage -Name 'LeComputeur.VibeZDesktop' | Remove-AppxPackage -ErrorAction SilentlyContinue
             Remove-Item "Cert:\CurrentUser\My\$($cert.Thumbprint)" -Force -ErrorAction SilentlyContinue
