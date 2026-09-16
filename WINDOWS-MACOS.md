@@ -1,31 +1,34 @@
 # VibeZ on Windows and macOS
 
-VibeZ 1.4.0 adds native desktop packages for **Windows** and **macOS** alongside the existing Linux packages.
-
-VibeZ is free and open source. To keep distribution at **€0**, the Windows and macOS packages are intentionally distributed **without paid code-signing certificates**. The files are built automatically from this GitHub repository by GitHub Actions and every public release includes SHA-256 checksums so you can verify the download.
+VibeZ provides native desktop packages for Windows and macOS alongside the Linux packages. Public releases are built automatically from this GitHub repository by GitHub Actions and include SHA-256 checksums.
 
 ## Windows
 
-### Which download?
+### Recommended installation route
 
-- Most Windows PCs: `VibeZ-<version>-Windows-x64.exe`
-- Windows on ARM devices: `VibeZ-<version>-Windows-arm64.exe`
+A Microsoft Store listing named **VibeZ Desktop** is being prepared as the recommended Windows installation route. It uses a separate MSIX package that Microsoft validates and re-signs after certification.
 
-Download the installer from the [GitHub Releases](https://github.com/lecomputeur/vibez/releases) page.
+Until that listing is approved, use the direct GitHub download described below.
 
-### Windows SmartScreen warning
+### Direct GitHub download
 
-Because the installer is not signed with a paid Windows code-signing certificate, Windows may show **Windows protected your PC** or **Unknown publisher**.
+- Windows x64: `VibeZ-<version>-Windows-x64.exe`
 
-If you downloaded VibeZ from this repository:
+Download the installer and `SHA256SUMS` from the [official GitHub Releases page](https://github.com/lecomputeur/vibez/releases).
 
-1. Open the downloaded VibeZ installer.
-2. If SmartScreen appears, choose **More info**.
-3. Check that the app name is VibeZ and that the file came from the VibeZ GitHub release.
-4. Choose **Run anyway**.
-5. Continue through the VibeZ installer.
+The direct GitHub Windows installer is currently unsigned. Windows may therefore show **Windows protected your PC** or **Unknown publisher**.
 
-On managed work or school PCs, your administrator may block unsigned applications completely. VibeZ cannot bypass an administrator policy.
+If you downloaded VibeZ from this official repository:
+
+1. Verify the installer's SHA-256 against `SHA256SUMS`.
+2. Open the VibeZ installer.
+3. If SmartScreen appears, choose **More info**.
+4. Confirm that the displayed app name and downloaded filename match the official release.
+5. Choose **Run anyway** and continue through the installer.
+
+On managed work or school PCs, administrator policy may block unsigned applications completely. VibeZ cannot bypass that policy.
+
+Submitting a file to Microsoft for malware analysis is appropriate only when Defender incorrectly detects it as malware or potentially unwanted software. It is not a manual consumer SmartScreen allow-list.
 
 ## macOS
 
@@ -36,22 +39,9 @@ On managed work or school PCs, your administrator may block unsigned application
 
 A ZIP build is also supplied for each architecture. For most users, the DMG is the easiest option.
 
-Download VibeZ from the [GitHub Releases](https://github.com/lecomputeur/vibez/releases) page, open the DMG and drag **VibeZ** to **Applications**.
+VibeZ 2 macOS packages are signed with an Apple Developer ID certificate and notarized by Apple. The release workflow verifies the signature, Gatekeeper acceptance, notarization and stapling before publication.
 
-### macOS Gatekeeper warning
-
-VibeZ is not notarized with a paid Apple Developer account, so macOS may initially say that it cannot verify the developer or that the app cannot be opened.
-
-If you downloaded VibeZ from this repository:
-
-1. Try to open VibeZ once from **Applications**.
-2. Close the warning.
-3. Open **System Settings → Privacy & Security**.
-4. Scroll to the Security section.
-5. Find the message that VibeZ was blocked and choose **Open Anyway**.
-6. Confirm **Open** when macOS asks again.
-
-Depending on the macOS version, you can also Control-click VibeZ in Applications, choose **Open**, and confirm the exception when that option is offered.
+Download VibeZ from the [official GitHub Releases page](https://github.com/lecomputeur/vibez/releases), open the DMG and drag **VibeZ** to **Applications**.
 
 ### Screenshot permission on macOS
 
@@ -68,25 +58,23 @@ Every VibeZ release publishes a `SHA256SUMS` file. Compare the checksum of your 
 ### Windows PowerShell
 
 ```powershell
-Get-FileHash .\VibeZ-1.4.0-Windows-x64.exe -Algorithm SHA256
+Get-FileHash .\VibeZ-<version>-Windows-x64.exe -Algorithm SHA256
 ```
 
 ### macOS Terminal
 
 ```bash
-shasum -a 256 VibeZ-1.4.0-macOS-arm64.dmg
+shasum -a 256 VibeZ-<version>-macOS-arm64.dmg
 ```
 
 The calculated value must exactly match the corresponding line in `SHA256SUMS` on the GitHub release.
 
 ## Updates
 
-**Windows:** VibeZ can use the normal in-app update flow. Because the installer is unsigned, Windows may show its normal security warning again for a new version.
+**Windows:** direct GitHub installations can use VibeZ's update flow where supported. A new unsigned installer can trigger SmartScreen again because each version starts with a new file reputation. The Microsoft Store will manage Store-distributed updates after the listing is approved.
 
-**macOS:** the free unsigned build deliberately uses manual updates from GitHub Releases. Reliable in-place macOS updating requires a signed application, so VibeZ opens the Releases page instead of pretending an unsigned automatic install is reliable.
+**macOS:** VibeZ checks GitHub Releases and notifies you when a newer release is available. The installation step currently opens the official release page for a manual update.
 
-## Why are the builds unsigned?
+Only download VibeZ from **https://github.com/lecomputeur/vibez**, the project website linked from that repository, or the future official Microsoft Store listing.
 
-Microsoft and Apple charge for the developer identities normally used to sign public desktop applications. VibeZ deliberately keeps distribution free. The trade-off is the one-time operating-system warning described above.
-
-Only download VibeZ from **https://github.com/lecomputeur/vibez** or the website linked from that repository.
+See the public [code signing policy](https://lecomputeur.github.io/vibez/code-signing-policy.html) for the current Windows and macOS signing status.

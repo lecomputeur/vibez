@@ -6,17 +6,17 @@ A free cross-platform desktop client for [Mistral Vibe](https://vibe.mistral.ai/
 
 ## Platforms
 
-VibeZ 1.4.1 brings the same VibeZ experience to all three major desktop platforms from one shared Electron codebase.
+VibeZ brings the same experience to all three major desktop platforms from one shared Electron codebase.
 
 | Platform | Architectures | Packages |
 | --- | --- | --- |
-| **Windows** | x64, ARM64 | NSIS `.exe` installer |
-| **macOS** | Apple Silicon, Intel | `.dmg` and `.zip` |
-| **Linux** | x86_64, ARM64 | AppImage, DEB, RPM, Pacman; Flatpak on x86_64 |
+| **Windows** | x64 | NSIS `.exe` (unsigned direct download); MSIX for Microsoft Store |
+| **macOS** | Apple Silicon, Intel | Developer ID signed and Apple-notarized `.dmg` and `.zip` |
+| **Linux** | x86_64 | AppImage, DEB, RPM, Pacman and Flatpak |
 
-Windows and macOS builds are deliberately distributed **unsigned** so VibeZ can remain a zero-cost project. Windows SmartScreen or macOS Gatekeeper may therefore show a security warning on first launch. See **[Windows & macOS installation](WINDOWS-MACOS.md)** for the exact safe installation steps, screenshot permission on macOS and checksum verification.
+VibeZ 2 macOS builds are Developer ID signed and Apple-notarized. The Windows x64 installer downloaded directly from GitHub remains **unsigned** while VibeZ builds enough public adoption to qualify for sponsored signing. A separate Store MSIX named **VibeZ Desktop** is being prepared as the recommended Windows route. Microsoft re-signs that MSIX after certification. See **[Windows & macOS installation](WINDOWS-MACOS.md)** for Windows SmartScreen guidance, macOS screenshot permission and checksum verification.
 
-VibeZ 2.0 is being prepared for signed Windows releases and signed/notarized macOS releases. See the **[Code signing policy](https://lecomputeur.github.io/vibez/code-signing-policy.html)**.
+See the **[Code signing policy](https://lecomputeur.github.io/vibez/code-signing-policy.html)** for the current Windows and macOS release policy.
 
 ## Features
 
@@ -50,9 +50,8 @@ Public releases are available on the **[GitHub Releases page](https://github.com
 ### Windows
 
 - Most Windows PCs: `VibeZ-<version>-Windows-x64.exe`
-- Windows on ARM: `VibeZ-<version>-Windows-arm64.exe`
 
-Because these installers are unsigned, Windows may show **Windows protected your PC** or **Unknown publisher**. Use the steps in [WINDOWS-MACOS.md](WINDOWS-MACOS.md) when the installer came from this repository.
+The direct GitHub installer is unsigned, so Windows may show **Windows protected your PC** or **Unknown publisher**. Verify `SHA256SUMS` and use the steps in [WINDOWS-MACOS.md](WINDOWS-MACOS.md) only when the installer came from this official repository. The Microsoft Store version will become the recommended Windows installation route after its listing is approved.
 
 ### macOS
 
@@ -60,7 +59,7 @@ Because these installers are unsigned, Windows may show **Windows protected your
 - Intel Mac: `VibeZ-<version>-macOS-x64.dmg`
 - ZIP builds are also published for both architectures.
 
-Because these builds are unsigned and not notarized, macOS may block the first launch. Follow [WINDOWS-MACOS.md](WINDOWS-MACOS.md) to allow VibeZ through Gatekeeper. The Screenshot feature also requires macOS Screen & System Audio Recording / Screen Recording permission.
+VibeZ 2 macOS builds are Developer ID signed and Apple-notarized. The Screenshot feature still requires macOS Screen & System Audio Recording / Screen Recording permission.
 
 ### Linux quick install
 
@@ -70,7 +69,7 @@ Install the latest Linux release with one command:
 curl -fsSL https://raw.githubusercontent.com/lecomputeur/vibez/main/install.sh | bash
 ```
 
-The installer detects your Linux distribution and CPU architecture, downloads the matching package from the latest GitHub release and verifies its SHA-256 checksum when `SHA256SUMS` is available.
+The installer supports x86_64 Linux, detects your distribution, downloads the matching package from the latest GitHub release and verifies its SHA-256 checksum when `SHA256SUMS` is available.
 
 To uninstall a package installed this way:
 
@@ -80,7 +79,7 @@ curl -fsSL https://raw.githubusercontent.com/lecomputeur/vibez/main/install.sh |
 
 ### Linux packages
 
-The release page provides:
+For x86_64 Linux systems, the release page provides:
 
 - Debian / Ubuntu / Linux Mint: `.deb`
 - Fedora and RPM-based distributions: `.rpm`
@@ -98,18 +97,18 @@ chmod +x VibeZ-<version>.AppImage && ./VibeZ-<version>.AppImage
 flatpak install --user ./VibeZ-<version>-x86_64.flatpak
 ```
 
-## Security and unsigned Windows/macOS builds
+## Security and direct Windows downloads
 
-VibeZ does **not** bypass Windows SmartScreen, macOS Gatekeeper or administrator policies. The project simply does not buy the commercial developer certificates used to remove those warnings.
+VibeZ does **not** bypass Windows SmartScreen or administrator policies. Direct GitHub Windows installers remain unsigned and are clearly identified as such. VibeZ 2 macOS packages are Developer ID signed and Apple-notarized.
 
 For every release:
 
 1. Download VibeZ only from this repository or the website linked by this repository.
 2. Download `SHA256SUMS` from the same release.
 3. Verify the checksum if you want an additional integrity check.
-4. Follow the operating-system-specific first-launch instructions in [WINDOWS-MACOS.md](WINDOWS-MACOS.md).
+4. For a direct Windows download, follow the SmartScreen instructions in [WINDOWS-MACOS.md](WINDOWS-MACOS.md).
 
-Managed work/school computers can block unsigned software completely; an administrator may be required in that case.
+Managed work/school computers can block unsigned Windows software completely; an administrator may be required in that case.
 
 ## Languages
 
@@ -145,9 +144,9 @@ The executable name/path differs by operating system, so Windows and macOS users
 
 ## Updates
 
-VibeZ checks GitHub Releases for updates. Linux and Windows packages support VibeZ's in-app update flow where their package type allows it. The free unsigned macOS builds now **check automatically and notify you when a newer release exists**, while the actual macOS installation remains manual because reliable in-place updating requires a signed application.
+VibeZ checks GitHub Releases for updates. Linux and Windows packages support VibeZ's in-app update flow where their package type allows it. The signed and notarized macOS builds **check automatically and notify you when a newer release exists**. The macOS installation step currently remains manual.
 
-Automatic update checking can be configured in Settings on all three platforms. Install-on-quit is available where in-app installation is supported and remains hidden on unsigned macOS builds. On macOS, an update notification opens the matching GitHub Release so you can download the new DMG or ZIP yourself.
+Automatic update checking can be configured in Settings on all three platforms. Install-on-quit is available where in-app installation is supported and remains hidden on macOS. On macOS, an update notification opens the matching GitHub Release so you can download the new DMG or ZIP yourself.
 
 ## Build from source
 
@@ -182,9 +181,9 @@ GitHub CI runs:
 - dependency security audit at high severity and above;
 - unit tests and JavaScript syntax checks;
 - shell syntax validation for the Linux installer;
-- x86_64 and ARM64 Linux package builds;
+- x86_64 Linux package builds;
 - x86_64 Flatpak build;
-- Windows x64 and ARM64 NSIS builds;
+- Windows x64 NSIS build;
 - macOS Intel and Apple Silicon DMG/ZIP builds;
 - packaged-app version smoke checks on all supported native CI runners where practical;
 - a full Linux packaged application smoke test under a virtual display with Chromium sandboxing enabled.

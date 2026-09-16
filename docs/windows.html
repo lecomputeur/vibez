@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
-  <meta name="description" content="Download VibeZ for Windows x64 or Windows on ARM. Free Mistral Vibe desktop client with screenshot tools, desktop integration and 34 languages.">
+  <meta name="description" content="Download VibeZ for Windows x64. Free Mistral Vibe desktop client with screenshot tools, desktop integration and 34 languages.">
   <link rel="canonical" href="https://lecomputeur.github.io/vibez/windows.html">
   <link rel="icon" href="icon.png">
   <meta name="theme-color" content="#f36c45">
   <meta property="og:type" content="website">
   <meta property="og:title" content="VibeZ for Windows — Mistral Vibe desktop app">
-  <meta property="og:description" content="Download VibeZ for Windows x64 and ARM64, with screenshot tools and native desktop integration.">
+  <meta property="og:description" content="Download VibeZ for Windows x64, with screenshot tools and native desktop integration.">
   <meta property="og:url" content="https://lecomputeur.github.io/vibez/windows.html">
   <meta property="og:image" content="https://lecomputeur.github.io/vibez/icon.png">
   <title>VibeZ for Windows — Mistral Vibe desktop app</title>
@@ -20,12 +20,12 @@
     "@context":"https://schema.org",
     "@type":"SoftwareApplication",
     "name":"VibeZ",
-    "softwareVersion":"1.4.1",
+    "softwareVersion":"2.0.0",
     "applicationCategory":"DeveloperApplication",
     "operatingSystem":"Windows",
-    "description":"Free Mistral Vibe desktop client for Windows x64 and ARM64 with screenshot tools and desktop integration.",
+    "description":"Free Mistral Vibe desktop client for Windows x64 with screenshot tools and desktop integration.",
     "url":"https://lecomputeur.github.io/vibez/windows.html",
-    "downloadUrl":"https://github.com/lecomputeur/vibez/releases/tag/v1.4.1",
+    "downloadUrl":"https://github.com/lecomputeur/vibez/releases/tag/v2.0.0",
     "image":"https://lecomputeur.github.io/vibez/icon.png",
     "offers":{"@type":"Offer","price":"0","priceCurrency":"EUR"}
   }
@@ -36,19 +36,20 @@
 <main>
   <section class="hero compact" aria-labelledby="page-title">
     <img class="app-icon" src="icon.png" alt="VibeZ for Windows application logo" width="512" height="512">
-    <div class="hero-copy"><p class="eyebrow">Windows x64 · Windows ARM64</p><h1 id="page-title">VibeZ for Windows</h1><p class="lead">A free Mistral Vibe desktop client for Windows 11 and compatible Windows systems.</p><div class="actions"><a class="button button-primary" href="https://github.com/lecomputeur/vibez/releases/tag/v1.4.1">Download VibeZ 1.4.1 for Windows</a><a class="button button-secondary" href="./">All platforms</a></div></div>
+    <div class="hero-copy"><p class="eyebrow">Windows x64</p><h1 id="page-title">VibeZ for Windows</h1><p class="lead">A free Mistral Vibe desktop client for Windows 11 and compatible Windows systems.</p><div class="actions"><a class="button button-primary" href="https://github.com/lecomputeur/vibez/releases/tag/v2.0.0">Download VibeZ 2.0.0 for Windows</a><a class="button button-secondary" href="./">All platforms</a></div></div>
   </section>
   <section class="details">
     <h2>Which Windows installer should I download?</h2>
-    <p class="platform-summary">VibeZ publishes separate Windows installers so you do not need one oversized cross-platform package.</p>
+    <p class="platform-summary">VibeZ publishes a Windows x64 installer for the architecture used by most Windows PCs.</p>
     <ul>
-      <li><strong>Most Windows PCs:</strong> choose the file ending in <code>Windows-x64.exe</code>.</li>
-      <li><strong>Windows on ARM:</strong> choose the file ending in <code>Windows-arm64.exe</code>.</li>
+      <li><strong>Windows x64:</strong> choose the file ending in <code>Windows-x64.exe</code>.</li>
     </ul>
     <h2>What does VibeZ add on Windows?</h2>
     <p>VibeZ opens the official Mistral Vibe service in a dedicated Electron desktop window and adds a global screenshot shortcut, multi-monitor screenshot selection, system-tray access, start-at-login support, configurable desktop settings and a VibeZ interface available in 34 languages.</p>
-    <h2>Windows SmartScreen and code signing</h2>
-    <p>Current VibeZ 1.x Windows installers are unsigned, so Windows SmartScreen may show <strong>Windows protected your PC</strong> or <strong>Unknown publisher</strong>. VibeZ 2.0 is being prepared for signed Windows production releases. See the <a class="text-link" href="code-signing-policy.html">Code signing policy</a> for the planned SignPath-based signing process and release-integrity rules.</p>
+    <h2>Microsoft Store</h2>
+    <p>A Microsoft Store listing is being prepared as the recommended Windows installation route. Store-distributed apps are validated and signed by Microsoft. Until that listing is approved, use the official GitHub release below.</p>
+    <h2>Windows SmartScreen and direct GitHub downloads</h2>
+    <p>The installer downloaded directly from GitHub is unsigned. Windows SmartScreen may therefore show <strong>Windows protected your PC</strong> or <strong>Unknown publisher</strong> the first time you run it. Only continue when you downloaded VibeZ from the official GitHub repository and verify the supplied SHA-256 checksum. See the <a class="text-link" href="code-signing-policy.html">Code signing policy</a> for the current platform policy.</p>
     <h2>Updates on Windows</h2>
     <p>Packaged Windows versions can check GitHub Releases for VibeZ updates. When supported, VibeZ downloads the update and asks before restarting to install it.</p>
     <p class="notice">VibeZ is an independent open-source project and is not affiliated with or supported by Mistral AI.</p>

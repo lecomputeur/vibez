@@ -1,0 +1,211 @@
+name: VibeZ CI
+
+on:
+  push:
+    branches: [v2.0-dev]
+  pull_request:
+    branches: [main, v2.0-dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vibez-v2-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Security audit
+        run: npm audit --audit-level=high
+      - run: npm test
+
+  linux-x64:
+    needs: test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm libarchive-tools
+      - name: Build Linux x64 packages
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: npx electron-builder --linux AppImage deb rpm pacman --x64 --publish never
+      - name: Prepare Chromium sandbox for packaged smoke test
+        run: |
+          SANDBOX="dist/linux-unpacked/chrome-sandbox"
+          test -f "$SANDBOX"
+          sudo chown root:root "$SANDBOX"
+          sudo chmod 4755 "$SANDBOX"
+      - name: Verify Linux x64 packages
+        run: |
+          test -n "$(find dist -maxdepth 1 -type f -name '*.AppImage' -print -quit)"
+          test -n "$(find dist -maxdepth 1 -type f -name '*.deb' -print -quit)"
+          test -n "$(find dist -maxdepth 1 -type f -name '*.rpm' -print -quit)"
+          test -n "$(find dist -maxdepth 1 -type f \( -name '*.pacman' -o -name '*.pkg.tar.zst' \) -print -quit)"
+          APP="dist/linux-unpacked/vibez"
+          test -x "$APP"
+          test "$("$APP" --version | tail -n 1)" = "$(node -p "require('./package.json').version")"
+      - uses: actions/upload-artifact@v5
+        with:
+          name: VibeZ-2.0.0-Linux-x64
+          path: |
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.rpm
+            dist/*.pacman
+            dist/*.pkg.tar.zst
+          if-no-files-found: error
+
+  flatpak-x64:
+    needs: test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install Flatpak build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y flathub org.freedesktop.Platform//24.08 org.freedesktop.Sdk//24.08
+      - run: npm ci
+      - run: npm install --no-save @malept/flatpak-bundler@0.4.0
+      - name: Build Flatpak x64
+        run: npx electron-builder --linux flatpak --x64 --publish never
+      - name: Verify Flatpak x64
+        run: test -n "$(find dist -maxdepth 1 -type f -name '*.flatpak' -print -quit)"
+      - uses: actions/upload-artifact@v5
+        with:
+          name: VibeZ-2.0.0-Linux-x64-Flatpak
+          path: dist/*.flatpak
+          if-no-files-found: error
+
+  windows-x64:
+    needs: test
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build Windows x64 installer
+        shell: pwsh
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: npx electron-builder --win nsis --x64 --publish never
+      - name: Verify Windows x64 installer
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem dist -File -Filter '*Windows-x64.exe' | Select-Object -First 1
+          if (-not $installer) { throw 'Windows x64 installer missing.' }
+          $app = 'dist\win-unpacked\vibez.exe'
+          if (-not (Test-Path $app)) { throw 'Windows x64 executable missing.' }
+          $expected = (node -p "require('./package.json').version").Trim()
+          $actual = (& $app --version | Select-Object -Last 1).Trim()
+          if ($actual -ne $expected) { throw "Unexpected version: $actual" }
+      - uses: actions/upload-artifact@v5
+        with:
+          name: VibeZ-2.0.0-Windows-x64-UNSIGNED
+          path: dist/*Windows-x64.exe
+          if-no-files-found: error
+
+  windows-store-msix:
+    needs: test
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build Microsoft Store MSIX
+        shell: pwsh
+        run: npm run build:store:msix
+      - uses: actions/upload-artifact@v5
+        with:
+          name: VibeZ-2.0.0-Windows-x64-MICROSOFT-STORE-MSIX-UNSIGNED
+          path: dist/store/*.msix
+          if-no-files-found: error
+
+  macos-intel:
+    needs: test
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build macOS Intel verification packages
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: npx electron-builder --mac dmg zip --x64 --publish never
+      - name: Verify macOS Intel packages
+        shell: bash
+        run: |
+          test -n "$(find dist -maxdepth 1 -type f -name '*macOS-x64.dmg' -print -quit)"
+          test -n "$(find dist -maxdepth 1 -type f -name '*macOS-x64.zip' -print -quit)"
+          APP="$(find dist/mac -path '*/Contents/MacOS/*' -type f -perm +111 -print -quit)"
+          test -n "$APP"
+          test "$("$APP" --version | tail -n 1)" = "$(node -p "require('./package.json').version")"
+      - uses: actions/upload-artifact@v5
+        with:
+          name: VibeZ-2.0.0-macOS-Intel-UNSIGNED
+          path: |
+            dist/*macOS-x64.dmg
+            dist/*macOS-x64.zip
+          if-no-files-found: error
+
+  macos-arm64:
+    needs: test
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build macOS Apple Silicon verification packages
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: npx electron-builder --mac dmg zip --arm64 --publish never
+      - name: Verify macOS Apple Silicon packages
+        shell: bash
+        run: |
+          test -n "$(find dist -maxdepth 1 -type f -name '*macOS-arm64.dmg' -print -quit)"
+          test -n "$(find dist -maxdepth 1 -type f -name '*macOS-arm64.zip' -print -quit)"
+          APP="$(find dist/mac-arm64 -path '*/Contents/MacOS/*' -type f -perm +111 -print -quit)"
+          if [ -z "$APP" ]; then APP="$(find dist/mac -path '*/Contents/MacOS/*' -type f -perm +111 -print -quit)"; fi
+          test -n "$APP"
+          test "$("$APP" --version | tail -n 1)" = "$(node -p "require('./package.json').version")"
+      - uses: actions/upload-artifact@v5
+        with:
+          name: VibeZ-2.0.0-macOS-Apple-Silicon-UNSIGNED
+          path: |
+            dist/*macOS-arm64.dmg
+            dist/*macOS-arm64.zip
+          if-no-files-found: error

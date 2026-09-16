@@ -69,38 +69,9 @@ jobs:
           code=$?
           set -e
           test "$code" -eq 124
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: release-linux-x64
-          path: |
-            dist/*.AppImage
-            dist/*.deb
-            dist/*.rpm
-            dist/*.pacman
-            dist/*.pkg.tar.zst
-            dist/latest*.yml
-            dist/*.blockmap
-          if-no-files-found: error
-
-  linux-arm64:
-    needs: test
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - name: Install packaging tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y rpm libarchive-tools
-      - run: npm ci
-      - name: Build Linux ARM64
-        run: npx electron-builder --linux AppImage deb rpm pacman --arm64 --publish never
-      - uses: actions/upload-artifact@v4
-        with:
-          name: release-linux-arm64
           path: |
             dist/*.AppImage
             dist/*.deb
@@ -130,7 +101,7 @@ jobs:
       - run: npm install --no-save @malept/flatpak-bundler@0.4.0
       - name: Build Flatpak x64
         run: npx electron-builder --linux flatpak --x64 --publish never
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: release-flatpak-x64
           path: dist/*.flatpak
@@ -156,12 +127,16 @@ jobs:
         run: |
           $installer = Get-ChildItem dist -File -Filter '*Windows-x64.exe' | Select-Object -First 1
           if (-not $installer) { throw 'Windows x64 installer missing.' }
+          $signature = Get-AuthenticodeSignature $installer.FullName
+          if ($signature.Status -ne 'NotSigned') {
+            throw "Expected the direct GitHub Windows installer to be unsigned until a trusted signing provider is available; got $($signature.Status)."
+          }
           $app = 'dist\win-unpacked\vibez.exe'
           if (-not (Test-Path $app)) { throw 'Windows x64 packaged executable missing.' }
           $expected = (node -p "require('./package.json').version").Trim()
           $actual = (& $app --version | Select-Object -Last 1).Trim()
           if ($actual -ne $expected) { throw "Unexpected VibeZ version: $actual" }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: release-windows-x64
           path: |
@@ -170,9 +145,9 @@ jobs:
             dist/*.blockmap
           if-no-files-found: error
 
-  windows-arm64:
+  windows-store-msix:
     needs: test
-    runs-on: windows-11-arm
+    runs-on: windows-2025
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -180,96 +155,38 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Build unsigned Windows ARM64 installer
+      - name: Build and validate Partner Center MSIX
         shell: pwsh
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
-        run: npx electron-builder --win nsis --arm64 --publish never
-      - name: Smoke test Windows ARM64 package
-        shell: pwsh
-        run: |
-          $installer = Get-ChildItem dist -File -Filter '*Windows-arm64.exe' | Select-Object -First 1
-          if (-not $installer) { throw 'Windows ARM64 installer missing.' }
-          $app = 'dist\win-arm64-unpacked\vibez.exe'
-          if (-not (Test-Path $app)) { $app = 'dist\win-unpacked\vibez.exe' }
-          if (-not (Test-Path $app)) { throw 'Windows ARM64 packaged executable missing.' }
-          $expected = (node -p "require('./package.json').version").Trim()
-          $actual = (& $app --version | Select-Object -Last 1).Trim()
-          if ($actual -ne $expected) { throw "Unexpected VibeZ version: $actual" }
-      - uses: actions/upload-artifact@v4
+        run: npm run build:store:msix
+      - uses: actions/upload-artifact@v5
         with:
-          name: release-windows-arm64
-          path: |
-            dist/*Windows-arm64.exe
-            dist/latest*.yml
-            dist/*.blockmap
+          name: partner-center-windows-x64-msix
+          path: dist/store/*.msix
           if-no-files-found: error
+          retention-days: 90
 
   macos-intel:
     needs: test
-    runs-on: macos-15-intel
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: Build unsigned macOS Intel packages
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
-        run: npx electron-builder --mac dmg zip --x64 --publish never
-      - name: Smoke test macOS Intel package
-        shell: bash
-        run: |
-          test -n "$(find dist -maxdepth 1 -type f -name '*macOS-x64.dmg' -print -quit)"
-          test -n "$(find dist -maxdepth 1 -type f -name '*macOS-x64.zip' -print -quit)"
-          APP="$(find dist/mac -path '*/Contents/MacOS/*' -type f -perm +111 -print -quit)"
-          test -n "$APP"
-          test "$("$APP" --version | tail -n 1)" = "$(node -p "require('./package.json').version")"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: release-macos-intel
-          path: |
-            dist/*macOS-x64.dmg
-            dist/*macOS-x64.zip
-            dist/*.blockmap
-          if-no-files-found: error
+    uses: ./.github/workflows/macos-signed-release.yml
+    with:
+      arch: x64
+      runner: macos-15-intel
+      outdir: dist/mac
+      label: intel
+    secrets: inherit
 
   macos-arm64:
     needs: test
-    runs-on: macos-15
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: Build unsigned macOS Apple Silicon packages
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
-        run: npx electron-builder --mac dmg zip --arm64 --publish never
-      - name: Smoke test macOS Apple Silicon package
-        shell: bash
-        run: |
-          test -n "$(find dist -maxdepth 1 -type f -name '*macOS-arm64.dmg' -print -quit)"
-          test -n "$(find dist -maxdepth 1 -type f -name '*macOS-arm64.zip' -print -quit)"
-          APP="$(find dist/mac-arm64 -path '*/Contents/MacOS/*' -type f -perm +111 -print -quit)"
-          if [ -z "$APP" ]; then APP="$(find dist/mac -path '*/Contents/MacOS/*' -type f -perm +111 -print -quit)"; fi
-          test -n "$APP"
-          test "$("$APP" --version | tail -n 1)" = "$(node -p "require('./package.json').version")"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: release-macos-arm64
-          path: |
-            dist/*macOS-arm64.dmg
-            dist/*macOS-arm64.zip
-            dist/*.blockmap
-          if-no-files-found: error
+    uses: ./.github/workflows/macos-signed-release.yml
+    with:
+      arch: arm64
+      runner: macos-15
+      outdir: dist/mac-arm64
+      label: arm64
+    secrets: inherit
 
   publish:
-    needs: [linux-x64, linux-arm64, flatpak-x64, windows-x64, windows-arm64, macos-intel, macos-arm64]
+    needs: [linux-x64, flatpak-x64, windows-x64, windows-store-msix, macos-intel, macos-arm64]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -278,6 +195,7 @@ jobs:
           node-version: 22
       - uses: actions/download-artifact@v5
         with:
+          pattern: release-*
           path: downloads
       - name: Prepare release notes
         shell: bash
@@ -288,8 +206,15 @@ jobs:
             $0 ~ "^## \\[" version "\\]" { capture=1; next }
             capture && /^## \[/ { exit }
             capture { print }
-          ' CHANGELOG.md > release-notes.md
-          if [ ! -s release-notes.md ]; then printf 'See CHANGELOG.md for details.\n' > release-notes.md; fi
+          ' CHANGELOG.md > release-notes-body.md
+          if [ ! -s release-notes-body.md ]; then printf 'See CHANGELOG.md for details.\n' > release-notes-body.md; fi
+
+          {
+            printf '> [!IMPORTANT]\n'
+            printf '> The Windows x64 installer downloaded directly from GitHub is currently **unsigned**. Windows SmartScreen may show **Windows protected your PC** or **Unknown publisher**. Verify `SHA256SUMS` and continue only if the installer came from this official repository.\n\n'
+            printf 'The macOS packages are Developer ID signed and Apple-notarized. A Microsoft Store listing is being prepared as the recommended Windows installation route.\n\n'
+            cat release-notes-body.md
+          } > release-notes.md
       - name: Collect release assets and checksums
         shell: bash
         run: |
@@ -302,12 +227,8 @@ jobs:
           \) -print0 | while IFS= read -r -d '' file; do cp "$file" "release-assets/$(basename "$file")"; done
 
           test -n "$(find downloads/release-linux-x64 -type f -name 'latest-linux.yml' -print -quit)" && cp "$(find downloads/release-linux-x64 -type f -name 'latest-linux.yml' -print -quit)" release-assets/latest-linux.yml || true
-          ARM_LINUX_META="$(find downloads/release-linux-arm64 -type f -name 'latest*.yml' -print -quit || true)"
-          [ -z "$ARM_LINUX_META" ] || cp "$ARM_LINUX_META" release-assets/latest-linux-arm64.yml
           WIN_META="$(find downloads/release-windows-x64 -type f -name 'latest.yml' -print -quit || true)"
           [ -z "$WIN_META" ] || cp "$WIN_META" release-assets/latest.yml
-          WIN_ARM_META="$(find downloads/release-windows-arm64 -type f -name 'latest*.yml' -print -quit || true)"
-          [ -z "$WIN_ARM_META" ] || cp "$WIN_ARM_META" release-assets/latest-arm64.yml
 
           cd release-assets
           find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%f\0' | sort -z | xargs -0 sha256sum > SHA256SUMS

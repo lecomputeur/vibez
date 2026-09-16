@@ -15,7 +15,7 @@ body:
     attributes:
       label: VibeZ version
       description: You can find this in VibeZ under About.
-      placeholder: "1.4.1"
+      placeholder: "2.0.0"
     validations:
       required: true
 

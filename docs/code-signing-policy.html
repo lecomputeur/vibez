@@ -16,14 +16,14 @@
   <section class="details">
     <p class="eyebrow">Security · Release integrity</p>
     <h1>Code signing policy</h1>
-    <p>VibeZ is preparing signed production releases for VibeZ 2.0. The current VibeZ 1.x Windows and macOS releases remain unsigned until the new signing pipeline is enabled and verified.</p>
+    <p>VibeZ 2.0 uses a platform-specific release policy. Every official package is built by GitHub Actions from the public repository and accompanied by SHA-256 checksums.</p>
 
     <h2>Windows</h2>
-    <p>VibeZ plans to use SignPath for Windows release signing. When the VibeZ 2.0 Windows signing pipeline is activated, <strong>Free code signing provided by SignPath.io, certificate by SignPath Foundation</strong>.</p>
-    <p>Only binaries produced from the official <a href="https://github.com/lecomputeur/vibez">VibeZ source repository</a> by the project's GitHub Actions release workflow are eligible for signing.</p>
+    <p>The Windows x64 NSIS installer downloaded directly from GitHub is unsigned and can trigger Microsoft SmartScreen. Users should download it only from the official repository and verify its SHA-256 checksum.</p>
+    <p>The recommended trusted route is the separate <strong>VibeZ Desktop</strong> Microsoft Store MSIX. The package uses the reserved Partner Center identity and is validated and signed by Microsoft during certification.</p>
 
     <h2>macOS</h2>
-    <p>VibeZ 2.0 macOS production builds are planned to use an Apple Developer ID Application certificate, Hardened Runtime and Apple notarization before publication.</p>
+    <p>VibeZ 2.0 macOS production builds use an Apple Developer ID Application certificate, Hardened Runtime and Apple notarization. The release workflow verifies the signature, Gatekeeper acceptance and stapled notarization before publication.</p>
 
     <h2>Project roles</h2>
     <ul>
@@ -36,7 +36,7 @@
     <p>See the <a href="https://github.com/lecomputeur/vibez/blob/main/PRIVACY.md">VibeZ Privacy Policy</a>. VibeZ connects to the Mistral Vibe service at the user's request and to GitHub for release/update checks. VibeZ does not independently sell user data or operate an advertising network.</p>
 
     <h2>Release integrity</h2>
-    <p>Official releases are built with GitHub Actions from the public repository. Release downloads include SHA-256 checksums. Signed VibeZ 2.0 production artifacts will be published only after automated build verification and platform signing checks succeed.</p>
+    <p>Official releases are built with GitHub Actions from the public repository. Release downloads include SHA-256 checksums. macOS artifacts are published only after signing and notarization checks succeed. An unsigned Windows artifact is never presented as signed.</p>
   </section>
 </main>
 <footer><p><a href="./">VibeZ home</a> · <a href="https://github.com/lecomputeur/vibez/releases">Releases</a> · <a href="https://github.com/lecomputeur/vibez/blob/main/PRIVACY.md">Privacy Policy</a></p></footer>

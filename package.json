@@ -1,6 +1,6 @@
 {
   "name": "VibeZ",
-  "version": "1.4.1",
+  "version": "2.0.0",
   "desktopName": "com.vibez.app",
   "description": "A cross-platform desktop client for Mistral Vibe",
   "license": "MIT",
@@ -9,12 +9,13 @@
     "name": "Joe Pizza",
     "email": "info@lecomputeur.nl"
   },
-  "main": "main.js",
+  "main": "main-v2.js",
   "scripts": {
     "start": "electron .",
-    "check": "node --check main.js && node --check screenshot.js && node --check preload.js && node --check settings-store.js && node --check settings-preload.js && node --check native-button-preload.js && node --check i18n.js && node --check ui-detection.js && node --check locales/*.js",
+    "check": "node --check main.js && node --check main-v2.js && node --check screenshot.js && node --check screenshot-v2.js && node --check preload.js && node --check shell-preload.js && node --check shell.js && node --check settings-store.js && node --check settings-preload.js && node --check native-button-preload.js && node --check i18n.js && node --check ui-detection.js && node --check locales/*.js",
     "test": "node --test test/*.test.js && npm run check && bash -n install.sh",
-    "build": "electron-builder"
+    "build": "electron-builder",
+    "build:store:msix": "powershell -NoProfile -ExecutionPolicy Bypass -File build/build-store-msix.ps1"
   },
   "dependencies": {
     "electron-updater": "^6.8.9"
@@ -53,8 +54,9 @@
         "pacman"
       ],
       "category": "Development",
-      "synopsis": "Desktop client for Mistral Vibe",
-      "description": "VibeZ is an independent desktop client for Mistral Vibe with screenshot tools, desktop integration and automatic updates.",
+      "synopsis": "VibeZ desktop client for Mistral Vibe",
+      "description": "VibeZ is a cross-platform desktop client for Mistral Vibe.",
+      "artifactName": "VibeZ-${version}-Linux-${arch}.${ext}",
       "syncDesktopName": true
     },
     "win": {
@@ -82,7 +84,10 @@
         "zip"
       ],
       "artifactName": "VibeZ-${version}-macOS-${arch}.${ext}",
-      "hardenedRuntime": true
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.inherit.plist",
+      "notarize": true
     },
     "dmg": {
       "title": "VibeZ ${version}"

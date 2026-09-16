@@ -88,7 +88,8 @@ main() {
   command -v uname >/dev/null 2>&1 || fail "uname is required."
 
   local arch
-  arch="$(normalize_arch "$(uname -m)")" || fail "VibeZ supports x86_64 and arm64 Linux. Detected: $(uname -m)."
+  arch="$(normalize_arch "$(uname -m)")" || fail "Unsupported Linux architecture: $(uname -m)."
+  [[ "$arch" == "x64" ]] || fail "VibeZ 2 public Linux packages are available for x86_64 only. Build from source on ${arch}."
   [[ -r /etc/os-release ]] || fail "Could not detect your Linux distribution (/etc/os-release is missing)."
   # shellcheck disable=SC1091
   . /etc/os-release
