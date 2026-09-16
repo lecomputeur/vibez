@@ -124,6 +124,7 @@ jobs:
           $cer = Join-Path $env:RUNNER_TEMP 'VibeZ-Store-Local-Test.cer'
           Export-Certificate -Cert $cert -FilePath $cer | Out-Null
           $trusted = Import-Certificate -FilePath $cer -CertStoreLocation Cert:\CurrentUser\TrustedPeople
+          $root = Import-Certificate -FilePath $cer -CertStoreLocation Cert:\CurrentUser\Root
           $signTool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter signtool.exe -Recurse |
             Where-Object { $_.FullName -match '\\x64\\signtool\.exe$' } |
             Sort-Object { try { [version]$_.Directory.Parent.Name } catch { [version]'0.0' } } -Descending |
@@ -146,6 +147,7 @@ jobs:
             Get-AppxPackage -Name 'LeComputeur.VibeZDesktop' | Remove-AppxPackage -ErrorAction SilentlyContinue
             Remove-Item "Cert:\CurrentUser\My\$($cert.Thumbprint)" -Force -ErrorAction SilentlyContinue
             if ($trusted) { Remove-Item "Cert:\CurrentUser\TrustedPeople\$($trusted.Thumbprint)" -Force -ErrorAction SilentlyContinue }
+            if ($root) { Remove-Item "Cert:\CurrentUser\Root\$($root.Thumbprint)" -Force -ErrorAction SilentlyContinue }
           }
       - uses: actions/upload-artifact@v5
         with:
