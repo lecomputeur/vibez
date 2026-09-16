@@ -112,7 +112,7 @@ jobs:
       - name: Build Microsoft Store MSIX
         shell: pwsh
         run: npm run build:store:msix
-      - name: Sign, install and verify a disposable test copy
+      - name: Sign and verify a disposable test copy
         shell: pwsh
         run: |
           $unsigned = Get-ChildItem dist\store -File -Filter '*.msix' | Select-Object -First 1
@@ -133,16 +133,11 @@ jobs:
           try {
             & $signTool.FullName sign /fd SHA256 /sha1 $cert.Thumbprint $signed
             if ($LASTEXITCODE -ne 0) { throw "signtool.exe failed with exit code $LASTEXITCODE." }
-            Add-AppxPackage -Path $signed
-            $installed = Get-AppxPackage -Name 'LeComputeur.VibeZDesktop'
-            if (-not $installed) { throw 'The locally signed MSIX did not register.' }
-            if ($installed.PackageFamilyName -ne 'LeComputeur.VibeZDesktop_dpqfg82bz4ywg') {
-              throw "Unexpected package family name: $($installed.PackageFamilyName)"
-            }
-            $app = Join-Path $installed.InstallLocation 'vibez2-beta.exe'
-            if (-not (Test-Path $app)) { throw 'The registered package does not contain the VibeZ executable.' }
+            & $signTool.FullName verify /pa /v $signed
+            if ($LASTEXITCODE -ne 0) { throw "Signature verification failed with exit code $LASTEXITCODE." }
+            $signature = Get-AuthenticodeSignature $signed
+            if ($signature.Status -ne 'Valid') { throw "Unexpected signature status: $($signature.Status)" }
           } finally {
-            Get-AppxPackage -Name 'LeComputeur.VibeZDesktop' | Remove-AppxPackage -ErrorAction SilentlyContinue
             Remove-Item "Cert:\CurrentUser\My\$($cert.Thumbprint)" -Force -ErrorAction SilentlyContinue
             if ($trusted) { Remove-Item "Cert:\CurrentUser\TrustedPeople\$($trusted.Thumbprint)" -Force -ErrorAction SilentlyContinue }
             if ($root) { Remove-Item "Cert:\CurrentUser\Root\$($root.Thumbprint)" -Force -ErrorAction SilentlyContinue }

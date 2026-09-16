@@ -118,7 +118,7 @@ VibeZ 2.0 must not be published as stable until all of these are true:
 
 - Linux x64 AppImage, DEB, RPM, Pacman and Flatpak builds pass.
 - Windows x64 NSIS build passes.
-- The Microsoft Store MSIX builds, unpacks, installs, reports the expected package family and registers the expected executable on a clean Windows runner.
+- The Microsoft Store MSIX builds, unpacks, reports the expected Store identity and passes a disposable signature verification on a clean Windows runner. Final install, launch and uninstall are checked on an interactive Windows 11 system before Partner Center submission.
 - macOS Intel and Apple Silicon builds pass.
 - The direct GitHub Windows installer is explicitly identified and verified as unsigned; `SHA256SUMS` is published with it.
 - macOS apps are Developer ID signed and notarized.
