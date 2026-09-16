@@ -71,8 +71,6 @@ The build script:
 4. Packages the application with the Windows SDK `makeappx.exe`.
 5. Unpacks the result and verifies its identity, publisher, version and executable.
 
-CI additionally copies the unsigned Store artifact, signs that disposable copy with an ephemeral test certificate, verifies the signature cryptographically and deletes the test certificate. The ephemeral test-signed copy is never uploaded or published.
-
 The artifact intended for Partner Center remains unsigned so Microsoft can re-sign it during certification.
 
 ## Required manual Partner Center steps
