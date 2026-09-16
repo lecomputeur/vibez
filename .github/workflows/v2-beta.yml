@@ -3,13 +3,15 @@ name: VibeZ 2.0 Beta Test
 on:
   push:
     branches: [v2.0-dev]
+  pull_request:
+    branches: [v2.0-dev]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: vibez-v2-beta
+  group: vibez-v2-beta-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -93,6 +95,62 @@ jobs:
         with:
           name: VibeZ-2.0.0-beta.1-Windows-x64-UNSIGNED
           path: dist/*Windows-x64.exe
+          if-no-files-found: error
+
+  windows-store-msix:
+    needs: test
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - name: Refresh root lock metadata for beta version
+        run: npm install --package-lock-only --ignore-scripts
+      - run: npm ci
+      - name: Build Microsoft Store MSIX
+        shell: pwsh
+        run: npm run build:store:msix
+      - name: Sign, install and verify a disposable test copy
+        shell: pwsh
+        run: |
+          $unsigned = Get-ChildItem dist\store -File -Filter '*.msix' | Select-Object -First 1
+          if (-not $unsigned) { throw 'Microsoft Store MSIX is missing.' }
+          $signed = Join-Path $env:RUNNER_TEMP 'VibeZ-Store-Local-Test.msix'
+          Copy-Item $unsigned.FullName $signed -Force
+          $publisher = 'CN=613EFBB1-83C3-495D-9C3B-D4EE98C72B95'
+          $cert = New-SelfSignedCertificate -Type Custom -Subject $publisher -KeyAlgorithm RSA -KeyLength 2048 -HashAlgorithm SHA256 -KeyUsage DigitalSignature -CertStoreLocation Cert:\CurrentUser\My
+          $cer = Join-Path $env:RUNNER_TEMP 'VibeZ-Store-Local-Test.cer'
+          Export-Certificate -Cert $cert -FilePath $cer | Out-Null
+          $trusted = Import-Certificate -FilePath $cer -CertStoreLocation Cert:\CurrentUser\TrustedPeople
+          $signTool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter signtool.exe -Recurse |
+            Where-Object { $_.FullName -match '\\x64\\signtool\.exe$' } |
+            Sort-Object { try { [version]$_.Directory.Parent.Name } catch { [version]'0.0' } } -Descending |
+            Select-Object -First 1
+          if (-not $signTool) { throw 'signtool.exe was not found in the Windows SDK.' }
+          try {
+            & $signTool.FullName sign /fd SHA256 /sha1 $cert.Thumbprint $signed
+            if ($LASTEXITCODE -ne 0) { throw "signtool.exe failed with exit code $LASTEXITCODE." }
+            Add-AppxPackage -Path $signed
+            $installed = Get-AppxPackage -Name 'LeComputeur.VibeZDesktop'
+            if (-not $installed) { throw 'The locally signed MSIX did not register.' }
+            if ($installed.PackageFamilyName -ne 'LeComputeur.VibeZDesktop_dpqfg82bz4ywg') {
+              throw "Unexpected package family name: $($installed.PackageFamilyName)"
+            }
+            $app = Join-Path $installed.InstallLocation 'vibez2-beta.exe'
+            $expected = (node -p "require('./package.json').version").Trim()
+            $actual = (& $app --version | Select-Object -Last 1).Trim()
+            if ($actual -ne $expected) { throw "Unexpected Store app version: $actual" }
+          } finally {
+            Get-AppxPackage -Name 'LeComputeur.VibeZDesktop' | Remove-AppxPackage -ErrorAction SilentlyContinue
+            Remove-Item "Cert:\CurrentUser\My\$($cert.Thumbprint)" -Force -ErrorAction SilentlyContinue
+            if ($trusted) { Remove-Item "Cert:\CurrentUser\TrustedPeople\$($trusted.Thumbprint)" -Force -ErrorAction SilentlyContinue }
+          }
+      - uses: actions/upload-artifact@v5
+        with:
+          name: VibeZ-2.0.0-beta.1-Windows-x64-MICROSOFT-STORE-MSIX-UNSIGNED
+          path: dist/store/*.msix
           if-no-files-found: error
 
   macos-intel:

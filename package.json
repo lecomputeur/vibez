@@ -14,7 +14,8 @@
     "start": "electron .",
     "check": "node --check main.js && node --check main-v2-bootstrap.js && node --check main-v2.js && node --check screenshot.js && node --check screenshot-v2.js && node --check preload.js && node --check shell-preload.js && node --check shell.js && node --check settings-store.js && node --check settings-preload.js && node --check native-button-preload.js && node --check i18n.js && node --check ui-detection.js && node --check locales/*.js",
     "test": "node --test test/*.test.js && npm run check && bash -n install.sh",
-    "build": "electron-builder"
+    "build": "electron-builder",
+    "build:store:msix": "powershell -NoProfile -ExecutionPolicy Bypass -File build/build-store-msix.ps1"
   },
   "dependencies": {
     "electron-updater": "^6.8.9"
