@@ -34,7 +34,7 @@ test('VibeZ 2.0 toolbar does not expose a browser-style service or hostname pill
 test('VibeZ 2.0 uses the stable production identity', () => {
   const pkg = JSON.parse(read('package.json'));
   assert.equal(pkg.main, 'main-v2.js');
-  assert.equal(pkg.version, '2.0.0');
+  assert.equal(pkg.version, '2.0.1');
   assert.equal(pkg.desktopName, 'com.vibez.app');
   assert.equal(pkg.build.appId, 'com.vibez.app');
   assert.equal(pkg.build.productName, 'VibeZ');
@@ -49,7 +49,7 @@ test('VibeZ 2.0 production UI and updater contain no beta or test branding', () 
   assert.doesNotMatch(main, /test shell|VibeZ 2\.0 Test|VIBEZ_V2_TEST/i);
   assert.doesNotMatch(shell, /2\.0 TEST|class="beta"/i);
   assert.match(main, /autoUpdater\.checkForUpdates/);
-  assert.match(main, /checkMacUpdates/);
+  assert.doesNotMatch(main, /checkMacUpdates|LATEST_RELEASE_API/);
   assert.match(main, /process\.windowsStore/);
 });
 
