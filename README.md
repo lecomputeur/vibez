@@ -144,9 +144,9 @@ The executable name/path differs by operating system, so Windows and macOS users
 
 ## Updates
 
-VibeZ checks GitHub Releases for updates. Linux and Windows packages support VibeZ's in-app update flow where their package type allows it. The signed and notarized macOS builds **check automatically and notify you when a newer release exists**. The macOS installation step currently remains manual.
+VibeZ checks GitHub Releases for updates. Linux, Windows and the signed and notarized macOS packages support VibeZ's in-app update flow where their package type allows it.
 
-Automatic update checking can be configured in Settings on all three platforms. Install-on-quit is available where in-app installation is supported and remains hidden on macOS. On macOS, an update notification opens the matching GitHub Release so you can download the new DMG or ZIP yourself.
+Automatic update checking and install-on-quit can be configured in Settings. On macOS, VibeZ downloads the signed ZIP matching the Mac's processor and offers **Restart & update** or **Later** after verification.
 
 ## Build from source
 

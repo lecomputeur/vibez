@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-09-23
+
+### Added
+- Signed in-app updates for notarized Intel and Apple silicon macOS installations.
+- Release metadata containing the final stapled ZIP archives for both Mac processor architectures.
+
+### Changed
+- macOS updates now use the same verified download, **Restart & update** and optional install-on-quit flow as other supported installers.
+
 ## [2.0.0] - 2026-09-16
 
 ### Added
@@ -170,7 +179,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 - Fixed Screenshot button overlap with Vibe's star and share controls.
 
-[Unreleased]: https://github.com/lecomputeur/vibez/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/lecomputeur/vibez/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/lecomputeur/vibez/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/lecomputeur/vibez/compare/v1.4.1...v2.0.0
 [1.4.1]: https://github.com/lecomputeur/vibez/releases/tag/v1.4.1
 [1.4.0]: https://github.com/lecomputeur/vibez/releases/tag/v1.4.0

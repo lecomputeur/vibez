@@ -73,7 +73,7 @@ The calculated value must exactly match the corresponding line in `SHA256SUMS` o
 
 **Windows:** direct GitHub installations can use VibeZ's update flow where supported. A new unsigned installer can trigger SmartScreen again because each version starts with a new file reputation. The Microsoft Store will manage Store-distributed updates after the listing is approved.
 
-**macOS:** VibeZ checks GitHub Releases and notifies you when a newer release is available. The installation step currently opens the official release page for a manual update.
+**macOS:** starting with VibeZ 2.0.1, signed and notarized installations can download verified updates in the app. VibeZ selects the ZIP matching the Mac's processor and offers **Restart & update** or **Later**. Users of 2.0.0 must install 2.0.1 manually once to enable this update path.
 
 Only download VibeZ from **https://github.com/lecomputeur/vibez**, the project website linked from that repository, or the future official Microsoft Store listing.
 

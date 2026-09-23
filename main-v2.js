@@ -26,7 +26,6 @@ const RELEASES_URL = `${REPO_URL}/releases/latest`;
 const MICROSOFT_STORE_URL = 'https://apps.microsoft.com/detail/9NR7L2G4MS08';
 const VIBE_URL = 'https://vibe.mistral.ai/';
 const APP_PROTOCOL = 'vibez';
-const LATEST_RELEASE_API = 'https://api.github.com/repos/lecomputeur/vibez/releases/latest';
 const TOOLBAR_HEIGHT = 54;
 
 if (process.argv.includes('--version')) {
@@ -108,74 +107,6 @@ function isSafeExternalUrl(value) {
     const url = new URL(value);
     return url.protocol === 'https:' || url.protocol === 'http:';
   } catch (_) {
-    return false;
-  }
-}
-
-function compareVersions(left, right) {
-  const parse = (value) => String(value || '')
-    .replace(/^v/i, '')
-    .split('-')[0]
-    .split('.')
-    .map((part) => Number.parseInt(part, 10) || 0);
-  const a = parse(left);
-  const b = parse(right);
-  const length = Math.max(a.length, b.length, 3);
-  for (let index = 0; index < length; index += 1) {
-    const av = a[index] || 0;
-    const bv = b[index] || 0;
-    if (av !== bv) return av > bv ? 1 : -1;
-  }
-  return 0;
-}
-
-async function fetchLatestRelease() {
-  const response = await fetch(LATEST_RELEASE_API, {
-    headers: {
-      Accept: 'application/vnd.github+json',
-      'User-Agent': `VibeZ/${app.getVersion()}`,
-    },
-  });
-  if (!response.ok) throw new Error(`GitHub update check failed (HTTP ${response.status}).`);
-  const release = await response.json();
-  const version = String(release.tag_name || release.name || '').replace(/^v/i, '').trim();
-  if (!version) throw new Error('GitHub release response did not contain a version.');
-  return {
-    version,
-    url: isSafeExternalUrl(release.html_url) ? release.html_url : RELEASES_URL,
-  };
-}
-
-async function checkMacUpdates(manual = false) {
-  const text = uiText();
-  try {
-    const latest = await fetchLatestRelease();
-    if (compareVersions(latest.version, app.getVersion()) > 0) {
-      const result = await showMessageBox({
-        type: 'info',
-        title: `VibeZ · ${text.updates}`,
-        message: `${text.updateReady} — VibeZ ${latest.version}`,
-        buttons: [text.openReleases, text.later],
-        defaultId: 0,
-        cancelId: 1,
-      });
-      if (result.response === 0) await shell.openExternal(latest.url);
-      return true;
-    }
-    if (manual) {
-      await showMessageBox({ type: 'info', title: `VibeZ · ${text.updates}`, message: text.latest });
-    }
-    return false;
-  } catch (error) {
-    console.error('macOS update check failed:', error);
-    if (manual) {
-      await showMessageBox({
-        type: 'error',
-        title: `VibeZ · ${text.updates}`,
-        message: text.updateFailed,
-        detail: error.message,
-      });
-    }
     return false;
   }
 }
@@ -661,7 +592,7 @@ function installIpcHandlers() {
     const shortcutRegistered = registerGlobalScreenshot();
     const autostartApplied = syncAutostart(settings.startAtLogin);
     applyZoom();
-    if (process.platform !== 'darwin') autoUpdater.autoInstallOnAppQuit = Boolean(settings.installUpdatesOnQuit);
+    autoUpdater.autoInstallOnAppQuit = Boolean(settings.installUpdatesOnQuit);
     rebuildTray();
     buildApplicationMenu();
     sendShellState();
@@ -753,10 +684,6 @@ function checkForUpdates(manual = false) {
     if (manual) showMessageBox({ type: 'info', title: `VibeZ · ${text.updates}`, message: text.flatpakBuild, buttons: [text.openReleases, text.close], defaultId: 0 }).then((result) => { if (result.response === 0) shell.openExternal(RELEASES_URL); });
     return;
   }
-  if (process.platform === 'darwin') {
-    void checkMacUpdates(manual);
-    return;
-  }
   installUpdaterHandlers();
   autoUpdater.checkForUpdates().catch((error) => console.error('Update check failed:', error));
 }
@@ -818,7 +745,7 @@ app.whenReady().then(() => {
   syncAutostart(settings.startAtLogin);
 
   if (app.isPackaged) {
-    if (process.platform !== 'darwin') installUpdaterHandlers();
+    installUpdaterHandlers();
     if (settings.autoUpdates && !process.env.FLATPAK_ID) checkForUpdates(false);
   }
 });
