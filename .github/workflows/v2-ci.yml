@@ -63,7 +63,7 @@ jobs:
           test "$("$APP" --version | tail -n 1)" = "$(node -p "require('./package.json').version")"
       - uses: actions/upload-artifact@v5
         with:
-          name: VibeZ-2.0.0-Linux-x64
+          name: VibeZ-2.0.1-Linux-x64
           path: |
             dist/*.AppImage
             dist/*.deb
@@ -95,7 +95,7 @@ jobs:
         run: test -n "$(find dist -maxdepth 1 -type f -name '*.flatpak' -print -quit)"
       - uses: actions/upload-artifact@v5
         with:
-          name: VibeZ-2.0.0-Linux-x64-Flatpak
+          name: VibeZ-2.0.1-Linux-x64-Flatpak
           path: dist/*.flatpak
           if-no-files-found: error
 
@@ -126,7 +126,7 @@ jobs:
           if ($actual -ne $expected) { throw "Unexpected version: $actual" }
       - uses: actions/upload-artifact@v5
         with:
-          name: VibeZ-2.0.0-Windows-x64-UNSIGNED
+          name: VibeZ-2.0.1-Windows-x64-UNSIGNED
           path: dist/*Windows-x64.exe
           if-no-files-found: error
 
@@ -145,7 +145,7 @@ jobs:
         run: npm run build:store:msix
       - uses: actions/upload-artifact@v5
         with:
-          name: VibeZ-2.0.0-Windows-x64-MICROSOFT-STORE-MSIX-UNSIGNED
+          name: VibeZ-2.0.1-Windows-x64-MICROSOFT-STORE-MSIX-UNSIGNED
           path: dist/store/*.msix
           if-no-files-found: error
 
@@ -173,7 +173,7 @@ jobs:
           test "$("$APP" --version | tail -n 1)" = "$(node -p "require('./package.json').version")"
       - uses: actions/upload-artifact@v5
         with:
-          name: VibeZ-2.0.0-macOS-Intel-UNSIGNED
+          name: VibeZ-2.0.1-macOS-Intel-UNSIGNED
           path: |
             dist/*macOS-x64.dmg
             dist/*macOS-x64.zip
@@ -204,7 +204,7 @@ jobs:
           test "$("$APP" --version | tail -n 1)" = "$(node -p "require('./package.json').version")"
       - uses: actions/upload-artifact@v5
         with:
-          name: VibeZ-2.0.0-macOS-Apple-Silicon-UNSIGNED
+          name: VibeZ-2.0.1-macOS-Apple-Silicon-UNSIGNED
           path: |
             dist/*macOS-arm64.dmg
             dist/*macOS-arm64.zip
