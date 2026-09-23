@@ -27,14 +27,14 @@ test('start at login uses native APIs on Windows and macOS and XDG on Linux', ()
   assert.match(main, /\.config', 'autostart'/);
 });
 
-test('macOS keeps manual installation but can notify about new GitHub releases', () => {
+test('macOS uses the signed in-app update flow', () => {
   assert.match(main, /getMediaAccessStatus\('screen'\)/);
   assert.match(main, /Privacy_ScreenCapture/);
-  assert.match(main, /async function checkMacUpdates/);
-  assert.match(main, /LATEST_RELEASE_API/);
-  assert.match(main, /void checkMacUpdates\(manual\)/);
+  assert.doesNotMatch(main, /checkMacUpdates|LATEST_RELEASE_API/);
+  assert.match(main, /installUpdaterHandlers\(\);\s*autoUpdater\.checkForUpdates/);
+  assert.doesNotMatch(main, /process\.platform !== 'darwin'\) installUpdaterHandlers/);
   assert.match(settings, /el\('autoUpdatesRow'\)\.hidden=false/);
-  assert.match(settings, /el\('installOnQuitRow'\)\.hidden=isMac/);
+  assert.match(settings, /el\('installOnQuitRow'\)\.hidden=false/);
 });
 
 test('settings receive platform identity from the trusted main process', () => {
