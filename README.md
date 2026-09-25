@@ -14,7 +14,7 @@ VibeZ brings the same experience to all three major desktop platforms from one s
 | **macOS** | Apple Silicon, Intel | Developer ID signed and Apple-notarized `.dmg` and `.zip` |
 | **Linux** | x86_64 | AppImage, DEB, RPM, Pacman and Flatpak |
 
-VibeZ 2 macOS builds are Developer ID signed and Apple-notarized. The Windows x64 installer downloaded directly from GitHub remains **unsigned** while VibeZ builds enough public adoption to qualify for sponsored signing. A separate Store MSIX named **VibeZ Desktop** is being prepared as the recommended Windows route. Microsoft re-signs that MSIX after certification. See **[Windows & macOS installation](WINDOWS-MACOS.md)** for Windows SmartScreen guidance, macOS screenshot permission and checksum verification.
+VibeZ 2 macOS builds are Developer ID signed and Apple-notarized. The Windows x64 installer downloaded directly from GitHub remains **unsigned** while VibeZ builds enough public adoption to qualify for sponsored signing. The separate **[VibeZ Desktop Microsoft Store listing](https://apps.microsoft.com/detail/9NR7L2G4MS08)** is live and is the recommended Windows route. Microsoft validates and signs the Store MSIX. See **[Windows & macOS installation](WINDOWS-MACOS.md)** for Windows SmartScreen guidance, macOS screenshot permission and checksum verification.
 
 See the **[Code signing policy](https://lecomputeur.github.io/vibez/code-signing-policy.html)** for the current Windows and macOS release policy.
 
@@ -49,9 +49,10 @@ Public releases are available on the **[GitHub Releases page](https://github.com
 
 ### Windows
 
-- Most Windows PCs: `VibeZ-<version>-Windows-x64.exe`
+- Recommended: [install VibeZ Desktop from the Microsoft Store](https://apps.microsoft.com/detail/9NR7L2G4MS08).
+- Direct download: `VibeZ-<version>-Windows-x64.exe` for Windows x64.
 
-The direct GitHub installer is unsigned, so Windows may show **Windows protected your PC** or **Unknown publisher**. Verify `SHA256SUMS` and use the steps in [WINDOWS-MACOS.md](WINDOWS-MACOS.md) only when the installer came from this official repository. The Microsoft Store version will become the recommended Windows installation route after its listing is approved.
+The direct GitHub installer is unsigned, so Windows may show **Windows protected your PC** or **Unknown publisher**. Verify `SHA256SUMS` and use the steps in [WINDOWS-MACOS.md](WINDOWS-MACOS.md) only when the installer came from this official repository. The [Microsoft Store version](https://apps.microsoft.com/detail/9NR7L2G4MS08) is the recommended Windows installation route.
 
 ### macOS
 
@@ -103,7 +104,7 @@ VibeZ does **not** bypass Windows SmartScreen or administrator policies. Direct 
 
 For every release:
 
-1. Download VibeZ only from this repository or the website linked by this repository.
+1. Download VibeZ only from the [Microsoft Store](https://apps.microsoft.com/detail/9NR7L2G4MS08), this repository, or the website linked by this repository.
 2. Download `SHA256SUMS` from the same release.
 3. Verify the checksum if you want an additional integrity check.
 4. For a direct Windows download, follow the SmartScreen instructions in [WINDOWS-MACOS.md](WINDOWS-MACOS.md).
@@ -144,7 +145,7 @@ The executable name/path differs by operating system, so Windows and macOS users
 
 ## Updates
 
-VibeZ checks GitHub Releases for updates. Linux, Windows and the signed and notarized macOS packages support VibeZ's in-app update flow where their package type allows it.
+Microsoft Store installations receive updates through the Store. Direct GitHub installations check GitHub Releases for updates; Linux, direct Windows and the signed and notarized macOS packages support VibeZ's in-app update flow where their package type allows it.
 
 Automatic update checking and install-on-quit can be configured in Settings. On macOS, VibeZ downloads the signed ZIP matching the Mac's processor and offers **Restart & update** or **Later** after verification.
 
