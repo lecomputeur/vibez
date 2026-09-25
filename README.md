@@ -102,9 +102,9 @@ flatpak install --user ./VibeZ-<version>-x86_64.flatpak
 
 VibeZ does **not** bypass Windows SmartScreen or administrator policies. Direct GitHub Windows installers remain unsigned and are clearly identified as such. VibeZ 2 macOS packages are Developer ID signed and Apple-notarized.
 
-For every release:
+Install the Windows version from the [Microsoft Store](https://apps.microsoft.com/detail/9NR7L2G4MS08). For direct GitHub downloads:
 
-1. Download VibeZ only from the [Microsoft Store](https://apps.microsoft.com/detail/9NR7L2G4MS08), this repository, or the website linked by this repository.
+1. Download VibeZ only from this repository or the website linked by this repository.
 2. Download `SHA256SUMS` from the same release.
 3. Verify the checksum if you want an additional integrity check.
 4. For a direct Windows download, follow the SmartScreen instructions in [WINDOWS-MACOS.md](WINDOWS-MACOS.md).
