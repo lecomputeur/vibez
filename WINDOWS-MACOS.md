@@ -6,9 +6,7 @@ VibeZ provides native desktop packages for Windows and macOS alongside the Linux
 
 ### Recommended installation route
 
-A Microsoft Store listing named **VibeZ Desktop** is being prepared as the recommended Windows installation route. It uses a separate MSIX package that Microsoft validates and re-signs after certification.
-
-Until that listing is approved, use the direct GitHub download described below.
+Install **[VibeZ Desktop from the Microsoft Store](https://apps.microsoft.com/detail/9NR7L2G4MS08)** for the recommended Windows installation. The Store version uses a separate MSIX package validated and signed by Microsoft. Alternatively, use the direct GitHub download described below.
 
 ### Direct GitHub download
 
@@ -71,10 +69,10 @@ The calculated value must exactly match the corresponding line in `SHA256SUMS` o
 
 ## Updates
 
-**Windows:** direct GitHub installations can use VibeZ's update flow where supported. A new unsigned installer can trigger SmartScreen again because each version starts with a new file reputation. The Microsoft Store will manage Store-distributed updates after the listing is approved.
+**Windows:** direct GitHub installations can use VibeZ's update flow where supported. A new unsigned installer can trigger SmartScreen again because each version starts with a new file reputation. The Microsoft Store manages updates for Store installations.
 
 **macOS:** starting with VibeZ 2.0.1, signed and notarized installations can download verified updates in the app. VibeZ selects the ZIP matching the Mac's processor and offers **Restart & update** or **Later**. Users of 2.0.0 must install 2.0.1 manually once to enable this update path.
 
-Only download VibeZ from **https://github.com/lecomputeur/vibez**, the project website linked from that repository, or the future official Microsoft Store listing.
+Only download VibeZ from **https://github.com/lecomputeur/vibez**, the project website linked from that repository, or the [official Microsoft Store listing](https://apps.microsoft.com/detail/9NR7L2G4MS08).
 
 See the public [code signing policy](https://lecomputeur.github.io/vibez/code-signing-policy.html) for the current Windows and macOS signing status.
