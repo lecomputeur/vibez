@@ -150,13 +150,24 @@ function sendShellState() {
 
 function layoutVibeView() {
   if (!mainWindow || mainWindow.isDestroyed() || !vibeView) return;
-  const bounds = mainWindow.getContentBounds();
+  const [width, height] = mainWindow.getContentSize();
   vibeView.setBounds({
     x: 0,
     y: TOOLBAR_HEIGHT,
-    width: Math.max(1, bounds.width),
-    height: Math.max(1, bounds.height - TOOLBAR_HEIGHT),
+    width: Math.max(1, width),
+    height: Math.max(1, height - TOOLBAR_HEIGHT),
   });
+}
+
+function relayoutVibeViewAfterWindowStateChange() {
+  layoutVibeView();
+
+  // Some Linux compositors update the restored content size a moment after
+  // Electron emits maximize/unmaximize/restore. Re-run the layout after the
+  // native window transition has settled so the WebContentsView cannot keep
+  // stale maximized/restored dimensions and leave black unused areas.
+  setTimeout(layoutVibeView, 75);
+  setTimeout(layoutVibeView, 250);
 }
 
 function applyZoom() {
@@ -387,7 +398,13 @@ function createMainWindow() {
   contents.on('page-title-updated', () => sendShellState());
 
   mainWindow.on('resize', layoutVibeView);
-  mainWindow.on('show', sendShellState);
+  mainWindow.on('maximize', relayoutVibeViewAfterWindowStateChange);
+  mainWindow.on('unmaximize', relayoutVibeViewAfterWindowStateChange);
+  mainWindow.on('restore', relayoutVibeViewAfterWindowStateChange);
+  mainWindow.on('show', () => {
+    relayoutVibeViewAfterWindowStateChange();
+    sendShellState();
+  });
   mainWindow.on('focus', sendShellState);
   mainWindow.on('minimize', (event) => {
     if (settings.minimizeToTray) {
