@@ -12,6 +12,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Fixed the embedded Vibe view not resizing back to the restored window size after maximizing and restoring the VibeZ window, which could leave a large black unused area on Linux.
 - Re-layout the embedded view after maximize, unmaximize, restore and show transitions to handle compositor timing reliably.
 
+### Security
+- Refreshed transitive build dependencies to patched releases after newly published `brace-expansion`, `undici` and `fast-uri` advisories blocked the release security gate.
+
 ## [2.0.1] - 2026-09-23
 
 ### Added
