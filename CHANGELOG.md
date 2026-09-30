@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 - Fixed the embedded Vibe view not resizing back to the restored window size after maximizing and restoring the VibeZ window, which could leave a large black unused area on Linux.
 - Re-layout the embedded view after maximize, unmaximize, restore and show transitions to handle compositor timing reliably.
+- Fixed the native application title bar so it displays the full packaged version (for example, `VibeZ v2.0.2`) instead of the hard-coded `VibeZ 2.0` shell title.
 
 ### Security
 - Refreshed transitive build dependencies to patched releases after newly published `brace-expansion`, `undici` and `fast-uri` advisories blocked the release security gate.

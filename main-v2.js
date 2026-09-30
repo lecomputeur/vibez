@@ -363,6 +363,10 @@ function createMainWindow() {
     },
   });
   mainWindow.setMenuBarVisibility(false);
+  mainWindow.webContents.on('page-title-updated', (event) => {
+    event.preventDefault();
+    mainWindow.setTitle(windowTitle());
+  });
 
   vibeView = new WebContentsView({
     webPreferences: {
@@ -425,7 +429,10 @@ function createMainWindow() {
     mainWindow = null;
   });
 
-  mainWindow.loadFile(path.join(__dirname, 'shell.html')).then(sendShellState);
+  mainWindow.loadFile(path.join(__dirname, 'shell.html')).then(() => {
+    mainWindow.setTitle(windowTitle());
+    sendShellState();
+  });
   contents.loadURL(VIBE_URL);
   return mainWindow;
 }
