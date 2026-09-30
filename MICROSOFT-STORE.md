@@ -55,6 +55,16 @@ VibeZ is free and open source. It is an independent desktop client and is not af
 
 Mistral Vibe, Mistral AI, developer tools, AI assistant, desktop client, screenshot
 
+## Current Store update
+
+### VibeZ 2.0.2
+
+**What's new / release notes**
+
+Improved window layout handling when maximizing and restoring the app, plus refreshed dependency security updates and general release maintenance.
+
+The Microsoft Store package remains free, x64, and uses the existing `LeComputeur.VibeZDesktop` identity and Store ID `9NR7L2G4MS08`.
+
 ## MSIX build and validation
 
 The Store build is produced with:
