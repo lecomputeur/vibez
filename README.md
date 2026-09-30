@@ -2,6 +2,8 @@
 
 A free cross-platform desktop client for [Mistral Vibe](https://vibe.mistral.ai/) with native desktop integration, screenshot tools and automatic update checks.
 
+Latest release: **VibeZ 2.0.2** — fixes a Linux window-layout issue that could leave a large black area after maximizing and restoring the app window.
+
 > VibeZ is an independent desktop client and is not affiliated with or supported by Mistral AI. A Mistral account may be required to use Vibe.
 
 ## Platforms
