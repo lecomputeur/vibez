@@ -88,7 +88,7 @@ $manifest = @"
   <Properties>
     <DisplayName>VibeZ Desktop</DisplayName>
     <PublisherDisplayName>Le Computeur</PublisherDisplayName>
-    <Description>A cross-platform desktop client for Mistral Vibe.</Description>
+    <Description>A free desktop client for Mistral Vibe with screenshot tools and desktop integration.</Description>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
   <Dependencies>
@@ -102,7 +102,7 @@ $manifest = @"
     <Application Id="VibeZDesktop" Executable="$executableName" EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
         DisplayName="VibeZ Desktop"
-        Description="A cross-platform desktop client for Mistral Vibe."
+        Description="A free desktop client for Mistral Vibe with screenshot tools and desktop integration."
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png">
