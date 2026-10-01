@@ -6,8 +6,8 @@
   "scripts": {
     "prepare:assets": "node scripts/prepare.cjs",
     "test": "node --test test/*.test.cjs",
-    "dev": "tauri dev",
-    "build": "tauri build",
+    "dev": "node scripts/prepare.cjs && tauri dev",
+    "build": "node scripts/prepare.cjs && tauri build",
     "tauri": "tauri"
   },
   "devDependencies": { "@tauri-apps/cli": "2" }

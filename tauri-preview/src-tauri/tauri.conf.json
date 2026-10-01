@@ -5,8 +5,6 @@
   "identifier": "nl.lecomputeur.vibez.tauri.preview",
   "mainBinaryName": "vibez-tauri-preview",
   "build": {
-    "beforeDevCommand": "node scripts/prepare.cjs",
-    "beforeBuildCommand": "node scripts/prepare.cjs",
     "frontendDist": "../dist"
   },
   "app": {

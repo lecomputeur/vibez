@@ -50,6 +50,7 @@ jobs:
         with:
           workspaces: tauri-preview/src-tauri -> target
           key: isolated-linux-preview
+          cache-on-failure: true
       - name: Install only the preview build tooling
         run: npm install --ignore-scripts
       - name: Frontend and isolation tests
