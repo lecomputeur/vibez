@@ -2,6 +2,7 @@
 mod policy;
 mod smoke;
 mod native_layout;
+mod auth;
 
 use policy::{APP_ID, APP_NAME, HOME, TOOLBAR_HEIGHT, Settings};
 use serde_json::{json, Value};
@@ -88,7 +89,11 @@ async fn navigate(webview: Webview, app: AppHandle, action: String) -> Result<()
         "back" => view.with_webview(|p| p.inner().go_back()).map_err(err),
         "forward" => view.with_webview(|p| p.inner().go_forward()).map_err(err),
         "reload" => view.reload().map_err(err),
-        "home" => view.navigate(HOME.parse().map_err(err)?).map_err(err),
+        "home" => {
+            auth::close_popups(&app);
+            message(&app, "Returning to Vibe. Your preview profile has not been cleared.");
+            view.navigate(HOME.parse().map_err(err)?).map_err(err)
+        },
         _ => Err("Unsupported navigation action".into()),
     }
 }
@@ -178,11 +183,12 @@ async fn capture_screenshot(webview: Webview, app: AppHandle) -> Result<(), Stri
 #[tauri::command]
 async fn get_diagnostics(webview: Webview, app: AppHandle) -> Result<String, String> {
     require_local(&webview)?;
-    Ok(format!("{}\nApplication ID: {}\nEngine: Tauri 2 / system WebKitGTK\nOS: Linux {}\nSession: {}\nDesktop: {}\nConfig: {}\nData: {}\nAutomatic updates: disabled in preview\nMicrophone/camera: not enabled in this preview\nGlobal shortcut: not registered (does not conflict with Electron)",
+    Ok(format!("{}\nApplication ID: {}\nEngine: Tauri 2 / system WebKitGTK\nOS: Linux {}\nSession: {}\nDesktop: {}\nConfig: {}\nData: {}\nAutomatic updates: disabled in preview\nMicrophone/camera: not enabled in this preview\nGlobal shortcut: not registered (does not conflict with Electron)\nSign-in popups: related WebKit view; provider restrictions still apply\nRecent navigation (origins only, no credentials or tokens):\n{}",
         title(), APP_ID, std::env::consts::ARCH,
         std::env::var("XDG_SESSION_TYPE").unwrap_or_default(),
         std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default(),
-        app.path().app_config_dir().map_err(err)?.display(), app.path().app_data_dir().map_err(err)?.display()))
+        app.path().app_config_dir().map_err(err)?.display(), app.path().app_data_dir().map_err(err)?.display(),
+        auth::diagnostics()))
 }
 
 fn create_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
@@ -240,20 +246,16 @@ fn main() {
                 .on_navigation(move |url| {
                     if (smoke && policy::local_url(url)) || policy::embedded_url(url) { return true; }
                     if policy::external_url(url) {
-                        if let Err(error) = handle.opener().open_url(url.as_str(), None::<&str>) { message(&handle, err(error)); }
+                        if handle.opener().open_url(url.as_str(), None::<&str>).is_err() {
+                            message(&handle, "Could not open the external link in your browser.");
+                        }
                     }
                     false
                 })
-                .on_new_window(move |url, _| {
-                    // First Linux prototype uses same-view auth. Popup/opener-based SSO needs separate validation.
-                    if policy::embedded_url(&url) {
-                        if let Some(view) = popup_handle.get_webview("vibe") { let _ = view.navigate(url); }
-                    } else if policy::external_url(&url) {
-                        let _ = popup_handle.opener().open_url(url.as_str(), None::<&str>);
-                    }
-                    NewWindowResponse::Deny
-                });
+                .on_page_load(|_, payload| auth::page(payload.url(), matches!(payload.event(), tauri::webview::PageLoadEvent::Finished)))
+                .on_new_window(move |url, features| auth::new_window(&popup_handle, url, features));
             let vibe = window.add_child(content, LogicalPosition::new(0., TOOLBAR_HEIGHT), LogicalSize::new(1280., 840. - TOOLBAR_HEIGHT))?;
+            auth::attach_errors(app.handle(), &vibe).map_err(std::io::Error::other)?;
             vibe.set_zoom(settings.zoom_factor)?;
             layout(app.handle()).map_err(std::io::Error::other)?;
             if !smoke {

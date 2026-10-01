@@ -15,11 +15,13 @@
       $('forward').disabled = !state.can_go_forward;
       $('loading').classList.toggle('active', state.loading);
       $('screenshot').hidden = !state.settings.show_screenshot;
+      const homeLabel = preview.resolve(state.settings.language, state.os_locale) === 'nl' ? 'Startpagina — terug naar Vibe' : 'Home — back to Vibe';
+      $('home').title = homeLabel; $('home').setAttribute('aria-label', homeLabel);
       status(state.status);
     } catch (error) { status(preview.errorText(error)); }
     finally { polling = false; }
   }
-  for (const action of ['back', 'forward', 'reload']) {
+  for (const action of ['back', 'forward', 'reload', 'home']) {
     $(action).addEventListener('click', async () => {
       try { await preview.invoke('navigate', { action }); await refresh(); }
       catch (error) { status(preview.errorText(error)); }

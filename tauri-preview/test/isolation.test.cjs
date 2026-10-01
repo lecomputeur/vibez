@@ -13,12 +13,12 @@ const cap = JSON.parse(read('src-tauri/capabilities/local-shell.json'));
 test('preview has an independent identity, executable and version', () => {
   assert.equal(config.identifier, 'nl.lecomputeur.vibez.tauri.preview');
   assert.equal(config.mainBinaryName, 'vibez-tauri-preview');
-  assert.equal(config.version, '0.1.0');
+  assert.equal(config.version, '0.1.1');
   assert.equal(config.productName, 'VibeZ Tauri Preview');
   assert.equal(JSON.parse(read('package.json')).version, config.version);
-  assert.match(read('src-tauri/Cargo.toml'), /version = "0\.1\.0"/);
+  assert.match(read('src-tauri/Cargo.toml'), /version = "0\.1\.1"/);
 });
-test('remote website has no native capabilities or iframe bridge', () => {
+test('remote website and auth popups have no native capabilities or iframe bridge', () => {
   assert.deepEqual(cap.webviews, ['shell', 'settings']);
   assert.equal(cap.local, true);
   assert.equal(cap.remote, undefined);
@@ -53,4 +53,13 @@ test('OS language resolving supports Dutch and Chinese and falls back safely', (
   assert.equal(resolve('system', 'zh-Hant-TW'), 'zh-TW');
   assert.equal(resolve('fr','nl_NL'), 'fr');
   assert.equal(resolve('system','xx_YY'), 'en');
+});
+test('popup implementation preserves related views without spoofing or intercepting credentials', () => {
+  const auth = read('src-tauri/src/auth.rs');
+  assert.match(auth, /\.window_features\(features\)/);
+  assert.match(auth, /NewWindowResponse::Create/);
+  assert.doesNotMatch(auth, /\.user_agent\(|\.initialization_script\(|\.cookies\(|\.set_cookie\(|ignore_certificate/);
+  assert.doesNotMatch(auth, /get_webview\("vibe"\).*navigate/);
+  assert.match(read('src-tauri/src/smoke.rs'), /window\.opener\.postMessage/);
+  assert.match(read('frontend/index.html'), /id="home"/);
 });

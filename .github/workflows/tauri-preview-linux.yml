@@ -59,22 +59,24 @@ jobs:
           npm test 2>&1 | tee artifacts/frontend-tests.log
           npm audit --audit-level=high
       - name: Rust policy tests
-        run: |
-          cargo test --release --manifest-path src-tauri/Cargo.toml 2>&1 | tee artifacts/rust-tests.log
+        run: cargo test --release --manifest-path src-tauri/Cargo.toml 2>&1 | tee artifacts/rust-tests.log
       - name: Build Linux DEB preview
-        run: npm run build -- --bundles deb 2>&1 | tee artifacts/build.log
+        run: |
+          rm -f src-tauri/target/release/bundle/deb/*.deb
+          npm run build -- --bundles deb 2>&1 | tee artifacts/build.log
       - name: Verify package identity and extract for smoke test
         run: |
           deb="$(find src-tauri/target/release/bundle/deb -name '*.deb' -print -quit)"
           test -n "$deb"
-          package="$(dpkg-deb -f "$deb" Package)"
-          [[ "$package" == *tauri*preview* ]]
+          test "$(dpkg-deb -f "$deb" Package)" = vibe-z-tauri-preview
           test "$(dpkg-deb -f "$deb" Architecture)" = amd64
+          version="$(node -p 'require("./package.json").version')"
+          test "$(dpkg-deb -f "$deb" Version)" = "$version"
           dpkg-deb --info "$deb" | tee artifacts/package-info.txt
           dpkg-deb -x "$deb" artifacts/unpacked
           test -x artifacts/unpacked/usr/bin/vibez-tauri-preview
           artifacts/unpacked/usr/bin/vibez-tauri-preview --version | tee artifacts/version.txt
-          grep -F '0.1.0' artifacts/version.txt
+          grep -F "$version" artifacts/version.txt
       - name: Native GTK/WebKit smoke test in isolated desktop
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'
@@ -86,16 +88,19 @@ jobs:
           mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_CACHE_HOME"
           export PREVIEW_BINARY="$PWD/artifacts/unpacked/usr/bin/vibez-tauri-preview"
           export PREVIEW_ARTIFACTS="$PWD/artifacts"
-          timeout 70s dbus-run-session -- xvfb-run -a -s '-screen 0 1600x1000x24' bash -c '
+          result=0
+          timeout 90s dbus-run-session -- xvfb-run -a -s '-screen 0 1600x1000x24' bash -c '
             openbox --sm-disable > "$PREVIEW_ARTIFACTS/openbox.log" 2>&1 &
             "$PREVIEW_BINARY" --smoke-test > "$PREVIEW_ARTIFACTS/native-smoke.log" 2>&1 &
             pid=$!
             sleep 3
             import -window root "$PREVIEW_ARTIFACTS/preview-offline-smoke.png" || true
             wait "$pid"
-          '
+          ' || result=$?
           cat artifacts/native-smoke.log
+          test "$result" = 0
           grep -F 'SMOKE_OK:' artifacts/native-smoke.log
+          grep -F 'POPUP_OK:' artifacts/native-smoke.log
       - name: Prepare verified preview artifacts
         run: |
           cp src-tauri/target/release/bundle/deb/*.deb artifacts/
@@ -106,7 +111,7 @@ jobs:
           sha256sum *.deb > SHA256SUMS
       - uses: actions/upload-artifact@v5
         with:
-          name: VibeZ-Tauri-Preview-0.1.0-Linux-x64
+          name: VibeZ-Tauri-Preview-0.1.1-Linux-x64
           path: |
             tauri-preview/artifacts/*.deb
             tauri-preview/artifacts/SHA256SUMS

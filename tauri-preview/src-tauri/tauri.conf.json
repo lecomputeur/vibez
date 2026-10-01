@@ -1,12 +1,10 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "VibeZ Tauri Preview",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "identifier": "nl.lecomputeur.vibez.tauri.preview",
   "mainBinaryName": "vibez-tauri-preview",
-  "build": {
-    "frontendDist": "../dist"
-  },
+  "build": { "frontendDist": "../dist" },
   "app": {
     "windows": [],
     "withGlobalTauri": true,
@@ -22,11 +20,6 @@
     "shortDescription": "Experimental Rust/Tauri client alongside VibeZ",
     "longDescription": "Linux-only preview using WebKitGTK. Separate installation and profile; does not replace or update the Electron VibeZ application.",
     "icon": ["icons/icon.png"],
-    "linux": {
-      "deb": {
-        "depends": ["xdg-desktop-portal"],
-        "recommends": ["xdg-desktop-portal-gtk"]
-      }
-    }
+    "linux": { "deb": { "depends": ["xdg-desktop-portal"], "recommends": ["xdg-desktop-portal-gtk"] } }
   }
 }

@@ -1,84 +1,74 @@
 # VibeZ Tauri Preview — Linux prototype
 
-Experimental Rust/Tauri implementation alongside the existing Electron VibeZ. **Not a production replacement.** No changes to the Electron application, main branch, stable releases, public website or Microsoft Store submission.
+Experimental Rust/Tauri implementation alongside Electron VibeZ. **Not a production replacement.** The Electron app, main branch, stable releases, website and Microsoft Store submission are unchanged.
+
+## 0.1.1 — sign-in popup repair
+
+The 0.1.0 handler moved a popup URL into the main view and denied the new window. Version 0.1.1 instead returns a related WebKit window using Tauri's `window_features` and `NewWindowResponse::Create`. This preserves `window.opener`, the original request and the preview's WebContext. Blank popup bootstraps are supported. Closing a popup does not close or reload the main page, and popup creation is capped at four windows.
+
+A Home button returns to Vibe without clearing cookies or settings. Load failures and terminated web processes are reported in the toolbar. Settings diagnostics include only recent navigation origins and numeric load error codes: no URL paths, queries, fragments, credentials, cookies or tokens.
+
+**This repairs the popup implementation, not Google's restrictions on embedded browsers.** A complete real Google/Mistral sign-in has not been verified. Google can reject embedded user agents (`disallowed_useragent` / browser not supported). No user-agent spoofing, certificate bypass, credential interception or cookie transfer is implemented. Opening Vibe in your normal browser does not automatically sign the preview in. A browser-based return flow requires a supported service-side integration; this preview does not invent one.
+
+References:
+- https://developers.google.com/identity/protocols/oauth2/native-app#disallowed_useragent
+- https://docs.rs/tauri/latest/tauri/webview/enum.NewWindowResponse.html
 
 ## Independent installation
 
 | Item | Preview |
 | --- | --- |
-| Display name | VibeZ Tauri Preview |
-| Version | 0.1.0 (independent version sequence) |
+| Name | VibeZ Tauri Preview |
+| Version | 0.1.1 |
 | Executable | `vibez-tauri-preview` |
-| Debian package name | `vibe-z-tauri-preview` |
+| Debian package | `vibe-z-tauri-preview` |
 | Application ID | `nl.lecomputeur.vibez.tauri.preview` |
-| Settings | `~/.config/nl.lecomputeur.vibez.tauri.preview/settings.json` by default |
-| Webview data | `~/.local/share/nl.lecomputeur.vibez.tauri.preview/` by default |
+| Settings | `~/.config/nl.lecomputeur.vibez.tauri.preview/settings.json` |
+| Webview data | `~/.local/share/nl.lecomputeur.vibez.tauri.preview/` |
 
-XDG directory overrides are respected. The preview does not copy the Electron cookies, change the existing `vibez://` protocol, register Electron's shortcut or use its update feed. Start-at-login and close-to-tray are off by default. Opt-in autostart uses the separate name **VibeZ Tauri Preview**. Both apps may run at once; log into the preview separately.
+XDG directory overrides are respected. The preview never imports Electron cookies, changes the existing `vibez://` protocol, registers Electron's shortcut or uses its update feed. Start-at-login and close-to-tray are opt-in. Both apps may run at once. Upgrading this package replaces only the preview, preserving its own profile.
 
-## First implemented slice
+## Features and limitations
 
-The native Linux window contains separate WebKitGTK views for the bundled toolbar and the official Mistral Vibe website. The remote page gets no native command capabilities. Only the bundled toolbar/settings pages can invoke the restricted application commands; there is no shell-command or arbitrary-file-access bridge.
+Separate WebKitGTK views render the local toolbar and Mistral Vibe website. Only local toolbar/settings views can call native commands. The website and all sign-in popups have no native command capabilities. No shell-command bridge or arbitrary file access is exposed.
 
-The logo, existing toolbar CSS and applicable 34-language translations are copied read-only from the existing VibeZ source during build. The preview provides Back, Forward, Reload, a versioned title, zoom/language settings, screenshot-button visibility, opt-in autostart, and a separate tray with Open, Screenshot, Settings and Quit. Preview explanations are English/Dutch; tray/status text is initially English, so localization is not yet complete in every language.
+The original logo, toolbar CSS and applicable 34-language translations are reused read-only. Back, Forward, Reload, Home, zoom/language settings, screenshot-button visibility, opt-in autostart and an independent tray are included. Preview explanations are English/Dutch; some status/tray text is English.
 
-Linux layout uses GTK's actual container packing: a fixed 54-logical-pixel toolbar and expanding website. This avoids treating a GtkBox as an absolute-positioned surface. The native tests inspect real GTK allocations while resizing/maximizing/restoring.
+GTK packs a fixed 54-logical-pixel toolbar and expanding content. Screenshots use the interactive desktop XDG portal and are copied to the clipboard; paste manually into Vibe with Ctrl+V. Portal failure or cancellation never triggers an unrestricted screenshot fallback.
 
-Screenshots use the desktop's interactive XDG portal and are copied to the clipboard. Paste manually into Vibe with **Ctrl+V**. Selection modes depend on the desktop portal. Cancelling or a missing portal returns an error; no silent unrestricted screenshot fallback is attempted.
+Microphone/camera permissions, the Electron selection overlay, automatic screenshot paste, global shortcuts, automatic updates and Windows/macOS packaging are not enabled. Real Mistral login, Work/Code, uploads/downloads and session persistence still require desktop validation. Keep the stable app installed.
 
-## Not yet equivalent to the stable app
+## Install or upgrade (Ubuntu 24.04 / compatible amd64 Linux)
 
-This is the first Linux preview, not a claim of complete parity. Microphone/camera permissions, the Electron region-selection overlay, automatic screenshot paste, global shortcuts (including Wayland portals), automatic updates, and Windows/macOS packaging are not enabled. Remote media permission requests are denied for now.
+Quit **VibeZ Tauri Preview** first, including its tray process. Download the DEB from the preview workflow artifact, not the stable Releases feed.
 
-Actual Mistral sign-in, Work/Code, conversation persistence, uploads, downloads and pasted attachments need testing on your desktop. Trusted authentication navigation stays inside the content view; popup/opener-dependent SSO may not work yet. The app does not bypass provider protections or ask for passwords outside the official website.
-
-The automated integration page is explicitly offline and is **not** a claim that a logged-in Mistral session has been tested. Tauri's multi-webview API currently uses its `unstable` feature; the exact Tauri release is pinned. Resolved Rust/npm lockfiles are preserved in build artifacts.
-
-## Install on Ubuntu 24.04 / compatible amd64 Linux
-
-The installable DEB is provided only after tests pass in the **VibeZ Tauri Preview - Linux only** workflow. It is not published to the stable GitHub Releases feed.
-
-For the original filename produced by the bundler:
+With the filename provided in the chat:
 
 ```bash
-sudo apt install "./VibeZ Tauri Preview_0.1.0_amd64.deb"
+sudo apt install ./vibez-tauri-preview_0.1.1_amd64.deb
 vibez-tauri-preview
 ```
 
-If the downloaded file was renamed to `vibez-tauri-preview_0.1.0_amd64.deb`, use that filename instead. Search the application menu for **VibeZ Tauri Preview**, not VibeZ. The binary is `vibez-tauri-preview`, while the Debian package identifier is `vibe-z-tauri-preview`.
+The original bundler filename is `VibeZ Tauri Preview_0.1.1_amd64.deb`; quote it when using that filename. `apt` installs the system WebKitGTK/GTK and desktop portal dependencies. Keep those system packages updated.
 
-System dependencies include GTK, WebKitGTK 4.1, Ayatana AppIndicator and xdg-desktop-portal. Keep them updated through your distribution. Screenshot interaction also needs a working portal backend appropriate to your desktop. Enable close-to-tray only when its icon is actually visible; relaunching the preview restores its main window.
+Check the window title or `vibez-tauri-preview --version`: it must say 0.1.1. Click the Home icon to return from a previously failed login, then try your existing sign-in method. Do not share passwords, verification codes or complete OAuth URLs when reporting a failure.
 
-To uninstall only this preview: disable its Start at login option, quit it, then run:
+To remove only the preview, first disable its Start-at-login setting and quit it:
 
 ```bash
 sudo apt remove vibe-z-tauri-preview
 ```
 
-The separate preview profile is retained for a later reinstall. Your existing VibeZ profile is never removed.
+## Build and tests
 
-## Source build in a separate checkout
+Use a separate checkout of branch `vibe/tauri-linux-preview-7c4e90`. Install Rust and the Tauri Linux build dependencies, then run in `tauri-preview`:
 
 ```bash
-git clone --branch vibe/tauri-linux-preview-7c4e90 --single-branch https://github.com/lecomputeur/vibez.git vibez-tauri-preview-source
-cd vibez-tauri-preview-source/tauri-preview
-# Install Rust and Tauri's Linux prerequisites first.
 npm install
 npm test
-npm run dev
 npm run build -- --bundles deb
 ```
 
-The npm development/build scripts prepare assets from the preview's own directory. Do not switch your current Electron checkout to this branch or invoke the production release workflow.
+The dedicated read-only workflow refuses changes outside the preview and its own workflow. It runs frontend/isolation and Rust tests, verifies the generated package identity/version, and starts the actual binary under Xvfb/Openbox. Offline integration checks cover direct and initially-blank popups, `window.opener`, callback delivery, popup close, denied native IPC and an unchanged main page, followed by resize/maximize/restore tests. Failed integration tests prevent publishing the installable artifact. These are offline tests, **not a successful live Google login**.
 
-## Validation
-
-The read-only Linux workflow refuses changes outside `tauri-preview/` and its own workflow file. It runs six frontend/isolation tests, seven Rust policy tests, npm security auditing, the DEB build and package identity checks. Under Xvfb/Openbox it launches the extracted binary and checks the toolbar IPC handshake, denial of native IPC from the content view, the versioned title, actual GTK toolbar/content allocations across repeated resize/maximize/restore transitions, and hide/show.
-
-A failed native test prevents upload of the installable artifact. Validation logs and the clearly labelled offline screenshot remain available for debugging. Live Mistral functionality and desktop portal interaction must be verified separately.
-
-## Privacy and attribution
-
-Independent project, not affiliated with or supported by Mistral AI. The official service handles account information and chats. The preview stores its own settings/WebKit profile locally, adds no telemetry or update requests, and only reads screenshot images after a user-initiated portal request. It does not read existing clipboard contents. Diagnostics exclude chats, passwords, cookies and authentication tokens.
-
-Original icon, toolbar CSS and translations are reused under the repository's MIT license. See the repository LICENSE.
+Tauri's multi-webview API uses its unstable feature. Its exact version is pinned; resolved Rust/npm lockfiles are included in validation artifacts. No production release is created by this workflow.
