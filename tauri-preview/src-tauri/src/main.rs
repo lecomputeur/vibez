@@ -159,7 +159,7 @@ async fn take_screenshot(app: &AppHandle) -> Result<(), String> {
     let state = app.state::<PreviewState>();
     if state.capture_busy.swap(true, Ordering::SeqCst) { return Err("A screenshot is already in progress".into()); }
     message(app, "Choose a screenshot in the desktop dialog…");
-    let result = async {
+    let result: Result<(), String> = async {
         let response = ashpd::desktop::screenshot::Screenshot::request().interactive(true).modal(true)
             .send().await.map_err(err)?.response().map_err(err)?;
         let file = response.uri().to_file_path().map_err(|_| "The portal did not return a local image".to_string())?;
