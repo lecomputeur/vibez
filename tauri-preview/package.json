@@ -1,0 +1,14 @@
+{
+  "name": "vibez-tauri-preview",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Isolated Linux Rust/Tauri prototype; never replaces VibeZ Electron",
+  "scripts": {
+    "prepare:assets": "node scripts/prepare.cjs",
+    "test": "node --test test/*.test.cjs",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "tauri": "tauri"
+  },
+  "devDependencies": { "@tauri-apps/cli": "2" }
+}

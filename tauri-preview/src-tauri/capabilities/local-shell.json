@@ -1,0 +1,11 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "local-shell",
+  "description": "Only bundled shell/settings webviews can invoke preview controls. The remote Vibe webview and authentication pages get no native capabilities.",
+  "local": true,
+  "webviews": ["shell", "settings"],
+  "permissions": [
+    "allow-get-state", "allow-navigate", "allow-show-settings", "allow-save-settings",
+    "allow-close-settings", "allow-capture-screenshot", "allow-get-diagnostics"
+  ]
+}
