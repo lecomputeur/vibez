@@ -162,7 +162,8 @@ async fn take_screenshot(app: &AppHandle) -> Result<(), String> {
     let result: Result<(), String> = async {
         let response = ashpd::desktop::screenshot::Screenshot::request().interactive(true).modal(true)
             .send().await.map_err(err)?.response().map_err(err)?;
-        let file = response.uri().to_file_path().map_err(|_| "The portal did not return a local image".to_string())?;
+        let uri = url::Url::parse(response.uri().as_str()).map_err(err)?;
+        let file = uri.to_file_path().map_err(|_| "The portal did not return a local image".to_string())?;
         if fs::metadata(&file).map_err(err)?.len() > 64 * 1024 * 1024 {
             return Err("Screenshot is larger than the 64 MiB preview limit".into());
         }
