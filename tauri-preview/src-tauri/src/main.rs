@@ -1,11 +1,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod policy;
 mod smoke;
+mod native_layout;
 
 use policy::{APP_ID, APP_NAME, HOME, TOOLBAR_HEIGHT, Settings};
 use serde_json::{json, Value};
 use std::{fs, io::Write, path::PathBuf, sync::{Mutex, atomic::{AtomicBool, Ordering}}};
-use tauri::{AppHandle, Manager, Webview, WebviewUrl, WebviewWindowBuilder, LogicalPosition, LogicalSize, Rect};
+use tauri::{AppHandle, Manager, Webview, WebviewUrl, WebviewWindowBuilder, LogicalPosition, LogicalSize};
 use tauri::webview::{WebviewBuilder, NewWindowResponse, PermissionResponse};
 use tauri_plugin_autostart::ManagerExt as AutostartExt;
 use tauri_plugin_clipboard_manager::ClipboardExt;
@@ -57,17 +58,7 @@ fn show_main(app: &AppHandle) {
     }
 }
 fn layout(app: &AppHandle) -> Result<(), String> {
-    let Some(window) = app.get_window("main") else { return Ok(()); };
-    let scale = window.scale_factor().map_err(err)?;
-    let size = window.inner_size().map_err(err)?.to_logical::<f64>(scale);
-    let (width, height) = policy::content_size(size.width, size.height);
-    if let Some(shell) = app.get_webview("shell") {
-        shell.set_bounds(Rect { position: LogicalPosition::new(0., 0.).into(), size: LogicalSize::new(width, TOOLBAR_HEIGHT).into() }).map_err(err)?;
-    }
-    if let Some(vibe) = app.get_webview("vibe") {
-        vibe.set_bounds(Rect { position: LogicalPosition::new(0., TOOLBAR_HEIGHT).into(), size: LogicalSize::new(width, height).into() }).map_err(err)?;
-    }
-    Ok(())
+    native_layout::layout(app)
 }
 
 #[tauri::command]

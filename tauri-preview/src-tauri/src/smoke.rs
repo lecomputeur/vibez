@@ -11,14 +11,18 @@ fn evaluate(view: &tauri::Webview, js: &str) -> Result<String, String> {
 fn check_layout(app: &AppHandle) -> Result<(), String> {
     let window = app.get_window("main").ok_or("Missing main window")?;
     let view = app.get_webview("vibe").ok_or("Missing Vibe webview")?;
+    let shell = app.get_webview("shell").ok_or("Missing toolbar webview")?;
     let scale = window.scale_factor().map_err(crate::err)?;
     let size = window.inner_size().map_err(crate::err)?.to_logical::<f64>(scale);
-    let rendered = view.size().map_err(crate::err)?.to_logical::<f64>(scale);
-    let position = view.position().map_err(crate::err)?.to_logical::<f64>(scale);
-    if (rendered.width-size.width).abs()>2. || (rendered.height+TOOLBAR_HEIGHT-size.height).abs()>2. || (position.y-TOOLBAR_HEIGHT).abs()>2. {
-        return Err(format!("Viewport mismatch: window={size:?}, content={rendered:?}, offset={position:?}"));
+    let (x,y,width,height) = crate::native_layout::geometry(&view)?;
+    let (sx,sy,sw,sh) = crate::native_layout::geometry(&shell)?;
+    if x.abs()>2. || (y-TOOLBAR_HEIGHT).abs()>2. || (width-size.width).abs()>2.
+        || (height+TOOLBAR_HEIGHT-size.height).abs()>2. || sx.abs()>2. || sy.abs()>2.
+        || (sw-size.width).abs()>2. || (sh-TOOLBAR_HEIGHT).abs()>2. {
+        return Err(format!("GTK viewport mismatch: window={size:?}, content=({x},{y},{width},{height}), toolbar=({sx},{sy},{sw},{sh})"));
     }
     if window.title().map_err(crate::err)? != crate::title() { return Err("Title does not match preview version".into()); }
+    println!("LAYOUT_OK: {}x{} content {}x{} at {},{}", size.width,size.height,width,height,x,y);
     Ok(())
 }
 fn checks(app: &AppHandle) -> Result<(), String> {
