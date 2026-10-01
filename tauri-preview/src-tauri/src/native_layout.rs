@@ -1,14 +1,16 @@
-//! Wry packs Linux child webviews into a GtkBox with expand=true by default.
-//! Let GTK allocate the content rather than applying absolute bounds to a Box.
+//! Linux child webviews are packed in a GtkBox, not an absolute-positioned canvas.
+//! Configure packing once. Reapplying it in every native resize event queues new
+//! GTK resizes and can starve allocation/painting before the window is mapped.
 use gtk::prelude::*;
 use tauri::{AppHandle, Manager};
 use std::sync::atomic::{AtomicBool, Ordering};
 use crate::policy::TOOLBAR_HEIGHT;
 
-static INITIAL_WINDOW_SHOWN: AtomicBool = AtomicBool::new(false);
+static PACKING_CONFIGURED: AtomicBool = AtomicBool::new(false);
 
 pub fn layout(app: &AppHandle) -> Result<(), String> {
-    let ready = app.get_webview("shell").is_some() && app.get_webview("vibe").is_some();
+    if app.get_webview("shell").is_none() || app.get_webview("vibe").is_none() { return Ok(()); }
+    if PACKING_CONFIGURED.swap(true, Ordering::SeqCst) { return Ok(()); }
     for (label, toolbar) in [("shell", true), ("vibe", false)] {
         if let Some(view) = app.get_webview(label) {
             view.with_webview(move |platform| {
@@ -26,11 +28,7 @@ pub fn layout(app: &AppHandle) -> Result<(), String> {
             }).map_err(crate::err)?;
         }
     }
-    // A bare Tauri Window with manually attached views must be mapped explicitly.
-    // Do this only once; later resize events must never undo hide-to-tray.
-    if ready && !INITIAL_WINDOW_SHOWN.swap(true, Ordering::SeqCst) {
-        if let Some(window) = app.get_window("main") { window.show().map_err(crate::err)?; }
-    }
+    if let Some(window) = app.get_window("main") { window.show().map_err(crate::err)?; }
     Ok(())
 }
 
