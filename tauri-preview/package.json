@@ -1,6 +1,6 @@
 {
   "name": "vibez-tauri-preview",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "private": true,
   "description": "Isolated Rust/Tauri prototype for Linux and Windows; never replaces VibeZ Electron",
   "scripts": {
