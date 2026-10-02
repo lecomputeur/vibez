@@ -1,6 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod policy;
 mod smoke;
+mod link_trace;
+mod link_probe;
 #[cfg(target_os = "linux")]
 #[path = "native_layout.rs"]
 mod native_layout;
@@ -243,10 +245,10 @@ async fn get_diagnostics(webview: Webview, app: AppHandle) -> Result<String, Str
          std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default(),
          "Preview update checks: manual, separate tested Linux artifacts; installation is manual")
     };
-    Ok(format!("{}\nApplication ID: {}\nEngine: {}\nOS: {} {}\nSession: {}\nDesktop: {}\nConfig: {}\nData: {}\n{}\nAutomatic installation: disabled\nMicrophone/camera: not enabled in this preview\nGlobal shortcut: not registered (does not conflict with Electron)\nSign-in popups: related webview; provider restrictions still apply\nRecent navigation (origins only, no credentials or tokens):\n{}",
+    Ok(format!("{}\nApplication ID: {}\nEngine: {}\nOS: {} {}\nSession: {}\nDesktop: {}\nConfig: {}\nData: {}\n{}\nAutomatic installation: disabled\nMicrophone/camera: not enabled in this preview\nGlobal shortcut: not registered (does not conflict with Electron)\nSign-in popups: related webview; provider restrictions still apply\nAutomatic JS link interception: disabled\nRecent navigation (origins only, no credentials or tokens):\n{}\nLink routing (current process, origins only):\n{}",
         title(), APP_ID, engine, os_name, std::env::consts::ARCH, session, desktop,
         app.path().app_config_dir().map_err(err)?.display(), app.path().app_data_dir().map_err(err)?.display(),
-        update_text, auth::diagnostics()))
+        update_text, auth::diagnostics(), link_trace::diagnostics()))
 }
 
 fn create_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
@@ -255,10 +257,13 @@ fn create_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 
 fn main() {
     if std::env::args().any(|a| a == "--version") { println!("{}", title()); return; }
-    let smoke = std::env::args().any(|a| a == "--smoke-test");
+    let link_probe_only = std::env::args().any(|a| a == "--link-probe-only");
+    let smoke = link_probe_only || std::env::args().any(|a| a == "--smoke-test");
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| show_main(app)))
-        .plugin(tauri_plugin_opener::init())
+        // Do not inject a second click handler into third-party login pages.
+        // Rust navigation/window handlers remain responsible for external links.
+        .plugin(tauri_plugin_opener::Builder::new().open_js_links_on_click(false).build())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_autostart::Builder::new().app_name(APP_NAME).arg("--hidden").build())
         .invoke_handler(tauri::generate_handler![get_state, navigate, show_settings, save_settings, close_settings, capture_screenshot, get_diagnostics])
@@ -291,16 +296,32 @@ fn main() {
                 .data_directory(data.join("webview")).disable_drag_drop_handler()
                 .on_permission_request(|_, _| PermissionResponse::Deny)
                 .on_navigation(move |url| {
-                    if (smoke && policy::local_url(url)) || policy::embedded_url(url) { return true; }
+                    if (smoke && policy::local_url(url)) || policy::embedded_url(url) {
+                        link_trace::record("main-allow", url);
+                        return true;
+                    }
                     if policy::external_url(url) {
+                        link_trace::record("main-open-external", url);
                         if handle.opener().open_url(url.as_str(), None::<&str>).is_err() {
+                            link_trace::record("main-external-failed", url);
                             message(&handle, "Could not open the external link in your browser.");
                         }
-                    }
+                    } else { link_trace::record("main-block", url); }
                     false
                 })
-                .on_page_load(|_, payload| auth::page(payload.url(), matches!(payload.event(), tauri::webview::PageLoadEvent::Finished)))
-                .on_new_window(move |url, features| auth::new_window(&popup_handle, url, features));
+                .on_page_load(|_, payload| {
+                    let finished = matches!(payload.event(), tauri::webview::PageLoadEvent::Finished);
+                    link_trace::record(if finished { "main-load-finished" } else { "main-load-started" }, payload.url());
+                    auth::page(payload.url(), finished);
+                })
+                .on_new_window(move |url, features| {
+                    link_trace::record("main-popup-request", &url);
+                    let target = url.clone();
+                    let response = auth::new_window(&popup_handle, url, features);
+                    let created = matches!(&response, NewWindowResponse::Create { .. });
+                    link_trace::record(if created { "main-popup-created" } else { "main-popup-not-created" }, &target);
+                    response
+                });
             let vibe = window.add_child(content, LogicalPosition::new(0., TOOLBAR_HEIGHT), LogicalSize::new(1280., 840. - TOOLBAR_HEIGHT))?;
             auth::attach_errors(app.handle(), &vibe).map_err(std::io::Error::other)?;
             vibe.set_zoom(settings.zoom_factor)?;
@@ -311,7 +332,7 @@ fn main() {
                     Err(error) => message(app.handle(), format!("Tray unavailable: {error}")),
                 }
                 if std::env::args().any(|a| a == "--hidden") && app.state::<PreviewState>().tray_ready.load(Ordering::Relaxed) { window.hide()?; }
-            } else { smoke::start(app.handle().clone()); }
+            } else { link_probe::start(app.handle().clone(), link_probe_only); }
             Ok(())
         })
         .on_window_event(|window, event| {

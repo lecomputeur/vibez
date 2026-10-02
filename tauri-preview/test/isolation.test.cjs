@@ -13,10 +13,10 @@ const cap = JSON.parse(read('src-tauri/capabilities/local-shell.json'));
 test('preview has an independent identity, executable and version', () => {
   assert.equal(config.identifier, 'nl.lecomputeur.vibez.tauri.preview');
   assert.equal(config.mainBinaryName, 'vibez-tauri-preview');
-  assert.equal(config.version, '0.1.6');
+  assert.equal(config.version, '0.1.7');
   assert.equal(config.productName, 'VibeZ Tauri Preview');
   assert.equal(JSON.parse(read('package.json')).version, config.version);
-  assert.match(read('src-tauri/Cargo.toml'), /version = "0\.1\.6"/);
+  assert.match(read('src-tauri/Cargo.toml'), /version = "0\.1\.7"/);
 });
 test('remote website and auth popups have no native capabilities or iframe bridge', () => {
   assert.deepEqual(cap.webviews, ['shell', 'settings']);
@@ -69,11 +69,10 @@ test('toolbar language picker saves the choice through native settings', () => {
   assert.match(html, /id="language-button"/);
   assert.match(html, /id="quick-language"/);
   assert.match(toolbar, /save_settings/);
-  assert.match(toolbar, /language: \$\('quick-language'\)\.value|language: \$\('quick-language'\)\.value/);
+  assert.match(toolbar, /language: \$\('quick-language'\)\.value/);
   assert.match(main, /write_settings\(&state\.file, &settings\)/);
   assert.match(main, /desktop_ui::refresh\(&app\)/);
 });
-
 test('popup implementation preserves related views without spoofing or intercepting credentials', () => {
   const auth = read('src-tauri/src/auth.rs');
   assert.match(auth, /\.window_features\(features\)/);
@@ -97,7 +96,6 @@ test('tray update check is native-only, manual and separated from stable release
   assert.doesNotMatch(updates, /Command::new|reqwest::blocking|danger_accept_invalid_certs|\.bearer_auth\(/);
   assert.doesNotMatch(read('src-tauri/build.rs'), /preview_updates|check_updates/);
 });
-
 test('Windows Store preview stays separate from the production Store identity', () => {
   const ps = read('scripts/build-windows-store-preview.ps1');
   assert.match(ps, /LeComputeur\.VibeZTauriPreview/);
@@ -107,7 +105,6 @@ test('Windows Store preview stays separate from the production Store identity', 
   assert.match(workflow, /windows-latest/);
   assert.match(workflow, /Store-Preview/);
 });
-
 test('first-login nested OAuth popups are preserved and still isolated', () => {
   const auth = read('src-tauri/src/auth.rs');
   const smoke = read('src-tauri/src/smoke.rs');
@@ -117,7 +114,6 @@ test('first-login nested OAuth popups are preserved and still isolated', () => {
   assert.match(smoke, /Nested popup was granted native command access/);
   assert.match(smoke, /Nested popup callback did not reach its opener/);
 });
-
 test('trusted auth popup keeps the complete HTTPS redirect chain inside the isolated webview', () => {
   const auth = read('src-tauri/src/auth.rs');
   assert.match(auth, /fn auth_chain_allowed/);
@@ -125,4 +121,13 @@ test('trusted auth popup keeps the complete HTTPS redirect chain inside the isol
   assert.match(auth, /if auth_chain_allowed\(next, smoke\) \{ return true; \}/);
   assert.match(auth, /create_auth_window\(app, url, features, false\)/);
   assert.doesNotMatch(auth, /\.user_agent\(|\.cookies\(|\.set_cookie\(|ignore_certificate/);
+});
+test('automatic injected opener is disabled; explicit native routes are traced', () => {
+  const main = read('src-tauri/src/main.rs');
+  assert.match(main, /open_js_links_on_click\(false\)/);
+  assert.doesNotMatch(main, /\.plugin\(tauri_plugin_opener::init\(\)\)/);
+  assert.match(main, /link_trace::record\("main-open-external", url\)/);
+  assert.match(main, /link_trace::record\("main-popup-request", &url\)/);
+  assert.match(main, /link_probe::start/);
+  assert.match(read('src-tauri/src/link_probe.rs'), /native,native,native/);
 });

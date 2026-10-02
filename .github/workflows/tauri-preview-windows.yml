@@ -56,6 +56,7 @@ jobs:
           node scripts/prepare.cjs
           npx tauri icon ../icon.png
           npm test
+          if ($LASTEXITCODE -ne 0) { throw 'Frontend tests failed' }
           npm audit --audit-level=high
       - name: Rust tests
         shell: pwsh
@@ -69,6 +70,19 @@ jobs:
           $version = node -p "require('./package.json').version"
           $reported = & .\src-tauri\target\release\vibez-tauri-preview.exe --version
           if ($reported -notmatch [regex]::Escape("v$version")) { throw "Version mismatch: $reported" }
+      - name: Native WebView2 offline link-interception probe
+        shell: pwsh
+        timeout-minutes: 3
+        run: |
+          New-Item -ItemType Directory -Force artifacts\link-probe | Out-Null
+          $exe = (Resolve-Path '.\src-tauri\target\release\vibez-tauri-preview.exe').Path
+          $process = Start-Process -FilePath $exe -ArgumentList '--link-probe-only' -PassThru -RedirectStandardOutput artifacts\link-probe\stdout.log -RedirectStandardError artifacts\link-probe\stderr.log
+          if (-not $process.WaitForExit(90000)) { $process.Kill(); throw 'WebView2 link probe timed out' }
+          $process.WaitForExit()
+          $stdout = Get-Content artifacts\link-probe\stdout.log -Raw
+          Get-Content artifacts\link-probe\stderr.log
+          Write-Output $stdout
+          if ($process.ExitCode -ne 0 -or $stdout -notmatch 'LINK_PROBE_OK') { throw "WebView2 link probe failed: $($process.ExitCode)" }
       - name: Build Windows NSIS installer
         shell: pwsh
         run: npx tauri build --bundles nsis
@@ -86,12 +100,12 @@ jobs:
           Copy-Item $nsis.FullName "$dir\VibeZ-Tauri-Preview-$version-Windows-x64-Setup.exe"
           Get-FileHash "$dir\*.msix","$dir\*.exe" -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  $([IO.Path]::GetFileName($_.Path))" } | Set-Content "$dir\SHA256SUMS.txt"
           @"
-          VibeZ Tauri Preview $version - Windows x64 test packages.
-          The *-Setup.exe file is the normal NSIS installer for VM/user testing.
-          The plain *.exe is a standalone test executable.
-          The *.msix uses the separate preview identity LeComputeur.VibeZTauriPreview.
+          VibeZ Tauri Preview $version - Windows x64 diagnostic test packages.
+          Use *-Setup.exe for normal installation; the plain EXE is a test binary.
+          This build disables injected automatic link interception and adds origin-only routing diagnostics.
+          The offline native link probe is NOT a test of a real Google/Mistral account login.
+          The MSIX uses the separate preview identity LeComputeur.VibeZTauriPreview.
           Do NOT upload it to the existing VibeZ Desktop Store product.
-          Reserve a separate Partner Center product first; rebuild if Partner Center assigns a different identity.
           "@ | Set-Content "$dir\README.txt"
       - uses: actions/upload-artifact@v5
         with:
@@ -104,4 +118,12 @@ jobs:
           retention-days: 30
           if-no-files-found: error
         env:
-          PREVIEW_VERSION: 0.1.6
+          PREVIEW_VERSION: 0.1.7
+      - name: Upload native link-probe diagnostics
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: VibeZ-Tauri-Preview-Windows-link-probe
+          path: tauri-preview/artifacts/link-probe/*.log
+          retention-days: 14
+          if-no-files-found: ignore
