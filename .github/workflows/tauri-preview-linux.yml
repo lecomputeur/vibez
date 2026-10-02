@@ -82,7 +82,6 @@ jobs:
           desktop="$(find artifacts/unpacked/usr/share/applications -name '*.desktop' -print -quit)"
           test -n "$desktop"
           grep -Eq '^Icon=(vibez-tauri-preview|nl\.lecomputeur\.vibez\.tauri\.preview)
-          artifacts/unpacked/usr/bin/vibez-tauri-preview --version | tee artifacts/version.txt
           grep -F "v$VERSION" artifacts/version.txt
       - name: Native GTK/WebKit smoke test in isolated desktop
         env:
