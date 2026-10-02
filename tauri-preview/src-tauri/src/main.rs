@@ -67,8 +67,10 @@ fn write_settings(file: &PathBuf, settings: &Settings) -> Result<(), String> {
     fs::rename(temp, file).map_err(err)
 }
 fn os_locale() -> String {
-    ["LC_ALL", "LC_MESSAGES", "LANG"].iter().find_map(|k| std::env::var(k).ok().filter(|s| !s.is_empty()))
-        .unwrap_or_else(|| "en".into()).split('.').next().unwrap_or("en").replace('_', "-")
+    sys_locale::get_locale()
+        .or_else(|| ["LC_ALL", "LC_MESSAGES", "LANG"].iter().find_map(|k| std::env::var(k).ok().filter(|s| !s.is_empty())))
+        .unwrap_or_else(|| "en".into())
+        .split('.').next().unwrap_or("en").replace('_', "-")
 }
 fn show_main(app: &AppHandle) {
     if let Some(window) = app.get_window("main") {
