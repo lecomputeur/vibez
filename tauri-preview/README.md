@@ -1,5 +1,11 @@
 # VibeZ Tauri Preview — Linux/Windows prototype
 
+## 0.1.14 — fixed Linux webview geometry and launcher identity
+
+The Linux window now places the toolbar and Vibe webviews on one explicit GtkFixed canvas instead of relying on GtkBox natural-size negotiation. The toolbar is pinned to 54px and the Vibe page is positioned immediately below it on every resize, maximize, restore and show event.
+
+The preview also enables Tauri's GTK application ID so GNOME/KDE can associate the running window and shortcuts with the installed VibeZ Tauri Preview desktop entry and icon.
+
 ## 0.1.13 — Linux layout and browser-language handoff
 
 Linux now reapplies the GTK toolbar/content packing immediately after the bundled toolbar completes its first IPC handshake. This keeps the toolbar webview at its intended 54px height after its HTML loads and prevents the large black band above Vibe.
@@ -67,7 +73,7 @@ A new offline probe checks actual webview click handling for `_blank`, Ctrl-clic
 | Item | Preview |
 | --- | --- |
 | Name | VibeZ Tauri Preview |
-| Version | 0.1.13 |
+| Version | 0.1.14 |
 | Executable | `vibez-tauri-preview` |
 | Debian package | `vibe-z-tauri-preview` |
 | Application ID | `nl.lecomputeur.vibez.tauri.preview` |
@@ -82,7 +88,7 @@ XDG directory overrides are respected. The preview never imports Electron cookie
 Fully quit the running preview through its tray menu before installing from Downloads:
 
 ```bash
-sudo apt install ./vibez-tauri-preview_0.1.13_amd64.deb
+sudo apt install ./vibez-tauri-preview_0.1.14_amd64.deb
 vibez-tauri-preview
 ```
 
@@ -90,7 +96,7 @@ To uninstall only the preview, disable its autostart setting and quit it, then u
 
 ### Windows x64
 
-Use `VibeZ-Tauri-Preview-0.1.13-Windows-x64-Setup.exe` for normal installation. A plain executable is also built for testing. Fully quit the existing preview before upgrading. WebView2 is required; the Tauri installer handles its configured runtime installation when needed.
+Use `VibeZ-Tauri-Preview-0.1.14-Windows-x64-Setup.exe` for normal installation. A plain executable is also built for testing. Fully quit the existing preview before upgrading. WebView2 is required; the Tauri installer handles its configured runtime installation when needed.
 
 The unsigned candidate MSIX is not the recommended local test installer. **Do not upload it to the existing VibeZ Desktop Store product.** A separate Partner Center product and matching assigned identity are required before any separate Store submission. Store certification and a real installed-app test are separate from MSIX structural validation.
 
