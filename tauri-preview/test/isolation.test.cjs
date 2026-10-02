@@ -199,3 +199,17 @@ test('Linux preview uses fixed child bounds and GTK app identity for launcher ic
   assert.match(native, /TOOLBAR_HEIGHT/);
   assert.doesNotMatch(native, /set_child_packing\(&widget/);
 });
+
+
+test('Debian package installs identifier-named desktop entry and icon for GTK/Wayland', () => {
+  const alias = read('src-tauri/linux/nl.lecomputeur.vibez.tauri.preview.desktop');
+  const hidden = read('src-tauri/linux/hidden-generated.desktop.hbs');
+  assert.equal(config.app.enableGTKAppId, true);
+  assert.equal(config.bundle.linux.deb.files['/usr/share/applications/nl.lecomputeur.vibez.tauri.preview.desktop'],
+    'linux/nl.lecomputeur.vibez.tauri.preview.desktop');
+  assert.equal(config.bundle.linux.deb.files['/usr/share/icons/hicolor/512x512/apps/nl.lecomputeur.vibez.tauri.preview.png'],
+    'icons/icon.png');
+  assert.match(alias, /^Icon=nl\.lecomputeur\.vibez\.tauri\.preview$/m);
+  assert.match(alias, /^StartupWMClass=nl\.lecomputeur\.vibez\.tauri\.preview$/m);
+  assert.match(hidden, /^NoDisplay=true$/m);
+});
