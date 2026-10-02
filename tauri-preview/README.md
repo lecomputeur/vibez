@@ -4,7 +4,7 @@
 
 The Linux window now places the toolbar and Vibe webviews on one explicit GtkFixed canvas instead of relying on GtkBox natural-size negotiation. The toolbar is pinned to 54px and the Vibe page is positioned immediately below it on every resize, maximize, restore and show event.
 
-The preview also enables Tauri's GTK application ID so GNOME/KDE can associate the running window and shortcuts with the installed VibeZ Tauri Preview desktop entry and icon.
+The preview also enables Tauri's GTK application ID and installs an identifier-named desktop entry plus matching icon alias, so GNOME/KDE can associate the running window and pinned shortcuts with the VibeZ icon.
 
 ## 0.1.13 — Linux layout and browser-language handoff
 
