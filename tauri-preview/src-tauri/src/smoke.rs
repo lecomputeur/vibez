@@ -114,6 +114,13 @@ fn checks(app: &AppHandle) -> Result<(), String> {
     let probe = evaluate(&view, "window.__probe")?;
     if !probe.contains("denied") { return Err(format!("Untrusted content IPC was not rejected: {probe}")); }
     popup_checks(app)?;
+    #[cfg(target_os = "linux")]
+    {
+        // Popup destruction can briefly invalidate WebKitGTK child packing.
+        // Reapply the production repair before judging resize geometry.
+        crate::native_layout::repair(app)?;
+        thread::sleep(Duration::from_millis(300));
+    }
     for (width,height) in [(1100.,720.),(760.,560.),(1450.,950.),(1280.,840.)] {
         window.set_size(LogicalSize::new(width,height)).map_err(crate::err)?;
         thread::sleep(Duration::from_millis(500)); check_layout(app)?;
