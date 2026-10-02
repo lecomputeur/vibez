@@ -69,6 +69,10 @@ pub fn attach_errors(app: &AppHandle, view: &Webview) -> Result<(), String> {
                 let app = handle.clone(); let label = label.clone();
                 tauri::async_runtime::spawn(async move {
                     if let Some(window) = app.get_webview_window(&label) { let _ = window.destroy(); }
+                    // Let the related WebKit view finish detaching, then restore
+                    // the main GtkBox packing if WebKitGTK disturbed it.
+                    tokio::time::sleep(std::time::Duration::from_millis(80)).await;
+                    let _ = crate::native_layout::repair(&app);
                 });
             });
         }
