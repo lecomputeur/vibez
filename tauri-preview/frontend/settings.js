@@ -9,6 +9,7 @@
       const el = document.createElement('option'); el.value = option.code; el.textContent = option.name; $('language').appendChild(el);
     }
     $('language').value = state.settings.language;
+    preview.localize(state);
     $('zoom').value = String(state.settings.zoom_factor);
     $('show-screenshot').checked = state.settings.show_screenshot;
     $('close-to-tray').checked = state.settings.close_to_tray && state.tray_ready;

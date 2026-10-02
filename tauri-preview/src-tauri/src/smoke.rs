@@ -28,8 +28,6 @@ fn check_layout(app: &AppHandle) -> Result<(), String> {
 fn popup_checks(app: &AppHandle) -> Result<(), String> {
     let view = app.get_webview("vibe").ok_or("Missing Vibe view")?;
     let initial = view.url().map_err(crate::err)?;
-    // Test both direct window.open and a blank window followed by navigation.
-    // These are offline test pages, never a real OAuth or Google session.
     for blank in [false, true] {
         view.eval("window.__reply='pending'; window.onmessage=e=>{if(e.source===window.__popup && e.data==='preview-popup-reply')window.__reply='ok';};").map_err(crate::err)?;
         view.eval(if blank { "window.__popup=window.open('about:blank','_blank');" }
@@ -67,6 +65,7 @@ fn popup_checks(app: &AppHandle) -> Result<(), String> {
 fn checks(app: &AppHandle) -> Result<(), String> {
     thread::sleep(Duration::from_secs(4));
     if !app.state::<PreviewState>().shell_ready.load(Ordering::Relaxed) { return Err("Bundled toolbar did not complete native IPC handshake".into()); }
+    crate::desktop_ui::smoke_check(app)?;
     let window = app.get_window("main").ok_or("Missing main window")?;
     let view = app.get_webview("vibe").ok_or("Missing Vibe webview")?;
     view.eval("window.__probe='pending'; window.__TAURI__.core.invoke('get_state').then(()=>window.__probe='UNSAFE',()=>window.__probe='denied');").map_err(crate::err)?;
@@ -91,7 +90,7 @@ fn checks(app: &AppHandle) -> Result<(), String> {
 pub fn start(app: AppHandle) {
     thread::spawn(move || {
         match checks(&app) {
-            Ok(()) => { println!("SMOKE_OK: popup/opener callbacks, denied popup/content IPC, toolbar, title, resize/maximize/restore and hide/show"); app.exit(0); },
+            Ok(()) => { println!("SMOKE_OK: translated native tray/update menu, popup/opener callbacks, denied popup/content IPC, toolbar, title, resize/maximize/restore and hide/show"); app.exit(0); },
             Err(error) => { eprintln!("SMOKE_FAILED: {error}\n{}", crate::auth::diagnostics()); app.exit(1); },
         }
     });

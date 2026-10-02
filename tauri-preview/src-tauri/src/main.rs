@@ -3,6 +3,8 @@ mod policy;
 mod smoke;
 mod native_layout;
 mod auth;
+mod desktop_ui;
+mod preview_updates;
 
 use policy::{APP_ID, APP_NAME, HOME, TOOLBAR_HEIGHT, Settings};
 use serde_json::{json, Value};
@@ -75,7 +77,8 @@ async fn get_state(webview: Webview, app: AppHandle) -> Result<Value, String> {
     let (back, forward, loading) = rx.await.map_err(err)?;
     let state = app.state::<PreviewState>();
     if webview.label() == "shell" { state.shell_ready.store(true, Ordering::Relaxed); }
-    let status = state.status.lock().map_err(err)?.clone();
+    let raw_status = state.status.lock().map_err(err)?.clone();
+    let status = desktop_ui::status(&app, &raw_status);
     Ok(json!({"settings": settings, "version": env!("CARGO_PKG_VERSION"), "os_locale": os_locale(),
         "can_go_back": back, "can_go_forward": forward, "loading": loading,
         "tray_ready": state.tray_ready.load(Ordering::Relaxed), "status": status}))
@@ -103,7 +106,7 @@ async fn open_settings(app: &AppHandle) -> Result<(), String> {
         window.show().map_err(err)?; return window.set_focus().map_err(err);
     }
     WebviewWindowBuilder::new(app, "settings", WebviewUrl::App("settings.html".into()))
-        .title(format!("{} · Settings", title())).inner_size(760., 760.).min_inner_size(600., 500.)
+        .title(format!("{} · {}", title(), desktop_ui::text(app, "settings"))).inner_size(760., 760.).min_inner_size(600., 500.)
         .data_directory(app.path().app_data_dir().map_err(err)?.join("controls"))
         .on_navigation(policy::local_url)
         .on_new_window(|_, _| NewWindowResponse::Deny)
@@ -122,7 +125,7 @@ async fn save_settings(webview: Webview, app: AppHandle, settings: Settings) -> 
     settings.validate()?;
     let state = app.state::<PreviewState>();
     if settings.close_to_tray && !state.tray_ready.load(Ordering::Relaxed) {
-        return Err("The tray could not be initialized. Close-to-tray stays disabled.".into());
+        return Err(desktop_ui::pair(&app, "The tray could not be initialized. Close-to-tray stays disabled.", "Het systeemvak kon niet worden gestart. Sluiten naar het systeemvak blijft uitgeschakeld."));
     }
     let mut current = state.settings.lock().map_err(err)?;
     let previous = current.clone();
@@ -141,6 +144,8 @@ async fn save_settings(webview: Webview, app: AppHandle, settings: Settings) -> 
     *current = settings.clone();
     drop(current);
     if let Some(view) = app.get_webview("vibe") { view.set_zoom(settings.zoom_factor).map_err(err)?; }
+    // Never hold the settings mutex while constructing native menus.
+    if let Err(error) = desktop_ui::refresh(&app) { message(&app, format!("Menu update failed: {error}")); }
     Ok(settings)
 }
 
@@ -153,7 +158,7 @@ async fn close_settings(webview: Webview) -> Result<(), String> {
 
 async fn take_screenshot(app: &AppHandle) -> Result<(), String> {
     let state = app.state::<PreviewState>();
-    if state.capture_busy.swap(true, Ordering::SeqCst) { return Err("A screenshot is already in progress".into()); }
+    if state.capture_busy.swap(true, Ordering::SeqCst) { return Err(desktop_ui::status(app, "A screenshot is already in progress")); }
     message(app, "Choose a screenshot in the desktop dialog…");
     let result: Result<(), String> = async {
         let response = ashpd::desktop::screenshot::Screenshot::request().interactive(true).modal(true)
@@ -183,7 +188,7 @@ async fn capture_screenshot(webview: Webview, app: AppHandle) -> Result<(), Stri
 #[tauri::command]
 async fn get_diagnostics(webview: Webview, app: AppHandle) -> Result<String, String> {
     require_local(&webview)?;
-    Ok(format!("{}\nApplication ID: {}\nEngine: Tauri 2 / system WebKitGTK\nOS: Linux {}\nSession: {}\nDesktop: {}\nConfig: {}\nData: {}\nAutomatic updates: disabled in preview\nMicrophone/camera: not enabled in this preview\nGlobal shortcut: not registered (does not conflict with Electron)\nSign-in popups: related WebKit view; provider restrictions still apply\nRecent navigation (origins only, no credentials or tokens):\n{}",
+    Ok(format!("{}\nApplication ID: {}\nEngine: Tauri 2 / system WebKitGTK\nOS: Linux {}\nSession: {}\nDesktop: {}\nConfig: {}\nData: {}\nPreview update checks: manual, separate tested Linux artifacts; installation is manual\nAutomatic installation: disabled\nMicrophone/camera: not enabled in this preview\nGlobal shortcut: not registered (does not conflict with Electron)\nSign-in popups: related WebKit view; provider restrictions still apply\nRecent navigation (origins only, no credentials or tokens):\n{}",
         title(), APP_ID, std::env::consts::ARCH,
         std::env::var("XDG_SESSION_TYPE").unwrap_or_default(),
         std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default(),
@@ -192,24 +197,7 @@ async fn get_diagnostics(webview: Webview, app: AppHandle) -> Result<String, Str
 }
 
 fn create_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
-    use tauri::{menu::{Menu, MenuItem}, tray::TrayIconBuilder};
-    let open = MenuItem::with_id(app, "open", "Open VibeZ Tauri Preview", true, None::<&str>)?;
-    let screenshot = MenuItem::with_id(app, "capture", "Screenshot", true, None::<&str>)?;
-    let settings = MenuItem::with_id(app, "settings", "Settings", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "Quit preview", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&open, &screenshot, &settings, &quit])?;
-    let mut builder = TrayIconBuilder::with_id("vibez-tauri-preview")
-        .tooltip(title()).menu(&menu).show_menu_on_left_click(true)
-        .on_menu_event(|app, event| match event.id.as_ref() {
-            "open" => show_main(app),
-            "quit" => app.exit(0),
-            "settings" => { let app = app.clone(); tauri::async_runtime::spawn(async move { if let Err(e) = open_settings(&app).await { message(&app, e); } }); },
-            "capture" => { let app = app.clone(); tauri::async_runtime::spawn(async move { let _ = take_screenshot(&app).await; }); },
-            _ => (),
-        });
-    if let Some(icon) = app.default_window_icon() { builder = builder.icon(icon.clone()); }
-    builder.build(app)?;
-    Ok(())
+    desktop_ui::create_tray(app)
 }
 
 fn main() {

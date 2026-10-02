@@ -1,6 +1,6 @@
 [package]
 name = "vibez-tauri-preview"
-version = "0.1.1"
+version = "0.1.2"
 description = "Experimental Linux desktop client for Mistral Vibe"
 edition = "2021"
 license = "MIT"
@@ -23,6 +23,8 @@ webkit2gtk = "2"
 gtk = "0.18"
 ashpd = { version = "=0.13.13", default-features = false, features = ["tokio", "screenshot"] }
 tokio = { version = "1", features = ["sync", "time"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+semver = "1"
 
 [profile.release]
 opt-level = "s"

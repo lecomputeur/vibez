@@ -50,8 +50,9 @@ pub fn attach_errors(app: &AppHandle, view: &Webview) -> Result<(), String> {
         native.connect_load_failed(move |_, _, uri, error| {
             // Normal navigations can cancel a previous request; those are not failures.
             if error.matches(webkit2gtk::NetworkError::Cancelled) { return false; }
-            if let Ok(url) = Url::parse(uri) { record(&format!("load-error-{}", error.code()), &url); }
-            crate::message(&failed, format!("Page could not load (code {}). Use Home to retry; details are in Settings.", error.code()));
+            // glib 0.18 has no Error::code(); never log raw errors that may contain tokens.
+            if let Ok(url) = Url::parse(uri) { record("load-error", &url); }
+            crate::message(&failed, "Page could not load. Use Home to retry; details are in Settings.");
             false // Keep WebKit's normal error handling; never accept a failed TLS connection.
         });
         let terminated = handle.clone();
@@ -110,7 +111,9 @@ pub fn new_window(app: &AppHandle, url: Url, features: NewWindowFeatures) -> New
         .on_navigation(move |next| {
             if allowed(next, smoke) { return true; }
             record("popup-navigation-blocked", next);
-            crate::message(&navigation_app, format!("Sign-in destination not supported: {}. No account data was copied to another browser.", origin(next)));
+            crate::message(&navigation_app, crate::desktop_ui::pair(&navigation_app,
+                &format!("Sign-in destination not supported: {}. No account data was copied to another browser.", origin(next)),
+                &format!("Deze inlogbestemming wordt niet ondersteund: {}. Er zijn geen accountgegevens naar een andere browser gekopieerd.", origin(next))));
             false
         })
         .on_new_window(move |_, _| {

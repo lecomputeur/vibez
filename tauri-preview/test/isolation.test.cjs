@@ -13,10 +13,10 @@ const cap = JSON.parse(read('src-tauri/capabilities/local-shell.json'));
 test('preview has an independent identity, executable and version', () => {
   assert.equal(config.identifier, 'nl.lecomputeur.vibez.tauri.preview');
   assert.equal(config.mainBinaryName, 'vibez-tauri-preview');
-  assert.equal(config.version, '0.1.1');
+  assert.equal(config.version, '0.1.2');
   assert.equal(config.productName, 'VibeZ Tauri Preview');
   assert.equal(JSON.parse(read('package.json')).version, config.version);
-  assert.match(read('src-tauri/Cargo.toml'), /version = "0\.1\.1"/);
+  assert.match(read('src-tauri/Cargo.toml'), /version = "0\.1\.2"/);
 });
 test('remote website and auth popups have no native capabilities or iframe bridge', () => {
   assert.deepEqual(cap.webviews, ['shell', 'settings']);
@@ -62,4 +62,16 @@ test('popup implementation preserves related views without spoofing or intercept
   assert.doesNotMatch(auth, /get_webview\("vibe"\).*navigate/);
   assert.match(read('src-tauri/src/smoke.rs'), /window\.opener\.postMessage/);
   assert.match(read('frontend/index.html'), /id="home"/);
+});
+test('tray update check is native-only, manual and separated from stable releases', () => {
+  const updates = read('src-tauri/src/preview_updates.rs');
+  const desktop = read('src-tauri/src/desktop_ui.rs');
+  assert.match(desktop, /"updates" => crate::preview_updates::start/);
+  assert.match(desktop, /Controleren op updates/);
+  assert.match(read('src-tauri/src/main.rs'), /desktop_ui::refresh\(&app\)/);
+  assert.match(updates, /const BRANCH: &str = "vibe\/tauri-linux-preview-7c4e90"/);
+  assert.match(updates, /run\["conclusion"\] != "success"/);
+  assert.match(updates, /entry\["expired"\] != false/);
+  assert.doesNotMatch(updates, /Command::new|reqwest::blocking|danger_accept_invalid_certs|\.bearer_auth\(/);
+  assert.doesNotMatch(read('src-tauri/build.rs'), /preview_updates|check_updates/);
 });
