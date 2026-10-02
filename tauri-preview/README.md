@@ -2,6 +2,10 @@
 
 Experimental Rust/Tauri implementation alongside Electron VibeZ. **Not a production replacement.** The Electron app, main branch, stable releases, website and Microsoft Store submission are unchanged.
 
+## 0.1.5 — first Windows Google sign-in flow
+
+The authentication popup handler now preserves a second related popup when a provider's first-login consent or verification flow requires one. The same four-window cap, domain allowlist, shared isolated sign-in profile and native-IPC denial still apply. Offline smoke tests verify nested opener callbacks, closure, and isolation before an artifact is published.
+
 ## 0.1.4 — complete preview translations and remembered language button
 
 All preview-specific explanatory text is now available in the same 34 languages as VibeZ. The top toolbar has a globe/language button for immediate manual selection. Choosing a language calls the same native settings save path as the Settings window, writes it to the isolated preview profile and rebuilds the tray menu, so the choice survives app restarts. Choosing **System** returns to automatic operating-system language detection.
@@ -35,7 +39,7 @@ Google can still reject embedded browsers. This update does not bypass provider 
 | Item | Preview |
 | --- | --- |
 | Name | VibeZ Tauri Preview |
-| Version | 0.1.4 |
+| Version | 0.1.5 |
 | Executable | `vibez-tauri-preview` |
 | Debian package | `vibe-z-tauri-preview` |
 | Application ID | `nl.lecomputeur.vibez.tauri.preview` |
@@ -49,7 +53,7 @@ XDG directory overrides are respected. The preview never imports Electron cookie
 Close the running preview through its tray menu (**Quit preview / Afsluiten**), then run from the download directory:
 
 ```bash
-sudo apt install ./vibez-tauri-preview_0.1.4_amd64.deb
+sudo apt install ./vibez-tauri-preview_0.1.5_amd64.deb
 vibez-tauri-preview
 ```
 
