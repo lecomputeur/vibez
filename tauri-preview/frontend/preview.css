@@ -19,3 +19,13 @@ button:focus-visible, select:focus-visible, textarea:focus-visible, input:focus-
 #result { font-size: 12px; }
 .settings-page details { margin-top: 24px; }
 .settings-page textarea { width: 100%; resize: vertical; background: #191c22; color: #c6ced9; border: 1px solid #454a55; border-radius: 6px; padding: 12px; }
+
+.language-control { position: relative; display: flex; align-items: center; }
+.language-button { width: auto; min-width: 48px; gap: 4px; padding: 0 8px; }
+.language-button svg { width: 17px; height: 17px; }
+#language-code { font-size: 9px; font-weight: 700; letter-spacing: .04em; }
+.language-panel { position: absolute; z-index: 50; top: calc(100% + 8px); right: 0; width: 230px; padding: 10px; background: #1b1e25; border: 1px solid #454a55; border-radius: 8px; box-shadow: 0 12px 30px rgba(0,0,0,.35); }
+.language-panel[hidden] { display: none; }
+.language-panel > div { color: #cbd1da; font-size: 11px; margin: 0 0 7px; }
+.language-panel select { width: 100%; background: #252933; color: #f7f8fa; border: 1px solid #4b5260; border-radius: 6px; padding: 8px; }
+[dir="rtl"] .language-panel { right: auto; left: 0; }
