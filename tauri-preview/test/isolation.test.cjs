@@ -45,10 +45,10 @@ test('prepared assets reuse the existing logo and toolbar without modifying them
   assert.equal(Object.keys(data.translations).length, 34);
   const previewData = JSON.parse(read('dist/preview-translations.json'));
   assert.deepEqual(Object.keys(previewData.translations).sort(), Object.keys(data.translations).sort());
-  const keys = Object.keys(previewData.translations.en);
+  const keys = Object.keys(previewData.translations.en).sort();
   assert.ok(keys.length >= 30);
   for (const [code, strings] of Object.entries(previewData.translations)) {
-    assert.deepEqual(Object.keys(strings), keys, `preview keys for ${code}`);
+    assert.deepEqual(Object.keys(strings).sort(), keys, `preview keys for ${code}`);
     assert.ok(keys.every(key => typeof strings[key] === 'string' && strings[key].trim()), `preview text for ${code}`);
   }
 });
