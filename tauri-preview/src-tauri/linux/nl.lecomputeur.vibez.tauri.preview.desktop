@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=VibeZ Tauri Preview
+Comment=Experimental Rust/Tauri client alongside VibeZ
+Exec=vibez-tauri-preview
+Icon=nl.lecomputeur.vibez.tauri.preview
+Categories=Development;
+Terminal=false
+StartupWMClass=nl.lecomputeur.vibez.tauri.preview
