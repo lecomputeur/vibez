@@ -5,6 +5,7 @@ use tauri::{AppHandle, Manager, Webview, WebviewUrl, WebviewWindowBuilder};
 use tauri::webview::{NewWindowFeatures, NewWindowResponse};
 use tauri_plugin_opener::OpenerExt;
 use url::Url;
+#[cfg(target_os = "linux")]
 use gtk::prelude::WidgetExt;
 #[cfg(target_os = "linux")]
 use webkit2gtk::WebViewExt;
