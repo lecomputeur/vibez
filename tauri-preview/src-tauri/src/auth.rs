@@ -35,9 +35,15 @@ pub fn diagnostics() -> String {
         .map(|e| e.iter().cloned().collect::<Vec<_>>().join("\n"))
         .unwrap_or_else(|_| "Navigation diagnostics unavailable".into())
 }
-fn allowed(url: &Url, smoke: bool) -> bool {
+fn initial_allowed(url: &Url, smoke: bool) -> bool {
     url.as_str() == "about:blank" || policy::embedded_url(url)
         || (smoke && policy::local_url(url))
+}
+fn auth_chain_allowed(url: &Url, smoke: bool) -> bool {
+    if smoke && policy::local_url(url) { return true; }
+    if url.as_str() == "about:blank" { return true; }
+    url.scheme() == "https" && url.host_str().is_some()
+        && url.username().is_empty() && url.password().is_none()
 }
 pub fn page(url: &Url, finished: bool) {
     record(if finished { "load-finished" } else { "load-started" }, url);
@@ -88,15 +94,18 @@ pub fn close_popups(app: &AppHandle) {
     }
 }
 
-pub fn new_window(app: &AppHandle, url: Url, features: NewWindowFeatures) -> NewWindowResponse<tauri::Wry> {
-    record("popup-request", &url);
+fn create_auth_window(app: &AppHandle, url: Url, features: NewWindowFeatures, trusted_chain: bool) -> NewWindowResponse<tauri::Wry> {
+    record(if trusted_chain { "auth-chain-popup-request" } else { "popup-request" }, &url);
     let smoke = app.state::<PreviewState>().smoke;
-    if !allowed(&url, smoke) {
+    let permitted = if trusted_chain { auth_chain_allowed(&url, smoke) } else { initial_allowed(&url, smoke) };
+    if !permitted {
         if policy::external_url(&url) {
             if app.opener().open_url(url.as_str(), None::<&str>).is_err() {
                 crate::message(app, "Could not open the external link in your browser.");
             }
-        } else { crate::message(app, "A popup with an unsupported address was blocked."); }
+        } else {
+            crate::message(app, "A popup with an unsupported address was blocked.");
+        }
         return NewWindowResponse::Deny;
     }
     if app.webview_windows().keys().filter(|key| key.starts_with(PREFIX)).count() >= 4 {
@@ -105,7 +114,10 @@ pub fn new_window(app: &AppHandle, url: Url, features: NewWindowFeatures) -> New
     }
     let data = match app.path().app_data_dir() {
         Ok(path) => path.join("webview"),
-        Err(_) => { crate::message(app, "Could not open the preview's sign-in profile."); return NewWindowResponse::Deny; }
+        Err(_) => {
+            crate::message(app, "Could not open the preview's sign-in profile.");
+            return NewWindowResponse::Deny;
+        }
     };
     let label = format!("{PREFIX}{}", NEXT_ID.fetch_add(1, Ordering::Relaxed));
     let navigation_app = app.clone();
@@ -118,21 +130,24 @@ pub fn new_window(app: &AppHandle, url: Url, features: NewWindowFeatures) -> New
         .center().prevent_overflow().visible(true).focused(true)
         .on_permission_request(|_, _| tauri::webview::PermissionResponse::Deny)
         .on_navigation(move |next| {
-            if allowed(next, smoke) { return true; }
+            // Once a login window was opened from trusted Mistral/auth content,
+            // keep its complete HTTPS OAuth redirect chain in the same isolated
+            // webview profile. This mirrors the working VibeZ 2/Electron flow.
+            if auth_chain_allowed(next, smoke) { return true; }
             record("popup-navigation-blocked", next);
             crate::message(&navigation_app, "A popup with an unsupported address was blocked.");
             false
         })
         .on_new_window(move |next, nested_features| {
-            // Some first-time OAuth/consent flows open a second related popup.
-            // Keep it inside the same isolated sign-in profile so window.opener
-            // and the provider's state survive. The global popup cap still applies.
-            new_window(&nested_app, next, nested_features)
+            // Nested consent/verification windows are part of the already
+            // trusted auth chain. Keep them related so window.opener/state survive.
+            create_auth_window(&nested_app, next, nested_features, true)
         })
         .on_page_load(|window, payload| {
             page(payload.url(), matches!(payload.event(), tauri::webview::PageLoadEvent::Finished));
             let _ = window.set_title(&format!("VibeZ Preview · {}", origin(payload.url())));
         });
+
     match builder.build() {
         Ok(window) => {
             if attach_errors(app, window.as_ref()).is_err() {
@@ -151,15 +166,39 @@ pub fn new_window(app: &AppHandle, url: Url, features: NewWindowFeatures) -> New
     }
 }
 
+pub fn new_window(app: &AppHandle, url: Url, features: NewWindowFeatures) -> NewWindowResponse<tauri::Wry> {
+    create_auth_window(app, url, features, false)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
     fn blank_bootstrap_is_allowed_but_not_arbitrary_local_content() {
-        assert!(allowed(&Url::parse("about:blank").unwrap(), false));
-        assert!(allowed(&Url::parse("https://accounts.google.com/o/oauth2/v2/auth").unwrap(), false));
+        assert!(initial_allowed(&Url::parse("about:blank").unwrap(), false));
+        assert!(initial_allowed(&Url::parse("https://accounts.google.com/o/oauth2/v2/auth").unwrap(), false));
         for raw in ["about:srcdoc", "about:blank?token=x", "file:///etc/passwd", "data:text/html,test", "javascript:alert(1)", "tauri://localhost/settings.html", "https://accounts.google.com.evil.example/", "http://accounts.google.com/"] {
-            assert!(!allowed(&Url::parse(raw).unwrap(), false), "{raw}");
+            assert!(!initial_allowed(&Url::parse(raw).unwrap(), false), "{raw}");
+        }
+    }
+    #[test]
+    fn trusted_auth_chain_can_follow_https_redirects_without_native_privileges() {
+        for raw in [
+            "https://accounts.google.com/signin/oauth/consent",
+            "https://www.google.com/",
+            "https://accounts.youtube.com/",
+            "https://example.identity-provider.test/callback"
+        ] {
+            assert!(auth_chain_allowed(&Url::parse(raw).unwrap(), false), "{raw}");
+        }
+        for raw in [
+            "http://accounts.google.com/",
+            "file:///etc/passwd",
+            "javascript:alert(1)",
+            "data:text/html,test",
+            "https://user:secret@example.com/"
+        ] {
+            assert!(!auth_chain_allowed(&Url::parse(raw).unwrap(), false), "{raw}");
         }
     }
     #[test]
