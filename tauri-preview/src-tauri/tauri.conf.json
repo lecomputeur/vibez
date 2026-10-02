@@ -24,7 +24,12 @@
     "linux": {
       "deb": {
         "depends": ["xdg-desktop-portal"],
-        "recommends": ["xdg-desktop-portal-gtk"]
+        "recommends": ["xdg-desktop-portal-gtk"],
+        "desktopTemplate": "linux/hidden-generated.desktop.hbs",
+        "files": {
+          "/usr/share/applications/nl.lecomputeur.vibez.tauri.preview.desktop": "linux/nl.lecomputeur.vibez.tauri.preview.desktop",
+          "/usr/share/icons/hicolor/512x512/apps/nl.lecomputeur.vibez.tauri.preview.png": "icons/icon.png"
+        }
       }
     }
   }
