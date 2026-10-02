@@ -24,6 +24,11 @@ pub fn text_for(language: &str, key: &str) -> String {
     translations()["translations"][language][key].as_str()
         .or_else(|| translations()["translations"]["en"][key].as_str()).unwrap_or(key).into()
 }
+fn menu_label(language: &str, key: &str) -> String {
+    let text = text_for(language, key);
+    // Existing translations already contain the name, e.g. "VibeZ openen".
+    if key == "open" { text.replace("VibeZ", APP_NAME) } else { text }
+}
 pub fn text(app: &AppHandle, key: &str) -> String { text_for(&language(app), key) }
 pub fn pair(app: &AppHandle, english: &str, dutch: &str) -> String {
     if language(app) == "nl" { dutch.into() } else { english.into() }
@@ -63,8 +68,8 @@ pub fn status(app: &AppHandle, raw: &str) -> String {
 }
 pub fn menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     let lang = language(app);
-    let label = |key| text_for(&lang, key);
-    let open = MenuItem::with_id(app, "open", format!("{} {APP_NAME}", label("open")), true, None::<&str>)?;
+    let label = |key| menu_label(&lang, key);
+    let open = MenuItem::with_id(app, "open", label("open"), true, None::<&str>)?;
     let capture = MenuItem::with_id(app, "capture", label("screenshot"), true, None::<&str>)?;
     let settings = MenuItem::with_id(app, "settings", label("settings"), true, None::<&str>)?;
     let updates = MenuItem::with_id(app, "updates", label("updates"), true, None::<&str>)?;
@@ -102,10 +107,10 @@ pub fn smoke_check(app: &AppHandle) -> Result<(), String> {
         app.state::<PreviewState>().settings.lock().map_err(crate::err)?.language = lang.into();
         let menu = menu(app).map_err(crate::err)?;
         if menu.items().map_err(crate::err)?.len() != 5 { return Err("Tray menu lost an action".into()); }
-        for (id, key) in [("settings", "settings"), ("updates", "updates"), ("quit", "quit")] {
+        for (id, key) in [("open", "open"), ("capture", "screenshot"), ("settings", "settings"), ("updates", "updates"), ("quit", "quit")] {
             let item = menu.get(id).ok_or("Missing tray item")?;
             let actual = item.as_menuitem().ok_or("Wrong tray item kind")?.text().map_err(crate::err)?;
-            if actual != text_for(lang, key) { return Err(format!("Tray translation mismatch: {lang}/{id}")); }
+            if actual != menu_label(lang, key) { return Err(format!("Tray translation mismatch: {lang}/{id}")); }
         }
     }
     app.state::<PreviewState>().settings.lock().map_err(crate::err)?.language = original;
@@ -132,5 +137,7 @@ mod tests {
         }
         assert_eq!(text_for("nl", "settings"), "Instellingen");
         assert_eq!(text_for("nl", "updates"), "Controleren op updates…");
+        assert_eq!(menu_label("nl", "open"), "VibeZ Tauri Preview openen");
+        assert_eq!(menu_label("en", "open"), "Open VibeZ Tauri Preview");
     }
 }
