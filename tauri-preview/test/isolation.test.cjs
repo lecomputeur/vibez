@@ -13,10 +13,10 @@ const cap = JSON.parse(read('src-tauri/capabilities/local-shell.json'));
 test('preview has an independent identity, executable and version', () => {
   assert.equal(config.identifier, 'nl.lecomputeur.vibez.tauri.preview');
   assert.equal(config.mainBinaryName, 'vibez-tauri-preview');
-  assert.equal(config.version, '0.1.5');
+  assert.equal(config.version, '0.1.6');
   assert.equal(config.productName, 'VibeZ Tauri Preview');
   assert.equal(JSON.parse(read('package.json')).version, config.version);
-  assert.match(read('src-tauri/Cargo.toml'), /version = "0\.1\.5"/);
+  assert.match(read('src-tauri/Cargo.toml'), /version = "0\.1\.6"/);
 });
 test('remote website and auth popups have no native capabilities or iframe bridge', () => {
   assert.deepEqual(cap.webviews, ['shell', 'settings']);
@@ -111,9 +111,18 @@ test('Windows Store preview stays separate from the production Store identity', 
 test('first-login nested OAuth popups are preserved and still isolated', () => {
   const auth = read('src-tauri/src/auth.rs');
   const smoke = read('src-tauri/src/smoke.rs');
-  assert.match(auth, /new_window\(&nested_app, next, nested_features\)/);
+  assert.match(auth, /create_auth_window\(&nested_app, next, nested_features, true\)/);
   assert.doesNotMatch(auth, /additional nested sign-in window was blocked/i);
   assert.match(smoke, /Nested OAuth popup/);
   assert.match(smoke, /Nested popup was granted native command access/);
   assert.match(smoke, /Nested popup callback did not reach its opener/);
+});
+
+test('trusted auth popup keeps the complete HTTPS redirect chain inside the isolated webview', () => {
+  const auth = read('src-tauri/src/auth.rs');
+  assert.match(auth, /fn auth_chain_allowed/);
+  assert.match(auth, /url\.scheme\(\) == "https"/);
+  assert.match(auth, /if auth_chain_allowed\(next, smoke\) \{ return true; \}/);
+  assert.match(auth, /create_auth_window\(app, url, features, false\)/);
+  assert.doesNotMatch(auth, /\.user_agent\(|\.cookies\(|\.set_cookie\(|ignore_certificate/);
 });

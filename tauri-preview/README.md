@@ -2,6 +2,12 @@
 
 Experimental Rust/Tauri implementation alongside Electron VibeZ. **Not a production replacement.** The Electron app, main branch, stable releases, website and Microsoft Store submission are unchanged.
 
+## 0.1.6 — keep the complete first-login HTTPS OAuth chain inside VibeZ
+
+The working VibeZ 2/Electron client allows an authentication window that was opened from trusted Mistral/auth content to follow its normal HTTPS redirect chain. The Tauri preview now mirrors that behavior: after the initial trusted login popup is created, HTTPS redirects and related consent/verification popups remain in the same isolated webview profile instead of being pushed into the external browser. File, data, javascript and credential-bearing URLs remain blocked; login webviews still receive no native VibeZ capabilities.
+
+This change targets the Windows first-login Google flow that previously ended in Edge with Google error 400 while a later attempt could proceed further.
+
 ## 0.1.5 — first Windows Google sign-in flow
 
 The authentication popup handler now preserves a second related popup when a provider's first-login consent or verification flow requires one. The same four-window cap, domain allowlist, shared isolated sign-in profile and native-IPC denial still apply. Offline smoke tests verify nested opener callbacks, closure, and isolation before an artifact is published.
@@ -39,7 +45,7 @@ Google can still reject embedded browsers. This update does not bypass provider 
 | Item | Preview |
 | --- | --- |
 | Name | VibeZ Tauri Preview |
-| Version | 0.1.5 |
+| Version | 0.1.6 |
 | Executable | `vibez-tauri-preview` |
 | Debian package | `vibe-z-tauri-preview` |
 | Application ID | `nl.lecomputeur.vibez.tauri.preview` |
@@ -53,7 +59,7 @@ XDG directory overrides are respected. The preview never imports Electron cookie
 Close the running preview through its tray menu (**Quit preview / Afsluiten**), then run from the download directory:
 
 ```bash
-sudo apt install ./vibez-tauri-preview_0.1.5_amd64.deb
+sudo apt install ./vibez-tauri-preview_0.1.6_amd64.deb
 vibez-tauri-preview
 ```
 
