@@ -87,7 +87,9 @@ test('tray update check is native-only, manual and separated from stable release
   const updates = read('src-tauri/src/preview_updates.rs');
   const desktop = read('src-tauri/src/desktop_ui.rs');
   assert.match(desktop, /"updates" => crate::preview_updates::start/);
-  assert.match(desktop, /Controleren op updates/);
+  assert.match(desktop, /menu_label/);
+  const generated = JSON.parse(read('dist/translations.json'));
+  assert.match(generated.translations.nl.updates, /Controleren op updates/);
   assert.match(read('src-tauri/src/main.rs'), /desktop_ui::refresh\(&app\)/);
   assert.match(updates, /const BRANCH: &str = "vibe\/tauri-linux-preview-7c4e90"/);
   assert.match(updates, /run\["conclusion"\] != "success"/);
