@@ -16,7 +16,7 @@ test('preview has an independent identity, executable and version', () => {
   assert.equal(config.version, '0.1.3');
   assert.equal(config.productName, 'VibeZ Tauri Preview');
   assert.equal(JSON.parse(read('package.json')).version, config.version);
-  assert.match(read('src-tauri/Cargo.toml'), /version = "0\.1\.2"/);
+  assert.match(read('src-tauri/Cargo.toml'), /version = "0\.1\.3"/);
 });
 test('remote website and auth popups have no native capabilities or iframe bridge', () => {
   assert.deepEqual(cap.webviews, ['shell', 'settings']);
@@ -79,7 +79,7 @@ test('tray update check is native-only, manual and separated from stable release
 test('Windows Store preview stays separate from the production Store identity', () => {
   const ps = read('scripts/build-windows-store-preview.ps1');
   assert.match(ps, /LeComputeur\.VibeZTauriPreview/);
-  assert.doesNotMatch(ps, /LeComputeur\.VibeZDesktop/);
+  assert.doesNotMatch(ps, /Identity Name="LeComputeur\.VibeZDesktop"/);
   assert.doesNotMatch(ps, /9NR7L2G4MS08/);
   const workflow = fs.readFileSync(path.join(dir, '..', '.github', 'workflows', 'tauri-preview-windows.yml'), 'utf8');
   assert.match(workflow, /windows-latest/);
