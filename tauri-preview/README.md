@@ -1,5 +1,13 @@
 # VibeZ Tauri Preview — Linux/Windows prototype
 
+## 0.1.13 — Linux layout and browser-language handoff
+
+Linux now reapplies the GTK toolbar/content packing immediately after the bundled toolbar completes its first IPC handshake. This keeps the toolbar webview at its intended 54px height after its HTML loads and prevents the large black band above Vibe.
+
+The remote Vibe page now receives the same language in both Mistral's NEXT_LOCALE preference and WebKitGTK's preferred-language list. On Linux that preferred-language list controls the Accept-Language request header, navigator.language(s) and JavaScript Intl locale. Exact existing NEXT_LOCALE cookies are removed before the replacement is written, and diagnostics now show the native cookie-store value separately from document.cookie and navigator.language.
+
+System language follows the operating-system UI locale, not the user's physical country or IP location.
+
 ## 0.1.12 — confirmed Mistral language handoff
 
 Language changes are now applied in a strict sequence: the native webview cookie store is updated first, the active Mistral document is given time to observe and confirm NEXT_LOCALE, and only then is the Mistral page navigated. Startup also performs one deliberate post-cookie navigation so the initial Vibe request can no longer race ahead of the saved language.
@@ -59,7 +67,7 @@ A new offline probe checks actual webview click handling for `_blank`, Ctrl-clic
 | Item | Preview |
 | --- | --- |
 | Name | VibeZ Tauri Preview |
-| Version | 0.1.12 |
+| Version | 0.1.13 |
 | Executable | `vibez-tauri-preview` |
 | Debian package | `vibe-z-tauri-preview` |
 | Application ID | `nl.lecomputeur.vibez.tauri.preview` |
@@ -74,7 +82,7 @@ XDG directory overrides are respected. The preview never imports Electron cookie
 Fully quit the running preview through its tray menu before installing from Downloads:
 
 ```bash
-sudo apt install ./vibez-tauri-preview_0.1.12_amd64.deb
+sudo apt install ./vibez-tauri-preview_0.1.13_amd64.deb
 vibez-tauri-preview
 ```
 
@@ -82,7 +90,7 @@ To uninstall only the preview, disable its autostart setting and quit it, then u
 
 ### Windows x64
 
-Use `VibeZ-Tauri-Preview-0.1.12-Windows-x64-Setup.exe` for normal installation. A plain executable is also built for testing. Fully quit the existing preview before upgrading. WebView2 is required; the Tauri installer handles its configured runtime installation when needed.
+Use `VibeZ-Tauri-Preview-0.1.13-Windows-x64-Setup.exe` for normal installation. A plain executable is also built for testing. Fully quit the existing preview before upgrading. WebView2 is required; the Tauri installer handles its configured runtime installation when needed.
 
 The unsigned candidate MSIX is not the recommended local test installer. **Do not upload it to the existing VibeZ Desktop Store product.** A separate Partner Center product and matching assigned identity are required before any separate Store submission. Store certification and a real installed-app test are separate from MSIX structural validation.
 
