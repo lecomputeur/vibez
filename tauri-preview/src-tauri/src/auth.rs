@@ -116,9 +116,7 @@ pub fn new_window(app: &AppHandle, url: Url, features: NewWindowFeatures) -> New
         .on_navigation(move |next| {
             if allowed(next, smoke) { return true; }
             record("popup-navigation-blocked", next);
-            crate::message(&navigation_app, crate::desktop_ui::pair(&navigation_app,
-                &format!("Sign-in destination not supported: {}. No account data was copied to another browser.", origin(next)),
-                &format!("Deze inlogbestemming wordt niet ondersteund: {}. Er zijn geen accountgegevens naar een andere browser gekopieerd.", origin(next))));
+            crate::message(&navigation_app, "A popup with an unsupported address was blocked.");
             false
         })
         .on_new_window(move |_, _| {
