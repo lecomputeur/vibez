@@ -13,10 +13,10 @@ const cap = JSON.parse(read('src-tauri/capabilities/local-shell.json'));
 test('preview has an independent identity, executable and version', () => {
   assert.equal(config.identifier, 'nl.lecomputeur.vibez.tauri.preview');
   assert.equal(config.mainBinaryName, 'vibez-tauri-preview');
-  assert.equal(config.version, '0.1.3');
+  assert.equal(config.version, '0.1.4');
   assert.equal(config.productName, 'VibeZ Tauri Preview');
   assert.equal(JSON.parse(read('package.json')).version, config.version);
-  assert.match(read('src-tauri/Cargo.toml'), /version = "0\.1\.3"/);
+  assert.match(read('src-tauri/Cargo.toml'), /version = "0\.1\.4"/);
 });
 test('remote website and auth popups have no native capabilities or iframe bridge', () => {
   assert.deepEqual(cap.webviews, ['shell', 'settings']);
@@ -43,6 +43,14 @@ test('prepared assets reuse the existing logo and toolbar without modifying them
   assert.equal(read('dist/shell.css'), fs.readFileSync(path.join(dir,'../shell.css'),'utf8'));
   const data = JSON.parse(read('dist/translations.json'));
   assert.equal(Object.keys(data.translations).length, 34);
+  const previewData = JSON.parse(read('dist/preview-translations.json'));
+  assert.deepEqual(Object.keys(previewData.translations).sort(), Object.keys(data.translations).sort());
+  const keys = Object.keys(previewData.translations.en);
+  assert.ok(keys.length >= 30);
+  for (const [code, strings] of Object.entries(previewData.translations)) {
+    assert.deepEqual(Object.keys(strings), keys, `preview keys for ${code}`);
+    assert.ok(keys.every(key => typeof strings[key] === 'string' && strings[key].trim()), `preview text for ${code}`);
+  }
 });
 test('OS language resolving supports Dutch and Chinese and falls back safely', () => {
   const data = JSON.parse(read('dist/translations.json'));
@@ -54,6 +62,18 @@ test('OS language resolving supports Dutch and Chinese and falls back safely', (
   assert.equal(resolve('fr','nl_NL'), 'fr');
   assert.equal(resolve('system','xx_YY'), 'en');
 });
+test('toolbar language picker saves the choice through native settings', () => {
+  const html = read('frontend/index.html');
+  const toolbar = read('frontend/toolbar.js');
+  const main = read('src-tauri/src/main.rs');
+  assert.match(html, /id="language-button"/);
+  assert.match(html, /id="quick-language"/);
+  assert.match(toolbar, /save_settings/);
+  assert.match(toolbar, /language: \$\('quick-language'\)\.value|language: \$\('quick-language'\)\.value/);
+  assert.match(main, /write_settings\(&state\.file, &settings\)/);
+  assert.match(main, /desktop_ui::refresh\(&app\)/);
+});
+
 test('popup implementation preserves related views without spoofing or intercepting credentials', () => {
   const auth = read('src-tauri/src/auth.rs');
   assert.match(auth, /\.window_features\(features\)/);
