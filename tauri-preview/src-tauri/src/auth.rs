@@ -123,9 +123,11 @@ pub fn new_window(app: &AppHandle, url: Url, features: NewWindowFeatures) -> New
             crate::message(&navigation_app, "A popup with an unsupported address was blocked.");
             false
         })
-        .on_new_window(move |_, _| {
-            crate::message(&nested_app, "An additional nested sign-in window was blocked.");
-            NewWindowResponse::Deny
+        .on_new_window(move |next, nested_features| {
+            // Some first-time OAuth/consent flows open a second related popup.
+            // Keep it inside the same isolated sign-in profile so window.opener
+            // and the provider's state survive. The global popup cap still applies.
+            new_window(&nested_app, next, nested_features)
         })
         .on_page_load(|window, payload| {
             page(payload.url(), matches!(payload.event(), tauri::webview::PageLoadEvent::Finished));
