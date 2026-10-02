@@ -69,6 +69,9 @@ jobs:
           $version = node -p "require('./package.json').version"
           $reported = & .\src-tauri\target\release\vibez-tauri-preview.exe --version
           if ($reported -notmatch [regex]::Escape("v$version")) { throw "Version mismatch: $reported" }
+      - name: Build Windows NSIS installer
+        shell: pwsh
+        run: npx tauri build --bundles nsis
       - name: Build and validate separate Store preview MSIX
         shell: pwsh
         run: .\scripts\build-windows-store-preview.ps1
@@ -78,10 +81,15 @@ jobs:
           $version = node -p "require('./package.json').version"
           $dir = "artifacts\windows"
           Copy-Item ".\src-tauri\target\release\vibez-tauri-preview.exe" "$dir\VibeZ-Tauri-Preview-$version-Windows-x64.exe"
+          $nsis = Get-ChildItem ".\src-tauri\target\release\bundle\nsis\*.exe" | Select-Object -First 1
+          if (-not $nsis) { throw "NSIS installer not found" }
+          Copy-Item $nsis.FullName "$dir\VibeZ-Tauri-Preview-$version-Windows-x64-Setup.exe"
           Get-FileHash "$dir\*.msix","$dir\*.exe" -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  $([IO.Path]::GetFileName($_.Path))" } | Set-Content "$dir\SHA256SUMS.txt"
           @"
-          VibeZ Tauri Preview $version - Windows x64 Store preview package.
-          IMPORTANT: this uses the separate preview identity LeComputeur.VibeZTauriPreview.
+          VibeZ Tauri Preview $version - Windows x64 test packages.
+          The *-Setup.exe file is the normal NSIS installer for VM/user testing.
+          The plain *.exe is a standalone test executable.
+          The *.msix uses the separate preview identity LeComputeur.VibeZTauriPreview.
           Do NOT upload it to the existing VibeZ Desktop Store product.
           Reserve a separate Partner Center product first; rebuild if Partner Center assigns a different identity.
           "@ | Set-Content "$dir\README.txt"
