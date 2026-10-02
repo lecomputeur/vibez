@@ -77,7 +77,8 @@ jobs:
         run: |
           $version = node -p "require('./package.json').version"
           $dir = "artifacts\windows"
-          Get-FileHash "$dir\*.msix" -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  $([IO.Path]::GetFileName($_.Path))" } | Set-Content "$dir\SHA256SUMS.txt"
+          Copy-Item ".\src-tauri\target\release\vibez-tauri-preview.exe" "$dir\VibeZ-Tauri-Preview-$version-Windows-x64.exe"
+          Get-FileHash "$dir\*.msix","$dir\*.exe" -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  $([IO.Path]::GetFileName($_.Path))" } | Set-Content "$dir\SHA256SUMS.txt"
           @"
           VibeZ Tauri Preview $version - Windows x64 Store preview package.
           IMPORTANT: this uses the separate preview identity LeComputeur.VibeZTauriPreview.
@@ -89,6 +90,7 @@ jobs:
           name: VibeZ-Tauri-Preview-${{ env.PREVIEW_VERSION }}-Windows-x64-Store-Preview
           path: |
             tauri-preview/artifacts/windows/*.msix
+            tauri-preview/artifacts/windows/*.exe
             tauri-preview/artifacts/windows/SHA256SUMS.txt
             tauri-preview/artifacts/windows/README.txt
           retention-days: 30
