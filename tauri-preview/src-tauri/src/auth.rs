@@ -12,7 +12,6 @@ const PREFIX: &str = "auth-popup-";
 static NEXT_ID: AtomicU64 = AtomicU64::new(1);
 static EVENTS: OnceLock<Mutex<VecDeque<String>>> = OnceLock::new();
 
-// Paths can contain identifiers as well as query strings; retain the origin only.
 pub fn origin(url: &Url) -> String {
     if url.as_str() == "about:blank" { return "about:blank".into(); }
     if policy::local_url(url) { return "bundled test page".into(); }
@@ -48,22 +47,24 @@ pub fn attach_errors(app: &AppHandle, view: &Webview) -> Result<(), String> {
         let native = platform.inner();
         let failed = handle.clone();
         native.connect_load_failed(move |_, _, uri, error| {
-            // Normal navigations can cancel a previous request; those are not failures.
             if error.matches(webkit2gtk::NetworkError::Cancelled) { return false; }
-            // glib 0.18 has no Error::code(); never log raw errors that may contain tokens.
+            // Never log raw errors that may contain login URLs or tokens.
             if let Ok(url) = Url::parse(uri) { record("load-error", &url); }
             crate::message(&failed, "Page could not load. Use Home to retry; details are in Settings.");
-            false // Keep WebKit's normal error handling; never accept a failed TLS connection.
+            false
         });
         let terminated = handle.clone();
         native.connect_web_process_terminated(move |_, _| {
             crate::message(&terminated, "The web process stopped. Use Home to retry; details are in Settings.");
         });
         if label.starts_with(PREFIX) {
-            native.connect_close(move |_| {
+            native.connect_close(move |view| {
+                if let Some(uri) = view.uri() { if let Ok(url) = Url::parse(&uri) { record("popup-close-request", &url); } }
                 let app = handle.clone(); let label = label.clone();
+                // WebKit has already accepted window.close(). Destroy only this
+                // dedicated popup; don't send another preventable close request.
                 tauri::async_runtime::spawn(async move {
-                    if let Some(window) = app.get_webview_window(&label) { let _ = window.close(); }
+                    if let Some(window) = app.get_webview_window(&label) { let _ = window.destroy(); }
                 });
             });
         }
@@ -98,9 +99,7 @@ pub fn new_window(app: &AppHandle, url: Url, features: NewWindowFeatures) -> New
     let label = format!("{PREFIX}{}", NEXT_ID.fetch_add(1, Ordering::Relaxed));
     let navigation_app = app.clone();
     let nested_app = app.clone();
-    // window_features carries WebKit's related view. It preserves the opener,
-    // original navigation request (including POSTs) and the preview WebContext.
-    // Loading url explicitly here would replay the request and break some flows.
+    // window_features preserves the opener, original request and WebContext.
     let builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::External("about:blank".parse().expect("constant URL")))
         .data_directory(data)
         .window_features(features)
