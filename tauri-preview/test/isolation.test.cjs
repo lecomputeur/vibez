@@ -13,10 +13,10 @@ const cap = JSON.parse(read('src-tauri/capabilities/local-shell.json'));
 test('preview has an independent identity, executable and version', () => {
   assert.equal(config.identifier, 'nl.lecomputeur.vibez.tauri.preview');
   assert.equal(config.mainBinaryName, 'vibez-tauri-preview');
-  assert.equal(config.version, '0.1.13');
+  assert.equal(config.version, '0.1.14');
   assert.equal(config.productName, 'VibeZ Tauri Preview');
   assert.equal(JSON.parse(read('package.json')).version, config.version);
-  assert.match(read('src-tauri/Cargo.toml'), /version = "0\.1\.13"/);
+  assert.match(read('src-tauri/Cargo.toml'), /version = "0\.1\.14"/);
 });
 test('remote website and auth popups have no native capabilities or iframe bridge', () => {
   assert.deepEqual(cap.webviews, ['shell', 'settings']);
@@ -187,4 +187,15 @@ test('Linux preview repairs startup toolbar packing and forwards browser languag
   assert.match(main, /native_layout::repair\(&app\)/);
   assert.match(smoke, /Verify the real startup packing/);
   assert.match(smoke, /check_layout\(app\)\?;/);
+});
+
+
+test('Linux preview uses fixed child bounds and GTK app identity for launcher icons', () => {
+  const native = read('src-tauri/src/native_layout.rs');
+  assert.equal(config.app.enableGTKAppId, true);
+  assert.match(native, /gtk::Fixed/);
+  assert.match(native, /fixed\.put/);
+  assert.match(native, /fixed\.move_/);
+  assert.match(native, /TOOLBAR_HEIGHT/);
+  assert.doesNotMatch(native, /set_child_packing\(&widget/);
 });
