@@ -56,7 +56,10 @@
     const panel = $('language-panel');
     panel.hidden = !panel.hidden;
     $('language-button').setAttribute('aria-expanded', String(!panel.hidden));
-    if (!panel.hidden) { prepareLanguages(); showLanguageState(); $('quick-language').focus(); }
+    if (!panel.hidden) {
+      prepareLanguages(); showLanguageState(); $('quick-language').focus();
+      try { $('quick-language').showPicker?.(); } catch (_) {}
+    }
   });
 
   $('quick-language').addEventListener('change', async () => {
