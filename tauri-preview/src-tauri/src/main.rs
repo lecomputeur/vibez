@@ -301,8 +301,7 @@ async fn save_settings(webview: Webview, app: AppHandle, settings: Settings) -> 
     if settings.close_to_tray && !state.tray_ready.load(Ordering::Relaxed) {
         return Err(desktop_ui::preview(&app, "serviceErrorHelp"));
     }
-    let mut current = state.settings.lock().map_err(err)?;
-    let previous = current.clone();
+    let previous = state.settings.lock().map_err(err)?.clone();
     // Each autostart entry uses the preview's own name and executable, never vibez.desktop.
     if settings.start_at_login != previous.start_at_login {
         if settings.start_at_login { app.autolaunch().enable().map_err(err)?; }
@@ -316,8 +315,10 @@ async fn save_settings(webview: Webview, app: AppHandle, settings: Settings) -> 
         return Err(error);
     }
     let language_changed = settings.language != previous.language;
-    *current = settings.clone();
-    drop(current);
+    {
+        let mut current = state.settings.lock().map_err(err)?;
+        *current = settings.clone();
+    }
     if let Some(view) = app.get_webview("vibe") { view.set_zoom(settings.zoom_factor).map_err(err)?; }
     if language_changed {
         match apply_site_language(&app, &settings.language, true).await {
