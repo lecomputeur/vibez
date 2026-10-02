@@ -116,10 +116,12 @@ test('first-login nested OAuth popups are preserved and still isolated', () => {
 });
 test('trusted auth popup keeps the complete HTTPS redirect chain inside the isolated webview', () => {
   const auth = read('src-tauri/src/auth.rs');
+  const policy = read('src-tauri/src/policy.rs');
   assert.match(auth, /fn auth_chain_allowed/);
-  assert.match(auth, /url\.scheme\(\) == "https"/);
+  assert.match(auth, /policy::auth_chain_url\(url\)/);
+  assert.match(policy, /url\.scheme\(\) == "https"/);
   assert.match(auth, /if auth_chain_allowed\(next, smoke\) \{ return true; \}/);
-  assert.match(auth, /create_auth_window\(app, url, features, false\)/);
+  assert.match(auth, /create_auth_window\(app, url, features, trusted_chain\)/);
   assert.doesNotMatch(auth, /\.user_agent\(|\.cookies\(|\.set_cookie\(|ignore_certificate/);
 });
 test('automatic injected opener is disabled; explicit native routes are traced', () => {
