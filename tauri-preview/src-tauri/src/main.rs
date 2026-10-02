@@ -27,7 +27,7 @@ use tauri_plugin_autostart::ManagerExt as AutostartExt;
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_opener::OpenerExt;
 #[cfg(target_os = "linux")]
-use webkit2gtk::WebViewExt;
+use webkit2gtk::{WebContextExt, WebViewExt};
 
 struct PreviewState {
     settings: Mutex<Settings>,
@@ -93,6 +93,21 @@ fn os_locale() -> String {
         .unwrap_or_else(|| "en".into())
         .split('.').next().unwrap_or("en").replace('_', "-")
 }
+#[cfg(target_os = "linux")]
+fn set_webview_preferred_language(view: &Webview, locale: &str) -> Result<(), String> {
+    let locale = locale.to_string();
+    view.with_webview(move |platform| {
+        if let Some(context) = platform.inner().context() {
+            context.set_preferred_languages(&[locale.as_str()]);
+        }
+    }).map_err(err)
+}
+
+#[cfg(target_os = "windows")]
+fn set_webview_preferred_language(_view: &Webview, _locale: &str) -> Result<(), String> {
+    Ok(())
+}
+
 fn set_site_language_cookies(view: &Webview, locale: &str) -> Result<(), String> {
     // Keep the language preference consistent on both current Mistral hosts and
     // the shared parent domain. All variants are removed before writing the
@@ -159,6 +174,7 @@ async fn apply_site_language(app: &AppHandle, selected: &str, navigate: bool) ->
     let locale = policy::mistral_site_locale(selected, &os_locale());
     let view = app.get_webview("vibe").ok_or("Vibe view is not ready")?;
 
+    set_webview_preferred_language(&view, &locale)?;
     set_site_language_cookies(&view, &locale)?;
 
     // WebView2/WebKit can acknowledge a native cookie write before the loaded
@@ -242,7 +258,10 @@ async fn get_state(webview: Webview, app: AppHandle) -> Result<Value, String> {
     #[cfg(target_os = "windows")]
     let (back, forward, loading) = (true, true, false);
     let state = app.state::<PreviewState>();
-    if webview.label() == "shell" { state.shell_ready.store(true, Ordering::Relaxed); }
+    if webview.label() == "shell" && !state.shell_ready.swap(true, Ordering::SeqCst) {
+        #[cfg(target_os = "linux")]
+        native_layout::repair(&app)?;
+    }
     let raw_status = state.status.lock().map_err(err)?.clone();
     let status = desktop_ui::status(&app, &raw_status);
     Ok(json!({"settings": settings, "version": env!("CARGO_PKG_VERSION"), "os_locale": os_locale(),
@@ -516,6 +535,7 @@ fn main() {
             // reload their bundled test page through production-only behavior.
             if !smoke {
                 let startup_locale = policy::mistral_site_locale(&settings.language, &os_locale());
+                let _ = set_webview_preferred_language(&vibe, &startup_locale);
                 let _ = set_site_language_cookies(&vibe, &startup_locale);
                 let startup_app = app.handle().clone();
                 let startup_language = settings.language.clone();
