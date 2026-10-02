@@ -20,6 +20,7 @@ const path = require('path');
 const { setupScreenshot } = require('./screenshot-v2');
 const { createSettingsStore } = require('./settings-store');
 const { resolveLanguage, t, uiBundle } = require('./i18n');
+const { VIBE_LOCALE_COOKIE_URLS, resolveVibeLocale } = require('./vibe-language');
 
 const REPO_URL = 'https://github.com/lecomputeur/vibez';
 const RELEASES_URL = `${REPO_URL}/releases/latest`;
@@ -68,6 +69,22 @@ function selectedLanguage() {
     ? app.getLocale()
     : (process.env.LC_ALL || process.env.LC_MESSAGES || process.env.LANG || 'en');
   return resolveLanguage(settings.language, osLocale);
+}
+
+async function syncVibePageLanguage(targetSession = session.defaultSession) {
+  const locale = resolveVibeLocale(selectedLanguage());
+  try {
+    await Promise.all(VIBE_LOCALE_COOKIE_URLS.map((url) => targetSession.cookies.set({
+      url,
+      name: 'NEXT_LOCALE',
+      value: locale,
+      path: '/',
+      secure: true,
+    })));
+  } catch (error) {
+    console.warn('Could not synchronize Mistral Vibe page language:', error);
+  }
+  return locale;
 }
 
 function currentUiBundle() {
@@ -433,7 +450,9 @@ function createMainWindow() {
     mainWindow.setTitle(windowTitle());
     sendShellState();
   });
-  contents.loadURL(VIBE_URL);
+  syncVibePageLanguage(contents.session)
+    .then(() => contents.loadURL(VIBE_URL))
+    .catch((error) => console.error('Could not load Mistral Vibe:', error));
   return mainWindow;
 }
 
@@ -612,7 +631,8 @@ function installIpcHandlers() {
     const previous = settings;
     settings = settingsStore.patch(patch);
     const displayBackendChanged = process.platform === 'linux' && previous.displayBackend !== settings.displayBackend;
-    const restartRequired = previous.hardwareAcceleration !== settings.hardwareAcceleration || displayBackendChanged || previous.language !== settings.language;
+    const languageChanged = previous.language !== settings.language;
+    const restartRequired = previous.hardwareAcceleration !== settings.hardwareAcceleration || displayBackendChanged;
     const shortcutRegistered = registerGlobalScreenshot();
     const autostartApplied = syncAutostart(settings.startAtLogin);
     applyZoom();
@@ -620,6 +640,11 @@ function installIpcHandlers() {
     rebuildTray();
     buildApplicationMenu();
     sendShellState();
+    if (languageChanged) {
+      const contents = vibeContents();
+      await syncVibePageLanguage(contents?.session || session.defaultSession);
+      contents?.reload();
+    }
     return { settings, ui: currentUiBundle(), platform: process.platform, restartRequired, shortcutRegistered, autostartApplied };
   });
 
@@ -640,6 +665,7 @@ function installIpcHandlers() {
     const targetSession = contents?.session || session.defaultSession;
     await targetSession.clearCache();
     await targetSession.clearStorageData();
+    await syncVibePageLanguage(targetSession);
     contents?.reload();
     return true;
   });
