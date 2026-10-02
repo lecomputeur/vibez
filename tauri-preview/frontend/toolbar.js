@@ -24,7 +24,8 @@
     prepareLanguages();
     $('quick-language').value = state.settings.language;
     const resolved = preview.resolve(state.settings.language, state.os_locale);
-    $('language-code').textContent = state.settings.language === 'system' ? 'AUTO' : resolved.toUpperCase().replace('-', '·');
+    const code = resolved.toUpperCase().replace('-', '·');
+    $('language-code').textContent = state.settings.language === 'system' ? `AUTO·${code}` : code;
     preview.localize(state);
   }
 

@@ -69,20 +69,45 @@ fn write_settings(file: &PathBuf, settings: &Settings) -> Result<(), String> {
     output.sync_all().map_err(err)?;
     fs::rename(temp, file).map_err(err)
 }
+#[cfg(target_os = "windows")]
+fn os_locale() -> String {
+    // "System language" should mean the language Windows actually displays,
+    // not merely the user's regional-format locale. WebView2 itself uses the
+    // UI language, so match that behavior here.
+    use windows::Win32::Globalization::{GetUserDefaultUILanguage, LCIDToLocaleName, LOCALE_ALLOW_NEUTRAL_NAMES, MAX_LOCALE_NAME};
+    unsafe {
+        let lcid = GetUserDefaultUILanguage();
+        let mut buffer = [0u16; MAX_LOCALE_NAME as usize];
+        let len = LCIDToLocaleName(lcid as u32, Some(&mut buffer), LOCALE_ALLOW_NEUTRAL_NAMES);
+        if len > 1 {
+            return String::from_utf16_lossy(&buffer[..len as usize - 1]).replace('_', "-");
+        }
+    }
+    sys_locale::get_locale().unwrap_or_else(|| "en".into()).replace('_', "-")
+}
+
+#[cfg(not(target_os = "windows"))]
 fn os_locale() -> String {
     sys_locale::get_locale()
         .or_else(|| ["LC_ALL", "LC_MESSAGES", "LANG"].iter().find_map(|k| std::env::var(k).ok().filter(|s| !s.is_empty())))
         .unwrap_or_else(|| "en".into())
         .split('.').next().unwrap_or("en").replace('_', "-")
 }
-fn apply_site_language(app: &AppHandle, selected: &str, reload: bool) -> Result<String, String> {
+fn apply_site_language(app: &AppHandle, selected: &str, navigate: bool) -> Result<String, String> {
     let locale = policy::mistral_site_locale(selected, &os_locale());
     let view = app.get_webview("vibe").ok_or("Vibe view is not ready")?;
 
-    // Mistral documents NEXT_LOCALE as its language-preference cookie.
-    // Keep it inside the preview's own webview profile; never export or read
-    // authentication cookies. Set both current Vibe entry hosts because the
-    // public entry point can move between vibe.mistral.ai and chat.mistral.ai.
+    // Mistral documents NEXT_LOCALE as its language-preference cookie on
+    // chat.mistral.ai. Remove stale variants first so a previous host/domain
+    // cookie cannot keep winning after a language switch.
+    for domain in ["chat.mistral.ai", ".chat.mistral.ai", "vibe.mistral.ai", ".vibe.mistral.ai"] {
+        let stale = Cookie::build(("NEXT_LOCALE", ""))
+            .domain(domain)
+            .path("/")
+            .secure(true)
+            .build();
+        let _ = view.delete_cookie(stale);
+    }
     for domain in ["chat.mistral.ai", "vibe.mistral.ai"] {
         let cookie = Cookie::build(("NEXT_LOCALE", locale.clone()))
             .domain(domain)
@@ -92,9 +117,63 @@ fn apply_site_language(app: &AppHandle, selected: &str, reload: bool) -> Result<
             .build();
         view.set_cookie(cookie).map_err(err)?;
     }
-    link_trace::record("site-language", &format!("https://chat.mistral.ai/{locale}").parse().map_err(err)?);
-    if reload { view.reload().map_err(err)?; }
+
+    // If the current page is already a Mistral page, also set the same
+    // non-sensitive preference through document.cookie. This mirrors how a
+    // normal site language picker writes its host cookie.
+    if let Ok(current) = view.url() {
+        if current.scheme() == "https"
+            && current.host_str().is_some_and(|host| host == "mistral.ai" || host.ends_with(".mistral.ai"))
+        {
+            let script = format!(
+                "document.cookie='NEXT_LOCALE={}; Path=/; Secure; SameSite=Lax';",
+                locale
+            );
+            let _ = view.eval(&script);
+        }
+    }
+
+    link_trace::record("site-language-requested", &format!("https://chat.mistral.ai/{locale}").parse().map_err(err)?);
+    if navigate {
+        // A full navigation makes the server receive the new locale cookie.
+        // Preserve the user's current Vibe path instead of sending them Home.
+        let target = view.url().ok()
+            .filter(|url| url.scheme() == "https" && url.host_str().is_some_and(|host| host == "mistral.ai" || host.ends_with(".mistral.ai")))
+            .unwrap_or_else(|| HOME.parse().expect("constant home URL"));
+        view.navigate(target).map_err(err)?;
+    }
     Ok(locale)
+}
+
+async fn inspect_site_language(app: &AppHandle) -> String {
+    let requested = {
+        let state = app.state::<PreviewState>();
+        state.settings.lock().ok()
+            .map(|s| policy::mistral_site_locale(&s.language, &os_locale()))
+            .unwrap_or_else(|| "unknown".into())
+    };
+    let Some(view) = app.get_webview("vibe") else {
+        return format!("requested={requested}; page=unavailable");
+    };
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    let script = r#"(() => {
+      try {
+        const match = document.cookie.match(/(?:^|;\\s*)NEXT_LOCALE=([^;]*)/);
+        const cookie = match ? decodeURIComponent(match[1]) : '<none>';
+        const html = document.documentElement?.lang || '<none>';
+        return 'cookie=' + cookie + '; html=' + html + '; host=' + location.host;
+      } catch (_) { return 'cookie=<unavailable>; html=<unavailable>'; }
+    })()"#;
+    if view.eval_with_callback(script, move |result| { let _ = tx.send(result); }).is_err() {
+        return format!("requested={requested}; page=unavailable");
+    }
+    match tokio::time::timeout(std::time::Duration::from_secs(3), rx).await {
+        Ok(Ok(raw)) => {
+            let page = serde_json::from_str::<String>(&raw).unwrap_or_else(|_| "unavailable".into());
+            format!("requested={requested}; {page}")
+        }
+        _ => format!("requested={requested}; page=unavailable"),
+    }
 }
 fn show_main(app: &AppHandle) {
     if let Some(window) = app.get_window("main") {
@@ -277,10 +356,11 @@ async fn get_diagnostics(webview: Webview, app: AppHandle) -> Result<String, Str
          "Preview update checks: manual, separate tested Linux artifacts; installation is manual")
     };
     let auth_mode = app.state::<PreviewState>().auth_active.load(Ordering::SeqCst);
-    Ok(format!("{}\nApplication ID: {}\nEngine: {}\nOS: {} {}\nSession: {}\nDesktop: {}\nConfig: {}\nData: {}\n{}\nAutomatic installation: disabled\nMicrophone/camera: not enabled in this preview\nGlobal shortcut: not registered (does not conflict with Electron)\nSign-in popups: related webview; provider restrictions still apply\nAuthentication routing mode: {}\nAutomatic JS link interception: disabled\nRecent navigation (origins only, no credentials or tokens):\n{}\nLink routing (current process, origins only):\n{}",
-        title(), APP_ID, engine, os_name, std::env::consts::ARCH, session, desktop,
+    let site_language = inspect_site_language(&app).await;
+    Ok(format!("{}\nApplication ID: {}\nEngine: {}\nOS: {} {}\nSystem/UI locale: {}\nSession: {}\nDesktop: {}\nConfig: {}\nData: {}\n{}\nAutomatic installation: disabled\nMicrophone/camera: not enabled in this preview\nGlobal shortcut: not registered (does not conflict with Electron)\nSign-in popups: related webview; provider restrictions still apply\nAuthentication routing mode: {}\nMistral site language: {}\nAutomatic JS link interception: disabled\nRecent navigation (origins only, no credentials or tokens):\n{}\nLink routing (current process, origins only):\n{}",
+        title(), APP_ID, engine, os_name, std::env::consts::ARCH, os_locale(), session, desktop,
         app.path().app_config_dir().map_err(err)?.display(), app.path().app_data_dir().map_err(err)?.display(),
-        update_text, if auth_mode { "active" } else { "inactive" }, auth::diagnostics(), link_trace::diagnostics()))
+        update_text, if auth_mode { "active" } else { "inactive" }, site_language, auth::diagnostics(), link_trace::diagnostics()))
 }
 
 fn create_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
@@ -386,7 +466,7 @@ fn main() {
             // Offline smoke/link probes must remain deterministic and never
             // reload their bundled test page through production-only behavior.
             if !smoke {
-                let _ = apply_site_language(app.handle(), &settings.language, true);
+                let _ = apply_site_language(app.handle(), &settings.language, false);
             }
             layout(app.handle()).map_err(std::io::Error::other)?;
             if !smoke {

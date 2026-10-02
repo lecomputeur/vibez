@@ -1,6 +1,6 @@
 [package]
 name = "vibez-tauri-preview"
-version = "0.1.10"
+version = "0.1.11"
 description = "Experimental Tauri desktop client for Mistral Vibe"
 edition = "2021"
 license = "MIT"
@@ -23,6 +23,10 @@ tokio = { version = "1", features = ["sync", "time"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 semver = "1"
 sys-locale = "0.3"
+
+[target.'cfg(target_os = "windows")'.dependencies.windows]
+version = "0.62"
+features = ["Win32_Globalization"]
 
 [target.'cfg(target_os = "linux")'.dependencies]
 webkit2gtk = "2"
