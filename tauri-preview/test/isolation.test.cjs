@@ -13,10 +13,10 @@ const cap = JSON.parse(read('src-tauri/capabilities/local-shell.json'));
 test('preview has an independent identity, executable and version', () => {
   assert.equal(config.identifier, 'nl.lecomputeur.vibez.tauri.preview');
   assert.equal(config.mainBinaryName, 'vibez-tauri-preview');
-  assert.equal(config.version, '0.1.12');
+  assert.equal(config.version, '0.1.13');
   assert.equal(config.productName, 'VibeZ Tauri Preview');
   assert.equal(JSON.parse(read('package.json')).version, config.version);
-  assert.match(read('src-tauri/Cargo.toml'), /version = "0\.1\.12"/);
+  assert.match(read('src-tauri/Cargo.toml'), /version = "0\.1\.13"/);
 });
 test('remote website and auth popups have no native capabilities or iframe bridge', () => {
   assert.deepEqual(cap.webviews, ['shell', 'settings']);
@@ -173,4 +173,18 @@ test('Windows system language uses the display UI language', () => {
   assert.match(main, /LCIDToLocaleName/);
   assert.match(cargo, /Win32_Globalization/);
   assert.match(toolbar, /AUTO·/);
+});
+
+
+test('Linux preview repairs startup toolbar packing and forwards browser language', () => {
+  const main = read('src-tauri/src/main.rs');
+  const smoke = read('src-tauri/src/smoke.rs');
+  assert.match(main, /WebContextExt/);
+  assert.match(main, /set_preferred_languages/);
+  assert.match(main, /cookies_for_url/);
+  assert.match(main, /store-cookie=/);
+  assert.match(main, /shell_ready\.swap\(true/);
+  assert.match(main, /native_layout::repair\(&app\)/);
+  assert.match(smoke, /Verify the real startup packing/);
+  assert.match(smoke, /check_layout\(app\)\?;/);
 });
