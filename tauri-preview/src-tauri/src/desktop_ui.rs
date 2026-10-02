@@ -1,12 +1,18 @@
-//! Native menus share the toolbar's bundled translations and language selection.
+//! Native menus and preview-specific status text share the saved language selection.
 use std::sync::OnceLock;
 use serde_json::Value;
 use tauri::{AppHandle, Manager, menu::{Menu, MenuItem}, tray::TrayIconBuilder};
 use crate::{PreviewState, policy::APP_NAME};
+
 fn translations() -> &'static Value {
     static DATA: OnceLock<Value> = OnceLock::new();
     DATA.get_or_init(|| serde_json::from_str(include_str!("../../dist/translations.json")).expect("validated bundled translations"))
 }
+fn preview_translations() -> &'static Value {
+    static DATA: OnceLock<Value> = OnceLock::new();
+    DATA.get_or_init(|| serde_json::from_str(include_str!("../../preview-i18n.json")).expect("validated preview translations"))
+}
+
 pub fn resolve(setting: &str, locale: &str) -> String {
     let raw = if setting.is_empty() || setting == "system" { locale } else { setting };
     let raw = raw.replace('_', "-").to_lowercase();
@@ -20,54 +26,56 @@ pub fn language(app: &AppHandle) -> String {
     resolve(&setting, &crate::os_locale())
 }
 pub fn text_for(language: &str, key: &str) -> String {
-    if language == "nl" && key == "updates" { return "Controleren op updates…".into(); }
     translations()["translations"][language][key].as_str()
         .or_else(|| translations()["translations"]["en"][key].as_str()).unwrap_or(key).into()
 }
-fn menu_label(language: &str, key: &str) -> String {
-    let text = text_for(language, key);
-    // Existing translations already contain the name, e.g. "VibeZ openen".
-    if key == "open" { text.replace("VibeZ", APP_NAME) } else { text }
+pub fn preview_for(language: &str, key: &str) -> String {
+    preview_translations()["translations"][language][key].as_str()
+        .or_else(|| preview_translations()["translations"]["en"][key].as_str()).unwrap_or(key).into()
 }
 pub fn text(app: &AppHandle, key: &str) -> String { text_for(&language(app), key) }
-pub fn pair(app: &AppHandle, english: &str, dutch: &str) -> String {
-    if language(app) == "nl" { dutch.into() } else { english.into() }
+pub fn preview(app: &AppHandle, key: &str) -> String { preview_for(&language(app), key) }
+
+fn menu_label(language: &str, key: &str) -> String {
+    let text = text_for(language, key);
+    if key == "open" { text.replace("VibeZ", APP_NAME) } else { text }
 }
+
 pub fn status(app: &AppHandle, raw: &str) -> String {
-    if language(app) != "nl" { return raw.into(); }
-    let translated = match raw {
-        "Rust / WebKitGTK · isolated preview" => "Rust / WebKitGTK · aparte proefversie",
-        "Choose a screenshot in the desktop dialog…" => "Kies een schermafbeelding in het Linux-dialoogvenster…",
-        "Opening Windows screen capture…" => "Windows-schermopname openen…",
-        "Windows screen capture opened — select an area, then paste it into Vibe with Ctrl+V." => "Windows-schermopname geopend — selecteer een gebied en plak het daarna in Vibe met Ctrl+V.",
-        "Screenshot copied — paste it into Vibe with Ctrl+V." => "Schermafbeelding gekopieerd — plak deze in Vibe met Ctrl+V.",
-        "A screenshot is already in progress" => "Er wordt al een schermafbeelding gemaakt",
-        "Returning to Vibe. Your preview profile has not been cleared." => "Terug naar Vibe. Je profiel van de proefversie blijft behouden.",
-        "Checking for preview updates…" => "Controleren op updates voor de proefversie…",
-        "Preview update available." => "Er is een update voor de proefversie beschikbaar.",
-        "No newer tested preview is available." => "Er is geen nieuwere geteste proefversie beschikbaar.",
-        "No downloadable tested preview was found." => "Er is geen downloadbare, geteste proefversie gevonden.",
-        "Could not check preview updates. Please try again later." => "Updates controleren is niet gelukt. Probeer het later opnieuw.",
-        "Could not open the external link in your browser." => "De externe link kon niet in je browser worden geopend.",
-        "Page could not load. Use Home to retry; details are in Settings." => "De pagina kon niet laden. Probeer opnieuw via het huisje; details staan bij Instellingen.",
-        "The web process stopped. Use Home to retry; details are in Settings." => "De webweergave is gestopt. Probeer opnieuw via het huisje; details staan bij Instellingen.",
-        "Sign-in opened in a separate window. Provider restrictions may still apply." => "Inloggen is in een apart venster geopend. Beperkingen van de aanbieder kunnen nog gelden.",
-        "A popup with an unsupported address was blocked." => "Een pop-up met een niet-ondersteund adres is geblokkeerd.",
-        "Close an existing sign-in window before opening another." => "Sluit eerst een bestaand inlogvenster voordat je een nieuw opent.",
-        "Could not open the preview's sign-in profile." => "Het inlogprofiel van de proefversie kon niet worden geopend.",
-        "An additional nested sign-in window was blocked." => "Een extra inlogvenster vanuit een pop-up is geblokkeerd.",
-        "Could not create the sign-in window. Your Vibe page has not been replaced." => "Het inlogvenster kon niet worden geopend. Je Vibe-pagina is niet vervangen.",
-        _ => raw,
-    };
-    for (prefix, replacement) in [
-        ("Screenshot cancelled or unavailable:", "Schermafbeelding geannuleerd of niet beschikbaar:"),
-        ("Tray unavailable:", "Systeemvak niet beschikbaar:"),
-        ("Menu update failed:", "Bijwerken van het menu is niet gelukt:"),
-    ] {
-        if let Some(detail) = raw.strip_prefix(prefix) { return format!("{replacement}{detail}"); }
+    let lang = language(app);
+    if let Some(key) = match raw {
+        "Rust / WebKitGTK · isolated preview" | "Rust / WebView2 · isolated preview" | "Rust / Tauri · isolated preview" => Some("isolatedStatus"),
+        "Choose a screenshot in the desktop dialog…" => Some("screenshotChoose"),
+        "Opening Windows screen capture…" => Some("windowsCaptureOpening"),
+        "Windows screen capture opened — select an area, then paste it into Vibe with Ctrl+V." => Some("windowsCaptureOpened"),
+        "Screenshot copied — paste it into Vibe with Ctrl+V." => Some("screenshotCopied"),
+        "A screenshot is already in progress" => Some("screenshotBusy"),
+        "Returning to Vibe. Your preview profile has not been cleared." => Some("returningVibe"),
+        "Could not open the external link in your browser." => Some("externalLinkFailed"),
+        "Page could not load. Use Home to retry; details are in Settings." => Some("pageLoadFailed"),
+        "The web process stopped. Use Home to retry; details are in Settings." => Some("webProcessStopped"),
+        "Sign-in opened in a separate window. Provider restrictions may still apply." => Some("signInOpened"),
+        "A popup with an unsupported address was blocked." => Some("popupUnsupported"),
+        "Close an existing sign-in window before opening another." => Some("popupLimit"),
+        "Could not open the preview's sign-in profile." => Some("signInProfileFailed"),
+        "An additional nested sign-in window was blocked." => Some("nestedPopupBlocked"),
+        "Could not create the sign-in window. Your Vibe page has not been replaced." => Some("signInWindowFailed"),
+        _ => None,
+    } { return preview_for(&lang, key); }
+
+    match raw {
+        "Checking for preview updates…" => text_for(&lang, "checking"),
+        "Preview update available." => text_for(&lang, "updateReady"),
+        "No newer tested preview is available." => text_for(&lang, "latest"),
+        "No downloadable tested preview was found." => preview_for(&lang, "noDownloadHelp"),
+        "Could not check preview updates. Please try again later." => text_for(&lang, "updateFailed"),
+        _ if raw.starts_with("Screenshot cancelled or unavailable:") => text_for(&lang, "shotFailed"),
+        _ if raw.starts_with("Tray unavailable:") => preview_for(&lang, "serviceErrorHelp"),
+        _ if raw.starts_with("Menu update failed:") => preview_for(&lang, "serviceErrorHelp"),
+        _ => raw.into(),
     }
-    translated.into()
 }
+
 pub fn menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     let lang = language(app);
     let label = |key| menu_label(&lang, key);
@@ -102,10 +110,10 @@ pub fn create_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     builder.build(app)?;
     Ok(())
 }
-/// Construct real native menus off the GTK event-loop thread for integration tests.
+
 pub fn smoke_check(app: &AppHandle) -> Result<(), String> {
     let original = app.state::<PreviewState>().settings.lock().map_err(crate::err)?.language.clone();
-    for lang in ["nl", "en", "de", "nl"] {
+    for lang in ["nl", "en", "de", "ar"] {
         app.state::<PreviewState>().settings.lock().map_err(crate::err)?.language = lang.into();
         let menu = menu(app).map_err(crate::err)?;
         if menu.items().map_err(crate::err)?.len() != 5 { return Err("Tray menu lost an action".into()); }
@@ -114,11 +122,13 @@ pub fn smoke_check(app: &AppHandle) -> Result<(), String> {
             let actual = item.as_menuitem().ok_or("Wrong tray item kind")?.text().map_err(crate::err)?;
             if actual != menu_label(lang, key) { return Err(format!("Tray translation mismatch: {lang}/{id}")); }
         }
+        if preview_for(lang, "languageButton").is_empty() { return Err(format!("Missing preview language text: {lang}")); }
     }
     app.state::<PreviewState>().settings.lock().map_err(crate::err)?.language = original;
-    println!("TRAY_OK: update action present; native menu follows Dutch, English and German selection");
+    println!("TRAY_OK: native menu and preview text follow saved language selection");
     Ok(())
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -129,17 +139,22 @@ mod tests {
         assert_eq!(resolve("system", "zh_Hant_TW"), "zh-TW");
         assert_eq!(resolve("system", "C"), "en");
     }
-    #[test] fn all_existing_languages_have_tray_translations() {
+    #[test] fn all_34_languages_have_native_and_preview_text() {
         let langs = translations()["translations"].as_object().unwrap();
+        let preview = preview_translations()["translations"].as_object().unwrap();
         assert_eq!(langs.len(), 34);
-        for (_, strings) in langs {
+        assert_eq!(preview.len(), 34);
+        for (code, strings) in langs {
             for key in ["open", "screenshot", "settings", "updates", "quit"] {
-                assert!(!strings[key].as_str().unwrap_or_default().is_empty(), "{key}");
+                assert!(!strings[key].as_str().unwrap_or_default().is_empty(), "{code}/{key}");
+            }
+            let extras = preview.get(code).expect("matching preview language");
+            for key in ["intro", "limits", "saved", "languageButton", "chooseLanguage", "updateManualHelp"] {
+                assert!(!extras[key].as_str().unwrap_or_default().is_empty(), "{code}/{key}");
             }
         }
         assert_eq!(text_for("nl", "settings"), "Instellingen");
-        assert_eq!(text_for("nl", "updates"), "Controleren op updates…");
+        assert_eq!(preview_for("nl", "languageButton"), "Taal");
         assert_eq!(menu_label("nl", "open"), "VibeZ Tauri Preview openen");
-        assert_eq!(menu_label("en", "open"), "Open VibeZ Tauri Preview");
     }
 }
