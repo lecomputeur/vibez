@@ -7,31 +7,30 @@ use crate::policy::TOOLBAR_HEIGHT;
 
 const LAYOUT_NAME: &str = "vibez-tauri-fixed-layout";
 
-fn fixed_layout(app: &AppHandle) -> Result<(tauri::Window, gtk::Fixed), String> {
-    let window = app.get_window("main").ok_or("Missing main window")?;
-    let vbox = window.default_vbox().map_err(crate::err)?;
-
-    if let Some(fixed) = vbox.children().into_iter().find_map(|child| {
-        child.downcast::<gtk::Fixed>().ok()
-            .filter(|fixed| fixed.widget_name().as_str() == LAYOUT_NAME)
-    }) {
-        return Ok((window, fixed));
-    }
-
-    let fixed = gtk::Fixed::new();
-    fixed.set_widget_name(LAYOUT_NAME);
-    fixed.set_hexpand(true);
-    fixed.set_vexpand(true);
-    vbox.pack_start(&fixed, true, true, 0);
-    vbox.set_child_packing(&fixed, true, true, 0, gtk::PackType::Start);
-    fixed.show();
-    Ok((window, fixed))
-}
-
-fn place(view: &tauri::Webview, fixed: &gtk::Fixed, x: i32, y: i32, width: i32, height: i32) -> Result<(), String> {
-    let fixed = fixed.clone();
+fn place(view: &tauri::Webview, x: i32, y: i32, width: i32, height: i32, total_height: i32) -> Result<(), String> {
     view.with_webview(move |platform| {
         let widget = platform.inner();
+
+        let Some(toplevel) = widget.toplevel().and_then(|w| w.downcast::<gtk::Window>().ok()) else {
+            return;
+        };
+        let Some(vbox) = toplevel.child().and_then(|w| w.downcast::<gtk::Box>().ok()) else {
+            return;
+        };
+
+        let fixed = vbox.children().into_iter().find_map(|child| {
+            child.downcast::<gtk::Fixed>().ok()
+                .filter(|fixed| fixed.widget_name().as_str() == LAYOUT_NAME)
+        }).unwrap_or_else(|| {
+            let fixed = gtk::Fixed::new();
+            fixed.set_widget_name(LAYOUT_NAME);
+            fixed.set_hexpand(true);
+            fixed.set_vexpand(true);
+            vbox.pack_start(&fixed, true, true, 0);
+            vbox.set_child_packing(&fixed, true, true, 0, gtk::PackType::Start);
+            fixed.show();
+            fixed
+        });
 
         let already_in_fixed = widget.parent()
             .and_then(|parent| parent.downcast::<gtk::Fixed>().ok())
@@ -44,12 +43,15 @@ fn place(view: &tauri::Webview, fixed: &gtk::Fixed, x: i32, y: i32, width: i32, 
             fixed.put(&widget, x, y);
         }
 
+        fixed.set_size_request(width.max(1), total_height.max(1));
         fixed.move_(&widget, x, y);
         widget.set_hexpand(false);
         widget.set_vexpand(false);
         widget.set_size_request(width.max(1), height.max(1));
         widget.show();
         fixed.show();
+        fixed.queue_resize();
+        toplevel.queue_resize();
     }).map_err(crate::err)
 }
 
@@ -58,7 +60,7 @@ fn apply(app: &AppHandle) -> Result<(), String> {
         return Ok(());
     }
 
-    let (window, fixed) = fixed_layout(app)?;
+    let window = app.get_window("main").ok_or("Missing main window")?;
     let scale = window.scale_factor().map_err(crate::err)?;
     let size = window.inner_size().map_err(crate::err)?.to_logical::<f64>(scale);
     let width = size.width.round().max(1.0) as i32;
@@ -66,19 +68,13 @@ fn apply(app: &AppHandle) -> Result<(), String> {
     let toolbar_height = (TOOLBAR_HEIGHT.round() as i32).clamp(1, total_height);
     let content_height = (total_height - toolbar_height).max(1);
 
-    fixed.set_size_request(width, total_height);
-
     if let Some(shell) = app.get_webview("shell") {
-        place(&shell, &fixed, 0, 0, width, toolbar_height)?;
+        place(&shell, 0, 0, width, toolbar_height, total_height)?;
     }
     if let Some(vibe) = app.get_webview("vibe") {
-        place(&vibe, &fixed, 0, toolbar_height, width, content_height)?;
+        place(&vibe, 0, toolbar_height, width, content_height, total_height)?;
     }
 
-    fixed.queue_resize();
-    if let Some(gtk_window) = fixed.toplevel().and_then(|w| w.downcast::<gtk::Window>().ok()) {
-        gtk_window.queue_resize();
-    }
     window.show().map_err(crate::err)?;
     Ok(())
 }
