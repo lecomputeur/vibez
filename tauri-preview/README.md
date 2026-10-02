@@ -1,5 +1,11 @@
 # VibeZ Tauri Preview — Linux/Windows prototype
 
+## 0.1.10 — VibeZ language also changes the Mistral website
+
+Changing the preview language now writes Mistral's documented `NEXT_LOCALE` language-preference cookie inside the same isolated Vibe webview profile and reloads the site. The saved language is applied again on startup. This affects only the preview profile; no authentication cookies are read or exported.
+
+The preview supports more shell languages than Mistral currently exposes for its web interface. Known Mistral UI locales are mapped directly (English, French, German, Spanish, Polish, Italian, Portuguese, Arabic, Dutch and Ukrainian); other preview languages keep the VibeZ shell translation but use English for the Mistral website instead of sending an invalid locale.
+
 Experimental Rust/Tauri implementation alongside Electron VibeZ. **Not a production replacement.** Changes stay on the preview branch: the Electron app, main branch, stable releases, website and existing Microsoft Store submission are unchanged.
 
 ## 0.1.9 — stateful provider-neutral authentication routing
@@ -39,7 +45,7 @@ A new offline probe checks actual webview click handling for `_blank`, Ctrl-clic
 | Item | Preview |
 | --- | --- |
 | Name | VibeZ Tauri Preview |
-| Version | 0.1.9 |
+| Version | 0.1.10 |
 | Executable | `vibez-tauri-preview` |
 | Debian package | `vibe-z-tauri-preview` |
 | Application ID | `nl.lecomputeur.vibez.tauri.preview` |
@@ -54,7 +60,7 @@ XDG directory overrides are respected. The preview never imports Electron cookie
 Fully quit the running preview through its tray menu before installing from Downloads:
 
 ```bash
-sudo apt install ./vibez-tauri-preview_0.1.9_amd64.deb
+sudo apt install ./vibez-tauri-preview_0.1.10_amd64.deb
 vibez-tauri-preview
 ```
 
@@ -62,7 +68,7 @@ To uninstall only the preview, disable its autostart setting and quit it, then u
 
 ### Windows x64
 
-Use `VibeZ-Tauri-Preview-0.1.9-Windows-x64-Setup.exe` for normal installation. A plain executable is also built for testing. Fully quit the existing preview before upgrading. WebView2 is required; the Tauri installer handles its configured runtime installation when needed.
+Use `VibeZ-Tauri-Preview-0.1.10-Windows-x64-Setup.exe` for normal installation. A plain executable is also built for testing. Fully quit the existing preview before upgrading. WebView2 is required; the Tauri installer handles its configured runtime installation when needed.
 
 The unsigned candidate MSIX is not the recommended local test installer. **Do not upload it to the existing VibeZ Desktop Store product.** A separate Partner Center product and matching assigned identity are required before any separate Store submission. Store certification and a real installed-app test are separate from MSIX structural validation.
 

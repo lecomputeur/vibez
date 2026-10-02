@@ -22,7 +22,7 @@ use policy::{APP_ID, APP_NAME, HOME, TOOLBAR_HEIGHT, Settings};
 use serde_json::{json, Value};
 use std::{fs, io::Write, path::PathBuf, sync::{Mutex, atomic::{AtomicBool, Ordering}}};
 use tauri::{AppHandle, Manager, Webview, WebviewUrl, WebviewWindowBuilder, LogicalPosition, LogicalSize};
-use tauri::webview::{WebviewBuilder, NewWindowResponse, PermissionResponse};
+use tauri::webview::{WebviewBuilder, NewWindowResponse, PermissionResponse, Cookie};
 use tauri_plugin_autostart::ManagerExt as AutostartExt;
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_opener::OpenerExt;
@@ -74,6 +74,27 @@ fn os_locale() -> String {
         .or_else(|| ["LC_ALL", "LC_MESSAGES", "LANG"].iter().find_map(|k| std::env::var(k).ok().filter(|s| !s.is_empty())))
         .unwrap_or_else(|| "en".into())
         .split('.').next().unwrap_or("en").replace('_', "-")
+}
+fn apply_site_language(app: &AppHandle, selected: &str, reload: bool) -> Result<String, String> {
+    let locale = policy::mistral_site_locale(selected, &os_locale());
+    let view = app.get_webview("vibe").ok_or("Vibe view is not ready")?;
+
+    // Mistral documents NEXT_LOCALE as its language-preference cookie.
+    // Keep it inside the preview's own webview profile; never export or read
+    // authentication cookies. Set both current Vibe entry hosts because the
+    // public entry point can move between vibe.mistral.ai and chat.mistral.ai.
+    for domain in ["chat.mistral.ai", "vibe.mistral.ai"] {
+        let cookie = Cookie::build(("NEXT_LOCALE", locale.clone()))
+            .domain(domain)
+            .path("/")
+            .secure(true)
+            .same_site(tauri::webview::cookie::SameSite::Lax)
+            .build();
+        view.set_cookie(cookie).map_err(err)?;
+    }
+    link_trace::record("site-language", &format!("https://chat.mistral.ai/{locale}").parse().map_err(err)?);
+    if reload { view.reload().map_err(err)?; }
+    Ok(locale)
 }
 fn show_main(app: &AppHandle) {
     if let Some(window) = app.get_window("main") {
@@ -175,9 +196,16 @@ async fn save_settings(webview: Webview, app: AppHandle, settings: Settings) -> 
         }
         return Err(error);
     }
+    let language_changed = settings.language != previous.language;
     *current = settings.clone();
     drop(current);
     if let Some(view) = app.get_webview("vibe") { view.set_zoom(settings.zoom_factor).map_err(err)?; }
+    if language_changed {
+        match apply_site_language(&app, &settings.language, true) {
+            Ok(locale) => message(&app, format!("Language saved; Mistral site locale: {locale}")),
+            Err(error) => message(&app, format!("Language saved, but Mistral site language could not be updated: {error}")),
+        }
+    }
     // Never hold the settings mutex while constructing native menus.
     if let Err(error) = desktop_ui::refresh(&app) { message(&app, format!("Menu update failed: {error}")); }
     Ok(settings)
@@ -354,6 +382,9 @@ fn main() {
             let vibe = window.add_child(content, LogicalPosition::new(0., TOOLBAR_HEIGHT), LogicalSize::new(1280., 840. - TOOLBAR_HEIGHT))?;
             auth::attach_errors(app.handle(), &vibe).map_err(std::io::Error::other)?;
             vibe.set_zoom(settings.zoom_factor)?;
+            // Apply the saved VibeZ language to Mistral's own documented
+            // language-preference cookie in this isolated profile.
+            let _ = apply_site_language(app.handle(), &settings.language, true);
             layout(app.handle()).map_err(std::io::Error::other)?;
             if !smoke {
                 match create_tray(app.handle()) {

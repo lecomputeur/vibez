@@ -56,6 +56,20 @@ pub fn auth_return_url(url: &Url) -> bool {
     matches!(url.host_str().unwrap_or_default(), "vibe.mistral.ai" | "chat.mistral.ai")
 }
 
+/// Map the preview language to a locale currently exposed by Mistral's web UI.
+/// The preview has more translations than Mistral itself; unsupported website
+/// locales intentionally fall back to English instead of writing an invalid
+/// NEXT_LOCALE value.
+pub fn mistral_site_locale(selected: &str, os_locale: &str) -> String {
+    let requested = if selected == "system" { os_locale } else { selected };
+    let normalized = requested.replace('_', "-");
+    let primary = normalized.split('-').next().unwrap_or("en").to_ascii_lowercase();
+    match primary.as_str() {
+        "en" | "fr" | "de" | "es" | "pl" | "it" | "pt" | "ar" | "nl" | "uk" => primary,
+        _ => "en".into(),
+    }
+}
+
 pub fn external_url(url: &Url) -> bool {
     matches!(url.scheme(), "https" | "http")
         && url.host_str().is_some() && url.username().is_empty() && url.password().is_none()
@@ -183,6 +197,22 @@ mod tests {
             for label in ["vibe", "auth-popup-1", "shell", "settings"] {
                 assert!(!trusted_caller(label, &u(origin)), "Remote auth page got native access");
             }
+        }
+    }
+    #[test] fn mistral_site_language_tracks_supported_preview_languages() {
+        for (input, expected) in [
+            ("en", "en"), ("nl", "nl"), ("de", "de"), ("fr", "fr"),
+            ("es", "es"), ("it", "it"), ("pt", "pt"), ("pl", "pl"),
+            ("ar", "ar"), ("uk", "uk"),
+        ] {
+            assert_eq!(mistral_site_locale(input, "en-US"), expected);
+        }
+        assert_eq!(mistral_site_locale("system", "nl-NL"), "nl");
+        assert_eq!(mistral_site_locale("system", "de_DE.UTF-8"), "de");
+    }
+    #[test] fn unsupported_mistral_site_languages_fall_back_to_english() {
+        for input in ["zh-CN", "ja", "ko", "hi", "ru", "tr", "he", "fa", "ur"] {
+            assert_eq!(mistral_site_locale(input, "nl-NL"), "en", "{input}");
         }
     }
     #[test] fn browser_opener_never_accepts_local_files_or_commands() {
