@@ -38,6 +38,8 @@ pub fn status(app: &AppHandle, raw: &str) -> String {
     let translated = match raw {
         "Rust / WebKitGTK · isolated preview" => "Rust / WebKitGTK · aparte proefversie",
         "Choose a screenshot in the desktop dialog…" => "Kies een schermafbeelding in het Linux-dialoogvenster…",
+        "Opening Windows screen capture…" => "Windows-schermopname openen…",
+        "Windows screen capture opened — select an area, then paste it into Vibe with Ctrl+V." => "Windows-schermopname geopend — selecteer een gebied en plak het daarna in Vibe met Ctrl+V.",
         "Screenshot copied — paste it into Vibe with Ctrl+V." => "Schermafbeelding gekopieerd — plak deze in Vibe met Ctrl+V.",
         "A screenshot is already in progress" => "Er wordt al een schermafbeelding gemaakt",
         "Returning to Vibe. Your preview profile has not been cleared." => "Terug naar Vibe. Je profiel van de proefversie blijft behouden.",

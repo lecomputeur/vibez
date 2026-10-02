@@ -6,6 +6,7 @@ use tauri::webview::{NewWindowFeatures, NewWindowResponse};
 use tauri_plugin_opener::OpenerExt;
 use url::Url;
 use gtk::prelude::WidgetExt;
+#[cfg(target_os = "linux")]
 use webkit2gtk::WebViewExt;
 use crate::{policy, PreviewState};
 
@@ -41,6 +42,7 @@ pub fn page(url: &Url, finished: bool) {
     record(if finished { "load-finished" } else { "load-started" }, url);
 }
 
+#[cfg(target_os = "linux")]
 pub fn attach_errors(app: &AppHandle, view: &Webview) -> Result<(), String> {
     let handle = app.clone();
     let label = view.label().to_owned();
@@ -71,6 +73,9 @@ pub fn attach_errors(app: &AppHandle, view: &Webview) -> Result<(), String> {
         }
     }).map_err(crate::err)
 }
+
+#[cfg(target_os = "windows")]
+pub fn attach_errors(_app: &AppHandle, _view: &Webview) -> Result<(), String> { Ok(()) }
 
 pub fn close_popups(app: &AppHandle) {
     for (label, window) in app.webview_windows() {

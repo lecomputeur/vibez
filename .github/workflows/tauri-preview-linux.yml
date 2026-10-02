@@ -33,7 +33,7 @@ jobs:
         run: |
           changes="$(git diff --name-only dba23059d1cbd8fba082d95cc49f4ae46eeba0bb HEAD)"
           printf '%s\n' "$changes"
-          if printf '%s\n' "$changes" | grep -Ev '^(tauri-preview/|\.github/workflows/tauri-preview-linux\.yml$|$)'; then
+          if printf '%s\n' "$changes" | grep -Ev '^(tauri-preview/|\.github/workflows/tauri-preview-(linux|windows)\.yml$|$)'; then
             echo 'Refusing to build: changes outside the isolated prototype.' >&2
             exit 1
           fi

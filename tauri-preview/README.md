@@ -2,6 +2,12 @@
 
 Experimental Rust/Tauri implementation alongside Electron VibeZ. **Not a production replacement.** The Electron app, main branch, stable releases, website and Microsoft Store submission are unchanged.
 
+## 0.1.3 — Linux package plus Windows Store preview build
+
+Version 0.1.3 keeps the working Linux preview and adds a separate Windows x64 build based on Microsoft WebView2. The Windows Store preview uses its own package identity, `LeComputeur.VibeZTauriPreview`, and is deliberately not compatible with the existing VibeZ Desktop Store product. Do not upload it to the current VibeZ Desktop listing. A new Partner Center product must be reserved before final Store submission so its assigned identity can be inserted and rebuilt.
+
+On Windows the Screenshot button opens the built-in Windows screen-capture UI (`ms-screenclip:`); the result can then be pasted into Vibe with Ctrl+V. Linux continues to use the XDG screenshot portal.
+
 ## 0.1.2 — translated tray and separate preview update checks
 
 The tray menu now uses the same saved language or operating-system language as the toolbar. Existing translations are reused for all 34 menu languages. Saving a language change rebuilds the native menu immediately, without signing out or restarting. Dutch screenshot/status messages, navigation tooltips, settings title and explanatory text are included. New update-dialog text is Dutch/English; technical diagnostic details and some low-level library errors remain English.
@@ -25,7 +31,7 @@ Google can still reject embedded browsers. This update does not bypass provider 
 | Item | Preview |
 | --- | --- |
 | Name | VibeZ Tauri Preview |
-| Version | 0.1.2 |
+| Version | 0.1.3 |
 | Executable | `vibez-tauri-preview` |
 | Debian package | `vibe-z-tauri-preview` |
 | Application ID | `nl.lecomputeur.vibez.tauri.preview` |
@@ -39,7 +45,7 @@ XDG directory overrides are respected. The preview never imports Electron cookie
 Close the running preview through its tray menu (**Quit preview / Afsluiten**), then run from the download directory:
 
 ```bash
-sudo apt install ./vibez-tauri-preview_0.1.2_amd64.deb
+sudo apt install ./vibez-tauri-preview_0.1.3_amd64.deb
 vibez-tauri-preview
 ```
 

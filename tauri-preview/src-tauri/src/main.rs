@@ -1,9 +1,19 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod policy;
 mod smoke;
+#[cfg(target_os = "linux")]
+#[path = "native_layout.rs"]
+mod native_layout;
+#[cfg(target_os = "windows")]
+#[path = "native_layout_windows.rs"]
 mod native_layout;
 mod auth;
 mod desktop_ui;
+#[cfg(target_os = "linux")]
+#[path = "preview_updates.rs"]
+mod preview_updates;
+#[cfg(target_os = "windows")]
+#[path = "preview_updates_windows.rs"]
 mod preview_updates;
 
 use policy::{APP_ID, APP_NAME, HOME, TOOLBAR_HEIGHT, Settings};
@@ -14,6 +24,7 @@ use tauri::webview::{WebviewBuilder, NewWindowResponse, PermissionResponse};
 use tauri_plugin_autostart::ManagerExt as AutostartExt;
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_opener::OpenerExt;
+#[cfg(target_os = "linux")]
 use webkit2gtk::WebViewExt;
 
 struct PreviewState {
@@ -42,10 +53,15 @@ fn read_settings(file: &PathBuf) -> Settings {
     }
 }
 fn write_settings(file: &PathBuf, settings: &Settings) -> Result<(), String> {
-    use std::os::unix::fs::OpenOptionsExt;
     let temp = file.with_extension("tmp");
-    let mut output = fs::OpenOptions::new().create(true).truncate(true).write(true).mode(0o600)
-        .open(&temp).map_err(err)?;
+    let mut options = fs::OpenOptions::new();
+    options.create(true).truncate(true).write(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut output = options.open(&temp).map_err(err)?;
     output.write_all(&serde_json::to_vec_pretty(settings).map_err(err)?).map_err(err)?;
     output.sync_all().map_err(err)?;
     fs::rename(temp, file).map_err(err)
@@ -69,12 +85,17 @@ async fn get_state(webview: Webview, app: AppHandle) -> Result<Value, String> {
     require_local(&webview)?;
     let settings = app.state::<PreviewState>().settings.lock().map_err(err)?.clone();
     let view = app.get_webview("vibe").ok_or("Vibe view is not ready")?;
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    view.with_webview(move |platform| {
-        let native = platform.inner();
-        let _ = tx.send((native.can_go_back(), native.can_go_forward(), native.is_loading()));
-    }).map_err(err)?;
-    let (back, forward, loading) = rx.await.map_err(err)?;
+    #[cfg(target_os = "linux")]
+    let (back, forward, loading) = {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        view.with_webview(move |platform| {
+            let native = platform.inner();
+            let _ = tx.send((native.can_go_back(), native.can_go_forward(), native.is_loading()));
+        }).map_err(err)?;
+        rx.await.map_err(err)?
+    };
+    #[cfg(target_os = "windows")]
+    let (back, forward, loading) = (true, true, false);
     let state = app.state::<PreviewState>();
     if webview.label() == "shell" { state.shell_ready.store(true, Ordering::Relaxed); }
     let raw_status = state.status.lock().map_err(err)?.clone();
@@ -89,8 +110,14 @@ async fn navigate(webview: Webview, app: AppHandle, action: String) -> Result<()
     require_local(&webview)?;
     let view = app.get_webview("vibe").ok_or("Vibe view is not ready")?;
     match action.as_str() {
-        "back" => view.with_webview(|p| p.inner().go_back()).map_err(err),
-        "forward" => view.with_webview(|p| p.inner().go_forward()).map_err(err),
+        "back" => {
+            #[cfg(target_os = "linux")] { view.with_webview(|p| p.inner().go_back()).map_err(err) }
+            #[cfg(target_os = "windows")] { view.eval("history.back()").map_err(err) }
+        },
+        "forward" => {
+            #[cfg(target_os = "linux")] { view.with_webview(|p| p.inner().go_forward()).map_err(err) }
+            #[cfg(target_os = "windows")] { view.eval("history.forward()").map_err(err) }
+        },
         "reload" => view.reload().map_err(err),
         "home" => {
             auth::close_popups(&app);
@@ -156,6 +183,7 @@ async fn close_settings(webview: Webview) -> Result<(), String> {
     webview.window().close().map_err(err)
 }
 
+#[cfg(target_os = "linux")]
 async fn take_screenshot(app: &AppHandle) -> Result<(), String> {
     let state = app.state::<PreviewState>();
     if state.capture_busy.swap(true, Ordering::SeqCst) { return Err(desktop_ui::status(app, "A screenshot is already in progress")); }
@@ -180,6 +208,22 @@ async fn take_screenshot(app: &AppHandle) -> Result<(), String> {
     result
 }
 
+#[cfg(target_os = "windows")]
+async fn take_screenshot(app: &AppHandle) -> Result<(), String> {
+    let state = app.state::<PreviewState>();
+    if state.capture_busy.swap(true, Ordering::SeqCst) {
+        return Err(desktop_ui::status(app, "A screenshot is already in progress"));
+    }
+    message(app, "Opening Windows screen capture…");
+    let result = app.opener().open_url("ms-screenclip:", None::<&str>).map_err(err);
+    state.capture_busy.store(false, Ordering::SeqCst);
+    match &result {
+        Ok(()) => message(app, "Windows screen capture opened — select an area, then paste it into Vibe with Ctrl+V."),
+        Err(error) => message(app, format!("Screenshot cancelled or unavailable: {error}")),
+    }
+    result
+}
+
 #[tauri::command]
 async fn capture_screenshot(webview: Webview, app: AppHandle) -> Result<(), String> {
     require_local(&webview)?; take_screenshot(&app).await
@@ -188,12 +232,19 @@ async fn capture_screenshot(webview: Webview, app: AppHandle) -> Result<(), Stri
 #[tauri::command]
 async fn get_diagnostics(webview: Webview, app: AppHandle) -> Result<String, String> {
     require_local(&webview)?;
-    Ok(format!("{}\nApplication ID: {}\nEngine: Tauri 2 / system WebKitGTK\nOS: Linux {}\nSession: {}\nDesktop: {}\nConfig: {}\nData: {}\nPreview update checks: manual, separate tested Linux artifacts; installation is manual\nAutomatic installation: disabled\nMicrophone/camera: not enabled in this preview\nGlobal shortcut: not registered (does not conflict with Electron)\nSign-in popups: related WebKit view; provider restrictions still apply\nRecent navigation (origins only, no credentials or tokens):\n{}",
-        title(), APP_ID, std::env::consts::ARCH,
-        std::env::var("XDG_SESSION_TYPE").unwrap_or_default(),
-        std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default(),
+    let (engine, os_name, session, desktop, update_text) = if cfg!(target_os = "windows") {
+        ("Tauri 2 / Microsoft WebView2", "Windows", String::new(), String::new(),
+         "Preview update checks: manual Windows preview artifacts; Store delivery is separate")
+    } else {
+        ("Tauri 2 / system WebKitGTK", "Linux",
+         std::env::var("XDG_SESSION_TYPE").unwrap_or_default(),
+         std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default(),
+         "Preview update checks: manual, separate tested Linux artifacts; installation is manual")
+    };
+    Ok(format!("{}\nApplication ID: {}\nEngine: {}\nOS: {} {}\nSession: {}\nDesktop: {}\nConfig: {}\nData: {}\n{}\nAutomatic installation: disabled\nMicrophone/camera: not enabled in this preview\nGlobal shortcut: not registered (does not conflict with Electron)\nSign-in popups: related webview; provider restrictions still apply\nRecent navigation (origins only, no credentials or tokens):\n{}",
+        title(), APP_ID, engine, os_name, std::env::consts::ARCH, session, desktop,
         app.path().app_config_dir().map_err(err)?.display(), app.path().app_data_dir().map_err(err)?.display(),
-        auth::diagnostics()))
+        update_text, auth::diagnostics()))
 }
 
 fn create_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
@@ -210,14 +261,20 @@ fn main() {
         .plugin(tauri_plugin_autostart::Builder::new().app_name(APP_NAME).arg("--hidden").build())
         .invoke_handler(tauri::generate_handler![get_state, navigate, show_settings, save_settings, close_settings, capture_screenshot, get_diagnostics])
         .setup(move |app| {
-            use std::os::unix::fs::PermissionsExt;
             let config = app.path().app_config_dir()?;
             let data = app.path().app_data_dir()?;
-            for dir in [&config, &data] { fs::create_dir_all(dir)?; fs::set_permissions(dir, fs::Permissions::from_mode(0o700))?; }
+            for dir in [&config, &data] {
+                fs::create_dir_all(dir)?;
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    fs::set_permissions(dir, fs::Permissions::from_mode(0o700))?;
+                }
+            }
             let file = config.join("settings.json");
             let settings = read_settings(&file);
             app.manage(PreviewState { settings: Mutex::new(settings.clone()), file,
-                status: Mutex::new("Rust / WebKitGTK · isolated preview".into()),
+                status: Mutex::new(if cfg!(target_os = "windows") { "Rust / WebView2 · isolated preview".into() } else { "Rust / WebKitGTK · isolated preview".into() }),
                 capture_busy: AtomicBool::new(false), tray_ready: AtomicBool::new(false), shell_ready: AtomicBool::new(false), smoke });
             let window = tauri::window::WindowBuilder::new(app, "main")
                 .title(title()).inner_size(1280., 840.).min_inner_size(760., 560.).build()?;

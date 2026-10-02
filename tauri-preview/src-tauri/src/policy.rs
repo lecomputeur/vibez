@@ -7,7 +7,8 @@ pub const HOME: &str = "https://vibe.mistral.ai/";
 pub const TOOLBAR_HEIGHT: f64 = 54.0;
 
 pub fn local_url(url: &Url) -> bool {
-    url.scheme() == "tauri" && url.host_str() == Some("localhost")
+    (url.scheme() == "tauri" && url.host_str() == Some("localhost"))
+        || (url.scheme() == "http" && url.host_str() == Some("tauri.localhost"))
 }
 
 pub fn trusted_caller(label: &str, url: &Url) -> bool {
@@ -71,6 +72,7 @@ mod tests {
     }
     #[test] fn native_commands_only_accept_bundled_control_views() {
         assert!(trusted_caller("shell", &u("tauri://localhost/index.html")));
+        assert!(trusted_caller("shell", &u("http://tauri.localhost/index.html")));
         assert!(trusted_caller("settings", &u("tauri://localhost/settings.html")));
         assert!(!trusted_caller("vibe", &u("tauri://localhost/offline.html")));
         assert!(!trusted_caller("shell", &u(HOME)));

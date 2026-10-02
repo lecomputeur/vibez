@@ -1,0 +1,96 @@
+name: VibeZ Tauri Preview - Windows Store package
+
+on:
+  push:
+    branches: ['vibe/tauri-linux-preview-7c4e90']
+    paths: ['tauri-preview/**', '.github/workflows/tauri-preview-windows.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vibez-tauri-preview-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-store-preview:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: tauri-preview
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Verify production files are untouched
+        shell: bash
+        run: |
+          changes="$(git diff --name-only dba23059d1cbd8fba082d95cc49f4ae46eeba0bb HEAD)"
+          printf '%s\n' "$changes"
+          if printf '%s\n' "$changes" | grep -Ev '^(tauri-preview/|\.github/workflows/tauri-preview-(linux|windows)\.yml$|$)'; then
+            echo 'Refusing to build: changes outside isolated preview.' >&2
+            exit 1
+          fi
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Install Rust
+        shell: pwsh
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tauri-preview/src-tauri -> target
+          key: isolated-windows-preview
+          cache-on-failure: true
+      - name: Install preview build tooling
+        shell: pwsh
+        run: npm install --ignore-scripts
+      - name: Prepare assets and frontend tests
+        shell: pwsh
+        run: |
+          node scripts/prepare.cjs
+          npm test
+          npm audit --audit-level=high
+      - name: Rust tests
+        shell: pwsh
+        run: cargo test --release --manifest-path src-tauri/Cargo.toml
+      - name: Build Windows preview executable
+        shell: pwsh
+        run: cargo build --release --manifest-path src-tauri/Cargo.toml
+      - name: Verify executable identity
+        shell: pwsh
+        run: |
+          $version = node -p "require('./package.json').version"
+          $reported = & .\src-tauri\target\release\vibez-tauri-preview.exe --version
+          if ($reported -notmatch [regex]::Escape("v$version")) { throw "Version mismatch: $reported" }
+      - name: Build and validate separate Store preview MSIX
+        shell: pwsh
+        run: .\scripts\build-windows-store-preview.ps1
+      - name: Prepare artifact
+        shell: pwsh
+        run: |
+          $version = node -p "require('./package.json').version"
+          $dir = "artifacts\windows"
+          Get-FileHash "$dir\*.msix" -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  $([IO.Path]::GetFileName($_.Path))" } | Set-Content "$dir\SHA256SUMS.txt"
+          @"
+          VibeZ Tauri Preview $version - Windows x64 Store preview package.
+          IMPORTANT: this uses the separate preview identity LeComputeur.VibeZTauriPreview.
+          Do NOT upload it to the existing VibeZ Desktop Store product.
+          Reserve a separate Partner Center product first; rebuild if Partner Center assigns a different identity.
+          "@ | Set-Content "$dir\README.txt"
+      - uses: actions/upload-artifact@v5
+        with:
+          name: VibeZ-Tauri-Preview-${{ env.PREVIEW_VERSION }}-Windows-x64-Store-Preview
+          path: |
+            tauri-preview/artifacts/windows/*.msix
+            tauri-preview/artifacts/windows/SHA256SUMS.txt
+            tauri-preview/artifacts/windows/README.txt
+          retention-days: 30
+          if-no-files-found: error
+        env:
+          PREVIEW_VERSION: 0.1.3

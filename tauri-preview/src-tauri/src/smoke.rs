@@ -19,7 +19,7 @@ fn check_layout(app: &AppHandle) -> Result<(), String> {
     if x.abs()>2. || (y-TOOLBAR_HEIGHT).abs()>2. || (width-size.width).abs()>2.
         || (height+TOOLBAR_HEIGHT-size.height).abs()>2. || sx.abs()>2. || sy.abs()>2.
         || (sw-size.width).abs()>2. || (sh-TOOLBAR_HEIGHT).abs()>2. {
-        return Err(format!("GTK viewport mismatch: window={size:?}, content=({x},{y},{width},{height}), toolbar=({sx},{sy},{sw},{sh})"));
+        return Err(format!("Viewport mismatch: window={size:?}, content=({x},{y},{width},{height}), toolbar=({sx},{sy},{sw},{sh})"));
     }
     if window.title().map_err(crate::err)? != crate::title() { return Err("Title does not match preview version".into()); }
     println!("LAYOUT_OK: {}x{} content {}x{} at {},{}", size.width,size.height,width,height,x,y);
@@ -31,7 +31,7 @@ fn popup_checks(app: &AppHandle) -> Result<(), String> {
     for blank in [false, true] {
         view.eval("window.__reply='pending'; window.onmessage=e=>{if(e.source===window.__popup && e.data==='preview-popup-reply')window.__reply='ok';};").map_err(crate::err)?;
         view.eval(if blank { "window.__popup=window.open('about:blank','_blank');" }
-            else { "window.__popup=window.open('tauri://localhost/offline.html','_blank');" }).map_err(crate::err)?;
+            else { "window.__popup=window.open(location.origin + '/offline.html','_blank');" }).map_err(crate::err)?;
         let deadline = Instant::now() + Duration::from_secs(5);
         let popup = loop {
             if let Some((_, window)) = app.webview_windows().into_iter().find(|(label,_)| label.starts_with("auth-popup-")) { break window; }
@@ -40,7 +40,7 @@ fn popup_checks(app: &AppHandle) -> Result<(), String> {
         };
         if blank {
             let popup_view = app.get_webview(popup.label()).ok_or("Missing blank popup")?;
-            popup_view.eval("location.href='tauri://localhost/offline.html';").map_err(crate::err)?;
+            popup_view.eval("location.href=window.opener.location.origin + '/offline.html';").map_err(crate::err)?;
         }
         thread::sleep(Duration::from_millis(600));
         let popup_view = app.get_webview(popup.label()).ok_or("Missing popup view")?;
