@@ -5,6 +5,7 @@ use tauri::{AppHandle, Manager, Webview, WebviewUrl, WebviewWindowBuilder};
 use tauri::webview::{NewWindowFeatures, NewWindowResponse};
 use tauri_plugin_opener::OpenerExt;
 use url::Url;
+use gtk::prelude::WidgetExt;
 use webkit2gtk::WebViewExt;
 use crate::{policy, PreviewState};
 
@@ -57,9 +58,11 @@ pub fn attach_errors(app: &AppHandle, view: &Webview) -> Result<(), String> {
             crate::message(&terminated, "The web process stopped. Use Home to retry; details are in Settings.");
         });
         if label.starts_with(PREFIX) {
-            record("popup-close-handler-attached", &Url::parse("about:blank").expect("constant"));
-            native.connect_close(move |view| {
-                if let Some(uri) = view.uri() { if let Ok(url) = Url::parse(&uri) { record("popup-close-request", &url); } }
+            // Wry's own close handler destroys the GTK webview before a later
+            // close handler can run. Observe that destruction and remove the
+            // otherwise empty owning popup window as well. Never target main.
+            native.connect_destroy(move |_| {
+                record("popup-native-view-destroyed", &Url::parse("about:blank").expect("constant"));
                 let app = handle.clone(); let label = label.clone();
                 tauri::async_runtime::spawn(async move {
                     if let Some(window) = app.get_webview_window(&label) { let _ = window.destroy(); }
@@ -122,7 +125,6 @@ pub fn new_window(app: &AppHandle, url: Url, features: NewWindowFeatures) -> New
         });
     match builder.build() {
         Ok(window) => {
-            // Use the returned view directly, not a timing-dependent registry lookup.
             if attach_errors(app, window.as_ref()).is_err() {
                 record("popup-handler-attach-failed", &url);
                 let _ = window.destroy();
