@@ -20,7 +20,7 @@ mod preview_updates;
 
 use policy::{APP_ID, APP_NAME, HOME, TOOLBAR_HEIGHT, Settings};
 use serde_json::{json, Value};
-use std::{fs, io::Write, path::PathBuf, sync::{Mutex, atomic::{AtomicBool, Ordering}}};
+use std::{fs, io::Write, path::PathBuf, sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}}};
 use tauri::{AppHandle, Manager, Webview, WebviewUrl, WebviewWindowBuilder, LogicalPosition, LogicalSize};
 use tauri::webview::{WebviewBuilder, NewWindowResponse, PermissionResponse, Cookie};
 use tauri_plugin_autostart::ManagerExt as AutostartExt;
@@ -156,6 +156,8 @@ async fn inspect_site_language(app: &AppHandle) -> String {
         return format!("requested={requested}; page=unavailable");
     };
     let (tx, rx) = tokio::sync::oneshot::channel();
+    let tx = Arc::new(Mutex::new(Some(tx)));
+    let callback_tx = tx.clone();
     let script = r#"(() => {
       try {
         const match = document.cookie.match(/(?:^|;\\s*)NEXT_LOCALE=([^;]*)/);
@@ -164,7 +166,11 @@ async fn inspect_site_language(app: &AppHandle) -> String {
         return 'cookie=' + cookie + '; html=' + html + '; host=' + location.host;
       } catch (_) { return 'cookie=<unavailable>; html=<unavailable>'; }
     })()"#;
-    if view.eval_with_callback(script, move |result| { let _ = tx.send(result); }).is_err() {
+    if view.eval_with_callback(script, move |result| {
+        if let Ok(mut slot) = callback_tx.lock() {
+            if let Some(sender) = slot.take() { let _ = sender.send(result); }
+        }
+    }).is_err() {
         return format!("requested={requested}; page=unavailable");
     }
     match tokio::time::timeout(std::time::Duration::from_secs(3), rx).await {
