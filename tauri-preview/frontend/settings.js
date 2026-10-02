@@ -4,7 +4,7 @@
   let state;
   try {
     state = await preview.invoke('get_state');
-    preview.localize(state); $('version').textContent = `v${state.version} · Rust / WebKitGTK`;
+    preview.localize(state); $('version').textContent = `v${state.version} · Rust / Tauri`;
     for (const option of preview.data.options) {
       const el = document.createElement('option'); el.value = option.code; el.textContent = option.name; $('language').appendChild(el);
     }
