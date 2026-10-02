@@ -54,6 +54,7 @@ jobs:
         shell: pwsh
         run: |
           node scripts/prepare.cjs
+          npx tauri icon ../icon.png
           npm test
           npm audit --audit-level=high
       - name: Rust tests
