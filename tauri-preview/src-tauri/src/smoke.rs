@@ -30,8 +30,12 @@ fn popup_checks(app: &AppHandle) -> Result<(), String> {
     let initial = view.url().map_err(crate::err)?;
     for blank in [false, true] {
         view.eval("window.__reply='pending'; window.onmessage=e=>{if(e.source===window.__popup && e.data==='preview-popup-reply')window.__reply='ok';};").map_err(crate::err)?;
-        view.eval(if blank { "window.__popup=window.open('about:blank','_blank');" }
-            else { "window.__popup=window.open(location.origin + '/offline.html','_blank');" }).map_err(crate::err)?;
+        let direct = if cfg!(target_os = "windows") {
+            "window.__popup=window.open('http://tauri.localhost/offline.html','_blank');"
+        } else {
+            "window.__popup=window.open('tauri://localhost/offline.html','_blank');"
+        };
+        view.eval(if blank { "window.__popup=window.open('about:blank','_blank');" } else { direct }).map_err(crate::err)?;
         let deadline = Instant::now() + Duration::from_secs(5);
         let popup = loop {
             if let Some((_, window)) = app.webview_windows().into_iter().find(|(label,_)| label.starts_with("auth-popup-")) { break window; }
@@ -40,7 +44,12 @@ fn popup_checks(app: &AppHandle) -> Result<(), String> {
         };
         if blank {
             let popup_view = app.get_webview(popup.label()).ok_or("Missing blank popup")?;
-            popup_view.eval("location.href=window.opener.location.origin + '/offline.html';").map_err(crate::err)?;
+            let target = if cfg!(target_os = "windows") {
+                "location.href='http://tauri.localhost/offline.html';"
+            } else {
+                "location.href='tauri://localhost/offline.html';"
+            };
+            popup_view.eval(target).map_err(crate::err)?;
         }
         thread::sleep(Duration::from_millis(600));
         let popup_view = app.get_webview(popup.label()).ok_or("Missing popup view")?;
