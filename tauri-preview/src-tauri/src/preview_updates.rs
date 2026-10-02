@@ -71,30 +71,39 @@ fn newer(download: &Download, installed: &str) -> bool {
     Version::parse(installed).map(|current| download.version > current).unwrap_or(false)
 }
 fn report(app: &AppHandle, result: Result<Option<Download>, &'static str>) -> (String, String, Option<String>) {
-    let tr = |en: &str, nl: &str| crate::desktop_ui::pair(app, en, nl);
     let installed = env!("CARGO_PKG_VERSION");
-    let current = tr(&format!("Installed preview: {installed}"), &format!("Geïnstalleerde proefversie: {installed}"));
     match result {
         Ok(Some(download)) if newer(&download, installed) => {
             crate::message(app, "Preview update available.");
-            (tr("Preview update available", "Update voor de proefversie beschikbaar"),
-             format!("{current}\n{}\n\n{}", tr(&format!("New tested preview: {}", download.version), &format!("Nieuwe geteste proefversie: {}", download.version)),
-                tr("Download opens the preview build on GitHub. A GitHub sign-in is required. Unpack the ZIP and install its .deb manually. Your regular VibeZ is not changed.",
-                   "De download opent de proefversie op GitHub. Je moet daar zijn ingelogd. Pak de ZIP uit en installeer het .deb-bestand handmatig. Je gewone VibeZ blijft ongemoeid.")), Some(download.url))
+            (
+                crate::desktop_ui::text(app, "updateReady"),
+                format!("v{installed} → v{}\n\n{}", download.version, crate::desktop_ui::preview(app, "updateManualHelp")),
+                Some(download.url)
+            )
         },
         Ok(Some(_)) => {
             crate::message(app, "No newer tested preview is available.");
-            (tr("No preview update", "Geen update voor de proefversie"), format!("{current}\n\n{}", tr("No newer tested preview is available. The regular Electron edition is a separate product and is not compared.", "Er is geen nieuwere geteste proefversie beschikbaar. De gewone Electron-versie wordt niet met deze proefversie vergeleken.")), None)
+            (
+                crate::desktop_ui::text(app, "latest"),
+                format!("v{installed}\n\n{}", crate::desktop_ui::text(app, "latest")),
+                None
+            )
         },
         Ok(None) => {
             crate::message(app, "No downloadable tested preview was found.");
-            (tr("No preview download found", "Geen download voor de proefversie gevonden"), format!("{current}\n\n{}", tr("No completed preview build with a valid Linux download was found. Build artifacts may have expired. This does not mean your preview is up to date.", "Er is geen afgeronde proefversie met een geldige Linux-download gevonden. De downloads kunnen verlopen zijn. Dit betekent niet dat jouw proefversie bijgewerkt is.")), None)
+            (
+                crate::desktop_ui::text(app, "updateFailed"),
+                format!("v{installed}\n\n{}", crate::desktop_ui::preview(app, "noDownloadHelp")),
+                None
+            )
         },
-        Err(error) => {
+        Err(_) => {
             crate::message(app, "Could not check preview updates. Please try again later.");
-            let detail = if error == "rate-limit" { tr("GitHub's request limit was reached. Please try again later.", "De aanvraaglimiet van GitHub is bereikt. Probeer het later opnieuw.") }
-                else { tr("The update service could not be reached or returned an invalid response. Check your connection and try again later.", "De updatedienst kon niet worden bereikt of gaf een ongeldig antwoord. Controleer je verbinding en probeer het later opnieuw.") };
-            (tr("Update check failed", "Updates controleren is niet gelukt"), format!("{current}\n\n{detail}"), None)
+            (
+                crate::desktop_ui::text(app, "updateFailed"),
+                format!("v{installed}\n\n{}", crate::desktop_ui::preview(app, "serviceErrorHelp")),
+                None
+            )
         },
     }
 }
@@ -106,7 +115,7 @@ pub fn start(app: AppHandle) {
         let result = tokio::time::timeout(Duration::from_secs(25), discover()).await.unwrap_or(Err("timeout"));
         let (heading, body, download) = report(&app, result);
         let close = crate::desktop_ui::text(&app, "close");
-        let open = crate::desktop_ui::pair(&app, "Open download", "Download openen");
+        let open = crate::desktop_ui::text(&app, "openReleases");
         let handle = app.clone();
         if app.run_on_main_thread(move || {
             crate::show_main(&handle);
