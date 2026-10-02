@@ -152,7 +152,7 @@ async fn save_settings(webview: Webview, app: AppHandle, settings: Settings) -> 
     settings.validate()?;
     let state = app.state::<PreviewState>();
     if settings.close_to_tray && !state.tray_ready.load(Ordering::Relaxed) {
-        return Err(desktop_ui::pair(&app, "The tray could not be initialized. Close-to-tray stays disabled.", "Het systeemvak kon niet worden gestart. Sluiten naar het systeemvak blijft uitgeschakeld."));
+        return Err(desktop_ui::preview(&app, "serviceErrorHelp"));
     }
     let mut current = state.settings.lock().map_err(err)?;
     let previous = current.clone();
@@ -274,7 +274,7 @@ fn main() {
             let file = config.join("settings.json");
             let settings = read_settings(&file);
             app.manage(PreviewState { settings: Mutex::new(settings.clone()), file,
-                status: Mutex::new(if cfg!(target_os = "windows") { "Rust / WebView2 · isolated preview".into() } else { "Rust / WebKitGTK · isolated preview".into() }),
+                status: Mutex::new("Rust / Tauri · isolated preview".into()),
                 capture_busy: AtomicBool::new(false), tray_ready: AtomicBool::new(false), shell_ready: AtomicBool::new(false), smoke });
             let window = tauri::window::WindowBuilder::new(app, "main")
                 .title(title()).inner_size(1280., 840.).min_inner_size(760., 560.).build()?;
