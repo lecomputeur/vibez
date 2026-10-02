@@ -108,7 +108,23 @@ fn set_webview_preferred_language(_view: &Webview, _locale: &str) -> Result<(), 
     Ok(())
 }
 
+#[cfg(target_os = "linux")]
+fn clear_exact_site_language_cookies(view: &Webview) {
+    for raw in ["https://chat.mistral.ai/", "https://vibe.mistral.ai/"] {
+        let Ok(url) = raw.parse() else { continue };
+        if let Ok(cookies) = view.cookies_for_url(url) {
+            for cookie in cookies.into_iter().filter(|cookie| cookie.name() == "NEXT_LOCALE") {
+                let _ = view.delete_cookie(cookie);
+            }
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn clear_exact_site_language_cookies(_view: &Webview) {}
+
 fn set_site_language_cookies(view: &Webview, locale: &str) -> Result<(), String> {
+    clear_exact_site_language_cookies(view);
     // Keep the language preference consistent on both current Mistral hosts and
     // the shared parent domain. All variants are removed before writing the
     // same value so a stale host-specific cookie cannot win after switching.
@@ -205,6 +221,20 @@ async fn inspect_site_language(app: &AppHandle) -> String {
     let Some(view) = app.get_webview("vibe") else {
         return format!("requested={requested}; page=unavailable");
     };
+
+    #[cfg(target_os = "linux")]
+    let store_cookie = {
+        let current = view.url().ok().filter(|url| matches!(url.scheme(), "http" | "https"));
+        current
+            .and_then(|url| view.cookies_for_url(url).ok())
+            .and_then(|cookies| cookies.into_iter()
+                .find(|cookie| cookie.name() == "NEXT_LOCALE")
+                .map(|cookie| cookie.value().to_string()))
+            .unwrap_or_else(|| "<none>".into())
+    };
+    #[cfg(target_os = "windows")]
+    let store_cookie = "<not-read>".to_string();
+
     let (tx, rx) = tokio::sync::oneshot::channel();
     let tx = Arc::new(Mutex::new(Some(tx)));
     let callback_tx = tx.clone();
@@ -213,22 +243,23 @@ async fn inspect_site_language(app: &AppHandle) -> String {
         const match = document.cookie.match(/(?:^|;\\s*)NEXT_LOCALE=([^;]*)/);
         const cookie = match ? decodeURIComponent(match[1]) : '<none>';
         const html = document.documentElement?.lang || '<none>';
-        return 'cookie=' + cookie + '; html=' + html + '; host=' + location.host;
-      } catch (_) { return 'cookie=<unavailable>; html=<unavailable>'; }
+        const nav = navigator.language || '<none>';
+        return 'document-cookie=' + cookie + '; html=' + html + '; navigator=' + nav + '; host=' + location.host;
+      } catch (_) { return 'document-cookie=<unavailable>; html=<unavailable>; navigator=<unavailable>'; }
     })()"#;
     if view.eval_with_callback(script, move |result| {
         if let Ok(mut slot) = callback_tx.lock() {
             if let Some(sender) = slot.take() { let _ = sender.send(result); }
         }
     }).is_err() {
-        return format!("requested={requested}; page=unavailable");
+        return format!("requested={requested}; store-cookie={store_cookie}; page=unavailable");
     }
     match tokio::time::timeout(std::time::Duration::from_secs(3), rx).await {
         Ok(Ok(raw)) => {
             let page = serde_json::from_str::<String>(&raw).unwrap_or_else(|_| "unavailable".into());
-            format!("requested={requested}; {page}")
+            format!("requested={requested}; store-cookie={store_cookie}; {page}")
         }
-        _ => format!("requested={requested}; page=unavailable"),
+        _ => format!("requested={requested}; store-cookie={store_cookie}; page=unavailable"),
     }
 }
 fn show_main(app: &AppHandle) {
