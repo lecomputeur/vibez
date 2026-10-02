@@ -79,6 +79,70 @@ jobs:
           dpkg-deb --info "$deb" | tee artifacts/package-info.txt
           dpkg-deb -x "$deb" artifacts/unpacked
           test -x artifacts/unpacked/usr/bin/vibez-tauri-preview
+          desktop="$(find artifacts/unpacked/usr/share/applications -name '*.desktop' -print -quit)"
+          test -n "$desktop"
+          grep -Eq '^Icon=(vibez-tauri-preview|nl\.lecomputeur\.vibez\.tauri\.preview)
+          artifacts/unpacked/usr/bin/vibez-tauri-preview --version | tee artifacts/version.txt
+          grep -F "v$VERSION" artifacts/version.txt
+      - name: Native GTK/WebKit smoke test in isolated desktop
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          WEBKIT_DISABLE_DMABUF_RENDERER: '1'
+        run: |
+          export XDG_CONFIG_HOME="$RUNNER_TEMP/vibez-tauri-smoke/config"
+          export XDG_DATA_HOME="$RUNNER_TEMP/vibez-tauri-smoke/data"
+          export XDG_CACHE_HOME="$RUNNER_TEMP/vibez-tauri-smoke/cache"
+          mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_CACHE_HOME"
+          export PREVIEW_BINARY="$PWD/artifacts/unpacked/usr/bin/vibez-tauri-preview"
+          export PREVIEW_ARTIFACTS="$PWD/artifacts"
+          status=0
+          timeout 90s dbus-run-session -- xvfb-run -a -s '-screen 0 1600x1000x24' bash -c '
+            openbox --sm-disable > "$PREVIEW_ARTIFACTS/openbox.log" 2>&1 &
+            "$PREVIEW_BINARY" --smoke-test > "$PREVIEW_ARTIFACTS/native-smoke.log" 2>&1 &
+            pid=$!
+            sleep 3
+            import -window root "$PREVIEW_ARTIFACTS/preview-offline-smoke.png" || true
+            wait "$pid"
+          ' || status=$?
+          cat artifacts/native-smoke.log
+          test "$status" = 0
+          grep -F 'SMOKE_OK:' artifacts/native-smoke.log
+      - name: Prepare verified preview artifacts
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          cp src-tauri/target/release/bundle/deb/*.deb "artifacts/vibez-tauri-preview_${VERSION}_amd64.deb"
+          cp src-tauri/Cargo.lock artifacts/Cargo.lock
+          cp package-lock.json artifacts/package-lock.json
+          cp README.md artifacts/README.md
+          cd artifacts
+          sha256sum *.deb > SHA256SUMS
+      - uses: actions/upload-artifact@v5
+        with:
+          name: VibeZ-Tauri-Preview-${{ steps.version.outputs.version }}-Linux-x64
+          path: |
+            tauri-preview/artifacts/*.deb
+            tauri-preview/artifacts/SHA256SUMS
+            tauri-preview/artifacts/README.md
+            tauri-preview/artifacts/Cargo.lock
+            tauri-preview/artifacts/package-lock.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: Upload validation logs even on failure
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: VibeZ-Tauri-Preview-validation
+          path: |
+            tauri-preview/artifacts/*.log
+            tauri-preview/artifacts/*.txt
+            tauri-preview/artifacts/*.png
+            tauri-preview/src-tauri/Cargo.lock
+            tauri-preview/package-lock.json
+          retention-days: 14
+          if-no-files-found: warn
+ "$desktop"
+          test -f artifacts/unpacked/usr/share/icons/hicolor/512x512/apps/vibez-tauri-preview.png
           artifacts/unpacked/usr/bin/vibez-tauri-preview --version | tee artifacts/version.txt
           grep -F "v$VERSION" artifacts/version.txt
       - name: Native GTK/WebKit smoke test in isolated desktop
