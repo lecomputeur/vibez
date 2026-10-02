@@ -382,9 +382,12 @@ fn main() {
             let vibe = window.add_child(content, LogicalPosition::new(0., TOOLBAR_HEIGHT), LogicalSize::new(1280., 840. - TOOLBAR_HEIGHT))?;
             auth::attach_errors(app.handle(), &vibe).map_err(std::io::Error::other)?;
             vibe.set_zoom(settings.zoom_factor)?;
-            // Apply the saved VibeZ language to Mistral's own documented
-            // language-preference cookie in this isolated profile.
-            let _ = apply_site_language(app.handle(), &settings.language, true);
+            // Apply the saved VibeZ language only to the real Mistral view.
+            // Offline smoke/link probes must remain deterministic and never
+            // reload their bundled test page through production-only behavior.
+            if !smoke {
+                let _ = apply_site_language(app.handle(), &settings.language, true);
+            }
             layout(app.handle()).map_err(std::io::Error::other)?;
             if !smoke {
                 match create_tray(app.handle()) {
