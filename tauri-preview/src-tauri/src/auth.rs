@@ -48,7 +48,6 @@ pub fn attach_errors(app: &AppHandle, view: &Webview) -> Result<(), String> {
         let failed = handle.clone();
         native.connect_load_failed(move |_, _, uri, error| {
             if error.matches(webkit2gtk::NetworkError::Cancelled) { return false; }
-            // Never log raw errors that may contain login URLs or tokens.
             if let Ok(url) = Url::parse(uri) { record("load-error", &url); }
             crate::message(&failed, "Page could not load. Use Home to retry; details are in Settings.");
             false
@@ -58,11 +57,10 @@ pub fn attach_errors(app: &AppHandle, view: &Webview) -> Result<(), String> {
             crate::message(&terminated, "The web process stopped. Use Home to retry; details are in Settings.");
         });
         if label.starts_with(PREFIX) {
+            record("popup-close-handler-attached", &Url::parse("about:blank").expect("constant"));
             native.connect_close(move |view| {
                 if let Some(uri) = view.uri() { if let Ok(url) = Url::parse(&uri) { record("popup-close-request", &url); } }
                 let app = handle.clone(); let label = label.clone();
-                // WebKit has already accepted window.close(). Destroy only this
-                // dedicated popup; don't send another preventable close request.
                 tauri::async_runtime::spawn(async move {
                     if let Some(window) = app.get_webview_window(&label) { let _ = window.destroy(); }
                 });
@@ -99,7 +97,6 @@ pub fn new_window(app: &AppHandle, url: Url, features: NewWindowFeatures) -> New
     let label = format!("{PREFIX}{}", NEXT_ID.fetch_add(1, Ordering::Relaxed));
     let navigation_app = app.clone();
     let nested_app = app.clone();
-    // window_features preserves the opener, original request and WebContext.
     let builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::External("about:blank".parse().expect("constant URL")))
         .data_directory(data)
         .window_features(features)
@@ -125,7 +122,12 @@ pub fn new_window(app: &AppHandle, url: Url, features: NewWindowFeatures) -> New
         });
     match builder.build() {
         Ok(window) => {
-            if let Some(view) = app.get_webview(&label) { let _ = attach_errors(app, &view); }
+            // Use the returned view directly, not a timing-dependent registry lookup.
+            if attach_errors(app, window.as_ref()).is_err() {
+                record("popup-handler-attach-failed", &url);
+                let _ = window.destroy();
+                return NewWindowResponse::Deny;
+            }
             crate::message(app, "Sign-in opened in a separate window. Provider restrictions may still apply.");
             NewWindowResponse::Create { window }
         },
