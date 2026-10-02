@@ -22,6 +22,10 @@ pub fn embedded_url(url: &Url) -> bool {
     let host = url.host_str().unwrap_or_default();
     host == "mistral.ai" || host.ends_with(".mistral.ai")
         || matches!(host, "accounts.google.com" | "login.microsoftonline.com" | "appleid.apple.com")
+        // A recorded first-login flow navigated the MAIN view from Google to
+        // this exact HTTPS origin. Handing that step to the system browser
+        // splits the flow from the preview profile. Do not allow *.youtube.com.
+        || (host == "accounts.youtube.com" && url.port_or_known_default() == Some(443))
 }
 
 pub fn external_url(url: &Url) -> bool {
@@ -85,6 +89,44 @@ mod tests {
         assert!(embedded_url(&u("https://accounts.google.com/")));
         for value in ["https://mistral.ai.evil.example/", "https://notmistral.ai/", "http://vibe.mistral.ai/", "file:///etc/passwd", "javascript:alert(1)", "tauri://localhost/index.html", "https://user:password@mistral.ai/"] {
             assert!(!embedded_url(&u(value)), "{value}");
+        }
+    }
+    #[test] fn observed_google_main_view_chain_stays_embedded() {
+        // Synthetic origins from the diagnostic sequence, not real login URLs.
+        // embedded_url is the first predicate used by main.on_navigation.
+        for value in [
+            "https://chat.mistral.ai/",
+            "https://auth.mistral.ai/",
+            "https://v2.auth.mistral.ai/",
+            "https://accounts.google.com/",
+            "https://accounts.youtube.com/",
+            "https://accounts.google.com/",
+            "https://v2.auth.mistral.ai/",
+            "https://chat.mistral.ai/",
+        ] {
+            assert!(embedded_url(&u(value)), "Login step would leave the app: {value}");
+        }
+    }
+    #[test] fn youtube_account_exception_is_exact_https_origin_only() {
+        assert!(embedded_url(&u("https://accounts.youtube.com/")));
+        assert!(embedded_url(&u("https://accounts.youtube.com:443/")));
+        for value in [
+            "http://accounts.youtube.com/",
+            "https://accounts.youtube.com:444/",
+            "https://accounts.youtube.com.evil.example/",
+            "https://evil.accounts.youtube.com/",
+            "https://notaccounts.youtube.com/",
+            "https://youtube.com/",
+            "https://www.youtube.com/",
+            "https://user:password@accounts.youtube.com/",
+            "https://accounts.youtube.com@evil.example/",
+        ] {
+            assert!(!embedded_url(&u(value)), "Unexpected embedded origin: {value}");
+        }
+    }
+    #[test] fn youtube_account_page_never_gains_native_commands() {
+        for label in ["vibe", "auth-popup-1", "shell", "settings"] {
+            assert!(!trusted_caller(label, &u("https://accounts.youtube.com/")));
         }
     }
     #[test] fn browser_opener_never_accepts_local_files_or_commands() {

@@ -1,6 +1,6 @@
 [package]
 name = "vibez-tauri-preview"
-version = "0.1.7"
+version = "0.1.8"
 description = "Experimental Tauri desktop client for Mistral Vibe"
 edition = "2021"
 license = "MIT"

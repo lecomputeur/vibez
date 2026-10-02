@@ -2,6 +2,14 @@
 
 Experimental Rust/Tauri implementation alongside Electron VibeZ. **Not a production replacement.** Changes stay on the preview branch: the Electron app, main branch, stable releases, website and existing Microsoft Store submission are unchanged.
 
+## 0.1.8 — retain the observed Google account handoff in the main webview
+
+The 0.1.7 routing trace identifies a concrete handoff: after loading `accounts.google.com`, the MAIN webview logs `main-open-external: https://accounts.youtube.com`. The earlier popup changes did not affect this main-window decision.
+
+This build adds only the exact HTTPS origin `https://accounts.youtube.com` (default port 443, no URL credentials) to the embedded navigation policy. It does not allow all YouTube subdomains or arbitrary websites. The request stays in its original webview/profile; no URL, cookie, token or provider request is rewritten or exported. Native command capabilities remain restricted to bundled controls.
+
+Rust regressions cover the observed origin sequence, lookalike/HTTP/credential-bearing URL rejection, and denial of native commands to the account page. Existing link-interception, popup and layout checks remain enabled. **This fixes the demonstrated routing decision; it is not yet a claim of successful real Google/Mistral first-login testing.** See [the 0.1.8 test notes](TESTING-0.1.8.md).
+
 ## 0.1.7 — controlled first-login investigation
 
 The tester reports: first Google sign-in fails with HTTP 400 in Edge; Home does not fix it; fully restarting and then pressing Sign in succeeds without repeating credentials. This does not prove that Mistral had completed the first sign-in.
@@ -23,7 +31,7 @@ A new offline probe checks actual webview click handling for `_blank`, Ctrl-clic
 | Item | Preview |
 | --- | --- |
 | Name | VibeZ Tauri Preview |
-| Version | 0.1.7 |
+| Version | 0.1.8 |
 | Executable | `vibez-tauri-preview` |
 | Debian package | `vibe-z-tauri-preview` |
 | Application ID | `nl.lecomputeur.vibez.tauri.preview` |
@@ -38,7 +46,7 @@ XDG directory overrides are respected. The preview never imports Electron cookie
 Fully quit the running preview through its tray menu before installing from Downloads:
 
 ```bash
-sudo apt install ./vibez-tauri-preview_0.1.7_amd64.deb
+sudo apt install ./vibez-tauri-preview_0.1.8_amd64.deb
 vibez-tauri-preview
 ```
 
@@ -46,7 +54,7 @@ To uninstall only the preview, disable its autostart setting and quit it, then u
 
 ### Windows x64
 
-Use `VibeZ-Tauri-Preview-0.1.7-Windows-x64-Setup.exe` for normal installation. A plain executable is also built for testing. Fully quit the existing preview before upgrading. WebView2 is required; the Tauri installer handles its configured runtime installation when needed.
+Use `VibeZ-Tauri-Preview-0.1.8-Windows-x64-Setup.exe` for normal installation. A plain executable is also built for testing. Fully quit the existing preview before upgrading. WebView2 is required; the Tauri installer handles its configured runtime installation when needed.
 
 The unsigned candidate MSIX is not the recommended local test installer. **Do not upload it to the existing VibeZ Desktop Store product.** A separate Partner Center product and matching assigned identity are required before any separate Store submission. Store certification and a real installed-app test are separate from MSIX structural validation.
 
