@@ -113,7 +113,7 @@ pub fn start(app: AppHandle) {
             let parent = handle.get_window("main").and_then(|w| w.gtk_window().ok());
             let dialog = gtk::MessageDialog::new(parent.as_ref(), gtk::DialogFlags::MODAL,
                 gtk::MessageType::Info, gtk::ButtonsType::None, &heading);
-            dialog.format_secondary_text(Some(&body));
+            dialog.set_property("secondary-text", &body);
             dialog.add_button(&close, gtk::ResponseType::Close);
             if download.is_some() { dialog.add_button(&open, gtk::ResponseType::Accept); }
             dialog.connect_response(move |dialog, response| {
