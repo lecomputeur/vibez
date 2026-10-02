@@ -13,10 +13,10 @@ const cap = JSON.parse(read('src-tauri/capabilities/local-shell.json'));
 test('preview has an independent identity, executable and version', () => {
   assert.equal(config.identifier, 'nl.lecomputeur.vibez.tauri.preview');
   assert.equal(config.mainBinaryName, 'vibez-tauri-preview');
-  assert.equal(config.version, '0.1.8');
+  assert.equal(config.version, '0.1.9');
   assert.equal(config.productName, 'VibeZ Tauri Preview');
   assert.equal(JSON.parse(read('package.json')).version, config.version);
-  assert.match(read('src-tauri/Cargo.toml'), /version = "0\.1\.8"/);
+  assert.match(read('src-tauri/Cargo.toml'), /version = "0\.1\.9"/);
 });
 test('remote website and auth popups have no native capabilities or iframe bridge', () => {
   assert.deepEqual(cap.webviews, ['shell', 'settings']);
@@ -130,4 +130,17 @@ test('automatic injected opener is disabled; explicit native routes are traced',
   assert.match(main, /link_trace::record\("main-popup-request", &url\)/);
   assert.match(main, /link_probe::start/);
   assert.match(read('src-tauri/src/link_probe.rs'), /native,native,native/);
+});
+
+test('main authentication routing is stateful across providers instead of domain-by-domain patching', () => {
+  const main = read('src-tauri/src/main.rs');
+  const policy = read('src-tauri/src/policy.rs');
+  assert.match(main, /auth_active: AtomicBool/);
+  assert.match(main, /policy::auth_entry_url\(url\)/);
+  assert.match(main, /auth_active\.load\(Ordering::SeqCst\) && policy::auth_chain_url\(url\)/);
+  assert.match(main, /policy::auth_return_url\(url\)/);
+  assert.match(main, /"main-auth-allow"/);
+  assert.match(policy, /pub fn auth_chain_url/);
+  assert.match(policy, /pub fn auth_return_url/);
+  assert.doesNotMatch(policy, /accounts\.youtube\.com.*embedded_url/s);
 });

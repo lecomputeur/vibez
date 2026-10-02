@@ -2,6 +2,14 @@
 
 Experimental Rust/Tauri implementation alongside Electron VibeZ. **Not a production replacement.** Changes stay on the preview branch: the Electron app, main branch, stable releases, website and existing Microsoft Store submission are unchanged.
 
+## 0.1.9 — stateful provider-neutral authentication routing
+
+The Google and Microsoft failures showed that treating OAuth as a permanent domain allowlist was the wrong abstraction. The main Vibe webview now enters an explicit authentication-routing mode when navigation reaches Mistral's auth service or a known provider entry point. While that mode is active, safe HTTPS redirects remain inside the same webview/profile regardless of provider domain. Authentication mode ends only when the main view returns to the actual Vibe/Chat content origins, or when the user presses Home.
+
+This removes the 0.1.8 one-off accounts.youtube.com exception. Google, Microsoft and Apple share the same redirect-chain rule after auth starts. HTTP, nonstandard ports, file/data/javascript URLs and credential-bearing URLs remain blocked from the auth chain. Remote pages and login popups still receive no native Tauri commands. The existing profile is preserved; no cookies or tokens are copied, inspected or rewritten.
+
+Automated tests cover provider-neutral state transitions and the existing popup/link/IPC boundaries. They still do not perform a real third-party login, so successful CI is not a claim that live Google/Microsoft authentication has been user-validated.
+
 ## 0.1.8 — retain the observed Google account handoff in the main webview
 
 The 0.1.7 routing trace identifies a concrete handoff: after loading `accounts.google.com`, the MAIN webview logs `main-open-external: https://accounts.youtube.com`. The earlier popup changes did not affect this main-window decision.
@@ -31,7 +39,7 @@ A new offline probe checks actual webview click handling for `_blank`, Ctrl-clic
 | Item | Preview |
 | --- | --- |
 | Name | VibeZ Tauri Preview |
-| Version | 0.1.8 |
+| Version | 0.1.9 |
 | Executable | `vibez-tauri-preview` |
 | Debian package | `vibe-z-tauri-preview` |
 | Application ID | `nl.lecomputeur.vibez.tauri.preview` |
@@ -46,7 +54,7 @@ XDG directory overrides are respected. The preview never imports Electron cookie
 Fully quit the running preview through its tray menu before installing from Downloads:
 
 ```bash
-sudo apt install ./vibez-tauri-preview_0.1.8_amd64.deb
+sudo apt install ./vibez-tauri-preview_0.1.9_amd64.deb
 vibez-tauri-preview
 ```
 
@@ -54,7 +62,7 @@ To uninstall only the preview, disable its autostart setting and quit it, then u
 
 ### Windows x64
 
-Use `VibeZ-Tauri-Preview-0.1.8-Windows-x64-Setup.exe` for normal installation. A plain executable is also built for testing. Fully quit the existing preview before upgrading. WebView2 is required; the Tauri installer handles its configured runtime installation when needed.
+Use `VibeZ-Tauri-Preview-0.1.9-Windows-x64-Setup.exe` for normal installation. A plain executable is also built for testing. Fully quit the existing preview before upgrading. WebView2 is required; the Tauri installer handles its configured runtime installation when needed.
 
 The unsigned candidate MSIX is not the recommended local test installer. **Do not upload it to the existing VibeZ Desktop Store product.** A separate Partner Center product and matching assigned identity are required before any separate Store submission. Store certification and a real installed-app test are separate from MSIX structural validation.
 

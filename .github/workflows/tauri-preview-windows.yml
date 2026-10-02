@@ -102,9 +102,9 @@ jobs:
           @"
           VibeZ Tauri Preview $version - Windows x64 diagnostic test packages.
           Use *-Setup.exe for normal installation; the plain EXE is a test binary.
-          This build keeps the recorded accounts.youtube.com HTTPS login step inside the main webview.
+          This build uses stateful provider-neutral HTTPS authentication routing in the existing preview profile.
           Injected link interception remains disabled; origin-only routing diagnostics are retained.
-          The offline native link probe is NOT a test of a real Google/Mistral account login.
+          The offline native link probe is NOT a test of a real Google/Microsoft/Mistral account login.
           The MSIX uses the separate preview identity LeComputeur.VibeZTauriPreview.
           Do NOT upload it to the existing VibeZ Desktop Store product.
           "@ | Set-Content "$dir\README.txt"
@@ -119,7 +119,7 @@ jobs:
           retention-days: 30
           if-no-files-found: error
         env:
-          PREVIEW_VERSION: 0.1.8
+          PREVIEW_VERSION: 0.1.9
       - name: Upload native link-probe diagnostics
         if: always()
         uses: actions/upload-artifact@v5

@@ -42,8 +42,7 @@ fn initial_allowed(url: &Url, smoke: bool) -> bool {
 fn auth_chain_allowed(url: &Url, smoke: bool) -> bool {
     if smoke && policy::local_url(url) { return true; }
     if url.as_str() == "about:blank" { return true; }
-    url.scheme() == "https" && url.host_str().is_some()
-        && url.username().is_empty() && url.password().is_none()
+    policy::auth_chain_url(url)
 }
 pub fn page(url: &Url, finished: bool) {
     record(if finished { "load-finished" } else { "load-started" }, url);
@@ -167,7 +166,14 @@ fn create_auth_window(app: &AppHandle, url: Url, features: NewWindowFeatures, tr
 }
 
 pub fn new_window(app: &AppHandle, url: Url, features: NewWindowFeatures) -> NewWindowResponse<tauri::Wry> {
-    create_auth_window(app, url, features, false)
+    let state = app.state::<PreviewState>();
+    if policy::auth_entry_url(&url) {
+        if !state.auth_active.swap(true, Ordering::SeqCst) {
+            crate::link_trace::record("auth-mode-start-popup", &url);
+        }
+    }
+    let trusted_chain = state.auth_active.load(Ordering::SeqCst) && auth_chain_allowed(&url, state.smoke);
+    create_auth_window(app, url, features, trusted_chain)
 }
 
 #[cfg(test)]

@@ -15,17 +15,45 @@ pub fn trusted_caller(label: &str, url: &Url) -> bool {
     matches!(label, "shell" | "settings") && local_url(url)
 }
 
+fn safe_https(url: &Url) -> bool {
+    url.scheme() == "https"
+        && url.host_str().is_some()
+        && url.port_or_known_default() == Some(443)
+        && url.username().is_empty()
+        && url.password().is_none()
+}
+
 pub fn embedded_url(url: &Url) -> bool {
-    if url.scheme() != "https" || !url.username().is_empty() || url.password().is_some() {
-        return false;
-    }
+    if !safe_https(url) { return false; }
     let host = url.host_str().unwrap_or_default();
     host == "mistral.ai" || host.ends_with(".mistral.ai")
         || matches!(host, "accounts.google.com" | "login.microsoftonline.com" | "appleid.apple.com")
-        // A recorded first-login flow navigated the MAIN view from Google to
-        // this exact HTTPS origin. Handing that step to the system browser
-        // splits the flow from the preview profile. Do not allow *.youtube.com.
-        || (host == "accounts.youtube.com" && url.port_or_known_default() == Some(443))
+}
+
+/// Origins that can legitimately START a sign-in flow. This is intentionally
+/// small. After entry, the redirect chain is handled generically by
+/// auth_chain_url instead of maintaining an endless provider-domain allowlist.
+pub fn auth_entry_url(url: &Url) -> bool {
+    if !safe_https(url) { return false; }
+    let host = url.host_str().unwrap_or_default();
+    host == "auth.mistral.ai" || host.ends_with(".auth.mistral.ai")
+        || matches!(host,
+            "accounts.google.com"
+            | "login.microsoftonline.com"
+            | "login.live.com"
+            | "appleid.apple.com")
+}
+
+/// While authentication mode is active, normal HTTPS redirects stay inside
+/// the same webview/profile. Unsafe schemes, URL credentials and nonstandard
+/// ports never become valid merely because a login is in progress.
+pub fn auth_chain_url(url: &Url) -> bool { safe_https(url) }
+
+/// Reaching the actual Vibe/Chat content ends authentication mode. Mistral's
+/// auth subdomains do not end it because they can be intermediate callbacks.
+pub fn auth_return_url(url: &Url) -> bool {
+    if !safe_https(url) { return false; }
+    matches!(url.host_str().unwrap_or_default(), "vibe.mistral.ai" | "chat.mistral.ai")
 }
 
 pub fn external_url(url: &Url) -> bool {
@@ -91,42 +119,70 @@ mod tests {
             assert!(!embedded_url(&u(value)), "{value}");
         }
     }
-    #[test] fn observed_google_main_view_chain_stays_embedded() {
-        // Synthetic origins from the diagnostic sequence, not real login URLs.
-        // embedded_url is the first predicate used by main.on_navigation.
+    #[test] fn auth_entry_is_provider_agnostic_after_mistral_login_page() {
         for value in [
-            "https://chat.mistral.ai/",
             "https://auth.mistral.ai/",
             "https://v2.auth.mistral.ai/",
             "https://accounts.google.com/",
-            "https://accounts.youtube.com/",
-            "https://accounts.google.com/",
-            "https://v2.auth.mistral.ai/",
-            "https://chat.mistral.ai/",
+            "https://login.microsoftonline.com/",
+            "https://login.live.com/",
+            "https://appleid.apple.com/",
         ] {
-            assert!(embedded_url(&u(value)), "Login step would leave the app: {value}");
+            assert!(auth_entry_url(&u(value)), "Expected auth entry: {value}");
         }
-    }
-    #[test] fn youtube_account_exception_is_exact_https_origin_only() {
-        assert!(embedded_url(&u("https://accounts.youtube.com/")));
-        assert!(embedded_url(&u("https://accounts.youtube.com:443/")));
         for value in [
-            "http://accounts.youtube.com/",
-            "https://accounts.youtube.com:444/",
-            "https://accounts.youtube.com.evil.example/",
-            "https://evil.accounts.youtube.com/",
-            "https://notaccounts.youtube.com/",
-            "https://youtube.com/",
-            "https://www.youtube.com/",
-            "https://user:password@accounts.youtube.com/",
-            "https://accounts.youtube.com@evil.example/",
+            "http://v2.auth.mistral.ai/",
+            "https://login.live.com:444/",
+            "https://login.live.com.evil.example/",
+            "https://user:password@accounts.google.com/",
         ] {
-            assert!(!embedded_url(&u(value)), "Unexpected embedded origin: {value}");
+            assert!(!auth_entry_url(&u(value)), "Unsafe auth entry: {value}");
         }
     }
-    #[test] fn youtube_account_page_never_gains_native_commands() {
-        for label in ["vibe", "auth-popup-1", "shell", "settings"] {
-            assert!(!trusted_caller(label, &u("https://accounts.youtube.com/")));
+    #[test] fn active_auth_chain_is_https_origin_generic_not_provider_specific() {
+        for value in [
+            "https://accounts.youtube.com/",
+            "https://www.google.com/",
+            "https://login.live.com/",
+            "https://account.live.com/",
+            "https://example.identity-provider.test/",
+        ] {
+            assert!(auth_chain_url(&u(value)), "Safe HTTPS redirect rejected: {value}");
+        }
+        for value in [
+            "http://accounts.google.com/",
+            "https://example.com:444/",
+            "file:///etc/passwd",
+            "javascript:alert(1)",
+            "data:text/html,test",
+            "https://user:password@example.com/",
+        ] {
+            assert!(!auth_chain_url(&u(value)), "Unsafe auth redirect accepted: {value}");
+        }
+    }
+    #[test] fn auth_mode_ends_only_on_vibe_content_origins() {
+        assert!(auth_return_url(&u("https://vibe.mistral.ai/")));
+        assert!(auth_return_url(&u("https://chat.mistral.ai/")));
+        for value in [
+            "https://v2.auth.mistral.ai/",
+            "https://accounts.google.com/",
+            "https://login.live.com/",
+            "https://mistral.ai/",
+            "http://chat.mistral.ai/",
+        ] {
+            assert!(!auth_return_url(&u(value)), "Auth mode ended too early: {value}");
+        }
+    }
+    #[test] fn auth_pages_never_gain_native_commands() {
+        for origin in [
+            "https://accounts.google.com/",
+            "https://accounts.youtube.com/",
+            "https://login.live.com/",
+            "https://example.identity-provider.test/",
+        ] {
+            for label in ["vibe", "auth-popup-1", "shell", "settings"] {
+                assert!(!trusted_caller(label, &u(origin)), "Remote auth page got native access");
+            }
         }
     }
     #[test] fn browser_opener_never_accepts_local_files_or_commands() {

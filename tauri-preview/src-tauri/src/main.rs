@@ -37,6 +37,7 @@ struct PreviewState {
     tray_ready: AtomicBool,
     shell_ready: AtomicBool,
     smoke: bool,
+    auth_active: AtomicBool,
 }
 
 fn err(e: impl std::fmt::Display) -> String { e.to_string() }
@@ -125,6 +126,8 @@ async fn navigate(webview: Webview, app: AppHandle, action: String) -> Result<()
         "reload" => view.reload().map_err(err),
         "home" => {
             auth::close_popups(&app);
+            app.state::<PreviewState>().auth_active.store(false, Ordering::SeqCst);
+            link_trace::record("auth-mode-reset-home", &HOME.parse().map_err(err)?);
             message(&app, "Returning to Vibe. Your preview profile has not been cleared.");
             view.navigate(HOME.parse().map_err(err)?).map_err(err)
         },
@@ -245,10 +248,11 @@ async fn get_diagnostics(webview: Webview, app: AppHandle) -> Result<String, Str
          std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default(),
          "Preview update checks: manual, separate tested Linux artifacts; installation is manual")
     };
-    Ok(format!("{}\nApplication ID: {}\nEngine: {}\nOS: {} {}\nSession: {}\nDesktop: {}\nConfig: {}\nData: {}\n{}\nAutomatic installation: disabled\nMicrophone/camera: not enabled in this preview\nGlobal shortcut: not registered (does not conflict with Electron)\nSign-in popups: related webview; provider restrictions still apply\nAutomatic JS link interception: disabled\nRecent navigation (origins only, no credentials or tokens):\n{}\nLink routing (current process, origins only):\n{}",
+    let auth_mode = app.state::<PreviewState>().auth_active.load(Ordering::SeqCst);
+    Ok(format!("{}\nApplication ID: {}\nEngine: {}\nOS: {} {}\nSession: {}\nDesktop: {}\nConfig: {}\nData: {}\n{}\nAutomatic installation: disabled\nMicrophone/camera: not enabled in this preview\nGlobal shortcut: not registered (does not conflict with Electron)\nSign-in popups: related webview; provider restrictions still apply\nAuthentication routing mode: {}\nAutomatic JS link interception: disabled\nRecent navigation (origins only, no credentials or tokens):\n{}\nLink routing (current process, origins only):\n{}",
         title(), APP_ID, engine, os_name, std::env::consts::ARCH, session, desktop,
         app.path().app_config_dir().map_err(err)?.display(), app.path().app_data_dir().map_err(err)?.display(),
-        update_text, auth::diagnostics(), link_trace::diagnostics()))
+        update_text, if auth_mode { "active" } else { "inactive" }, auth::diagnostics(), link_trace::diagnostics()))
 }
 
 fn create_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
@@ -282,7 +286,8 @@ fn main() {
             let settings = read_settings(&file);
             app.manage(PreviewState { settings: Mutex::new(settings.clone()), file,
                 status: Mutex::new("Rust / Tauri · isolated preview".into()),
-                capture_busy: AtomicBool::new(false), tray_ready: AtomicBool::new(false), shell_ready: AtomicBool::new(false), smoke });
+                capture_busy: AtomicBool::new(false), tray_ready: AtomicBool::new(false), shell_ready: AtomicBool::new(false),
+                auth_active: AtomicBool::new(false), smoke });
             let window = tauri::window::WindowBuilder::new(app, "main")
                 .title(title()).inner_size(1280., 840.).min_inner_size(760., 560.).build()?;
             let controls = WebviewBuilder::new("shell", WebviewUrl::App("index.html".into()))
@@ -296,7 +301,31 @@ fn main() {
                 .data_directory(data.join("webview")).disable_drag_drop_handler()
                 .on_permission_request(|_, _| PermissionResponse::Deny)
                 .on_navigation(move |url| {
-                    if (smoke && policy::local_url(url)) || policy::embedded_url(url) {
+                    if smoke && policy::local_url(url) {
+                        link_trace::record("main-allow-local-test", url);
+                        return true;
+                    }
+
+                    // Login is a stateful redirect chain, not a list of isolated
+                    // provider domains. Once Mistral/provider authentication
+                    // starts, keep safe HTTPS redirects in the SAME webview
+                    // profile until the main view returns to Vibe/Chat.
+                    let state = handle.state::<PreviewState>();
+                    if policy::auth_entry_url(url) {
+                        if !state.auth_active.swap(true, Ordering::SeqCst) {
+                            link_trace::record("auth-mode-start", url);
+                        }
+                    }
+                    if state.auth_active.load(Ordering::SeqCst) && policy::auth_chain_url(url) {
+                        if policy::auth_return_url(url) {
+                            state.auth_active.store(false, Ordering::SeqCst);
+                            link_trace::record("auth-mode-end", url);
+                        }
+                        link_trace::record("main-auth-allow", url);
+                        return true;
+                    }
+
+                    if policy::embedded_url(url) {
                         link_trace::record("main-allow", url);
                         return true;
                     }
