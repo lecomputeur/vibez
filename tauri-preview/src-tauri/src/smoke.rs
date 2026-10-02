@@ -107,6 +107,8 @@ fn checks(app: &AppHandle) -> Result<(), String> {
     thread::sleep(Duration::from_secs(4));
     if !app.state::<PreviewState>().shell_ready.load(Ordering::Relaxed) { return Err("Bundled toolbar did not complete native IPC handshake".into()); }
     crate::desktop_ui::smoke_check(app)?;
+    // Verify the real startup packing before popup lifecycle repair can mask it.
+    check_layout(app)?;
     let window = app.get_window("main").ok_or("Missing main window")?;
     let view = app.get_webview("vibe").ok_or("Missing Vibe webview")?;
     view.eval("window.__probe='pending'; window.__TAURI__.core.invoke('get_state').then(()=>window.__probe='UNSAFE',()=>window.__probe='denied');").map_err(crate::err)?;
