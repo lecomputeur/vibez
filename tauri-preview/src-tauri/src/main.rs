@@ -93,14 +93,15 @@ fn os_locale() -> String {
         .unwrap_or_else(|| "en".into())
         .split('.').next().unwrap_or("en").replace('_', "-")
 }
-fn apply_site_language(app: &AppHandle, selected: &str, navigate: bool) -> Result<String, String> {
-    let locale = policy::mistral_site_locale(selected, &os_locale());
-    let view = app.get_webview("vibe").ok_or("Vibe view is not ready")?;
-
-    // Mistral documents NEXT_LOCALE as its language-preference cookie on
-    // chat.mistral.ai. Remove stale variants first so a previous host/domain
-    // cookie cannot keep winning after a language switch.
-    for domain in ["chat.mistral.ai", ".chat.mistral.ai", "vibe.mistral.ai", ".vibe.mistral.ai"] {
+fn set_site_language_cookies(view: &Webview, locale: &str) -> Result<(), String> {
+    // Keep the language preference consistent on both current Mistral hosts and
+    // the shared parent domain. All variants are removed before writing the
+    // same value so a stale host-specific cookie cannot win after switching.
+    for domain in [
+        "chat.mistral.ai", ".chat.mistral.ai",
+        "vibe.mistral.ai", ".vibe.mistral.ai",
+        "mistral.ai", ".mistral.ai",
+    ] {
         let stale = Cookie::build(("NEXT_LOCALE", ""))
             .domain(domain)
             .path("/")
@@ -108,8 +109,8 @@ fn apply_site_language(app: &AppHandle, selected: &str, navigate: bool) -> Resul
             .build();
         let _ = view.delete_cookie(stale);
     }
-    for domain in ["chat.mistral.ai", "vibe.mistral.ai"] {
-        let cookie = Cookie::build(("NEXT_LOCALE", locale.clone()))
+    for domain in ["chat.mistral.ai", "vibe.mistral.ai", ".mistral.ai"] {
+        let cookie = Cookie::build(("NEXT_LOCALE", locale.to_string()))
             .domain(domain)
             .path("/")
             .secure(true)
@@ -117,26 +118,59 @@ fn apply_site_language(app: &AppHandle, selected: &str, navigate: bool) -> Resul
             .build();
         view.set_cookie(cookie).map_err(err)?;
     }
+    Ok(())
+}
 
-    // If the current page is already a Mistral page, also set the same
-    // non-sensitive preference through document.cookie. This mirrors how a
-    // normal site language picker writes its host cookie.
-    if let Ok(current) = view.url() {
-        if current.scheme() == "https"
-            && current.host_str().is_some_and(|host| host == "mistral.ai" || host.ends_with(".mistral.ai"))
-        {
-            let script = format!(
-                "document.cookie='NEXT_LOCALE={}; Path=/; Secure; SameSite=Lax';",
-                locale
-            );
-            let _ = view.eval(&script);
-        }
+async fn write_document_site_language(view: &Webview, locale: &str) -> Result<String, String> {
+    let current = view.url().map_err(err)?;
+    if current.scheme() != "https"
+        || !current.host_str().is_some_and(|host| host == "mistral.ai" || host.ends_with(".mistral.ai"))
+    {
+        return Ok("not-mistral".into());
     }
+
+    let locale_json = serde_json::to_string(locale).map_err(err)?;
+    let script = format!(r#"(() => {{
+      try {{
+        const locale = {locale_json};
+        document.cookie = 'NEXT_LOCALE=' + encodeURIComponent(locale) + '; Path=/; Max-Age=31536000; Secure; SameSite=Lax';
+        const match = document.cookie.match(/(?:^|;\\s*)NEXT_LOCALE=([^;]*)/);
+        return match ? decodeURIComponent(match[1]) : '<none>';
+      }} catch (_) {{ return '<unavailable>'; }}
+    }})()"#);
+
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    let tx = Arc::new(Mutex::new(Some(tx)));
+    let callback_tx = tx.clone();
+    view.eval_with_callback(&script, move |result| {
+        if let Ok(mut slot) = callback_tx.lock() {
+            if let Some(sender) = slot.take() { let _ = sender.send(result); }
+        }
+    }).map_err(err)?;
+
+    match tokio::time::timeout(std::time::Duration::from_secs(2), rx).await {
+        Ok(Ok(raw)) => serde_json::from_str::<String>(&raw).map_err(err),
+        Ok(Err(error)) => Err(err(error)),
+        Err(_) => Err("Timed out while confirming Mistral language cookie".into()),
+    }
+}
+
+async fn apply_site_language(app: &AppHandle, selected: &str, navigate: bool) -> Result<String, String> {
+    let locale = policy::mistral_site_locale(selected, &os_locale());
+    let view = app.get_webview("vibe").ok_or("Vibe view is not ready")?;
+
+    set_site_language_cookies(&view, &locale)?;
+
+    // WebView2/WebKit can acknowledge a native cookie write before the loaded
+    // document has observed it. Give the cookie store a short settling period,
+    // then mirror and confirm the value in the active Mistral document before
+    // performing the navigation that asks the server to render the new locale.
+    tokio::time::sleep(std::time::Duration::from_millis(120)).await;
+    let _ = write_document_site_language(&view, &locale).await;
+    tokio::time::sleep(std::time::Duration::from_millis(80)).await;
 
     link_trace::record("site-language-requested", &format!("https://chat.mistral.ai/{locale}").parse().map_err(err)?);
     if navigate {
-        // A full navigation makes the server receive the new locale cookie.
-        // Preserve the user's current Vibe path instead of sending them Home.
         let target = view.url().ok()
             .filter(|url| url.scheme() == "https" && url.host_str().is_some_and(|host| host == "mistral.ai" || host.ends_with(".mistral.ai")))
             .unwrap_or_else(|| HOME.parse().expect("constant home URL"));
@@ -286,8 +320,16 @@ async fn save_settings(webview: Webview, app: AppHandle, settings: Settings) -> 
     drop(current);
     if let Some(view) = app.get_webview("vibe") { view.set_zoom(settings.zoom_factor).map_err(err)?; }
     if language_changed {
-        match apply_site_language(&app, &settings.language, true) {
-            Ok(locale) => message(&app, format!("Language saved; Mistral site locale: {locale}")),
+        match apply_site_language(&app, &settings.language, true).await {
+            Ok(locale) => {
+                message(&app, format!("Language saved; applying Mistral site locale: {locale}"));
+                let verify_app = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    tokio::time::sleep(std::time::Duration::from_millis(1600)).await;
+                    let actual = inspect_site_language(&verify_app).await;
+                    message(&verify_app, format!("Language saved; Mistral site language: {actual}"));
+                });
+            },
             Err(error) => message(&app, format!("Language saved, but Mistral site language could not be updated: {error}")),
         }
     }
@@ -472,7 +514,19 @@ fn main() {
             // Offline smoke/link probes must remain deterministic and never
             // reload their bundled test page through production-only behavior.
             if !smoke {
-                let _ = apply_site_language(app.handle(), &settings.language, false);
+                let startup_locale = policy::mistral_site_locale(&settings.language, &os_locale());
+                let _ = set_site_language_cookies(&vibe, &startup_locale);
+                let startup_app = app.handle().clone();
+                let startup_language = settings.language.clone();
+                tauri::async_runtime::spawn(async move {
+                    // The first remote navigation is created with the webview.
+                    // Re-apply once the webview exists and then navigate again,
+                    // guaranteeing that the second request carries the saved locale.
+                    tokio::time::sleep(std::time::Duration::from_millis(350)).await;
+                    if let Err(error) = apply_site_language(&startup_app, &startup_language, true).await {
+                        message(&startup_app, format!("Mistral site language could not be restored: {error}"));
+                    }
+                });
             }
             layout(app.handle()).map_err(std::io::Error::other)?;
             if !smoke {

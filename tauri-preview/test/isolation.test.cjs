@@ -13,10 +13,10 @@ const cap = JSON.parse(read('src-tauri/capabilities/local-shell.json'));
 test('preview has an independent identity, executable and version', () => {
   assert.equal(config.identifier, 'nl.lecomputeur.vibez.tauri.preview');
   assert.equal(config.mainBinaryName, 'vibez-tauri-preview');
-  assert.equal(config.version, '0.1.11');
+  assert.equal(config.version, '0.1.12');
   assert.equal(config.productName, 'VibeZ Tauri Preview');
   assert.equal(JSON.parse(read('package.json')).version, config.version);
-  assert.match(read('src-tauri/Cargo.toml'), /version = "0\.1\.11"/);
+  assert.match(read('src-tauri/Cargo.toml'), /version = "0\.1\.12"/);
 });
 test('remote website and auth popups have no native capabilities or iframe bridge', () => {
   assert.deepEqual(cap.webviews, ['shell', 'settings']);
@@ -147,16 +147,21 @@ test('main authentication routing is stateful across providers instead of domain
   assert.doesNotMatch(policy, /accounts\.youtube\.com.*embedded_url/s);
 });
 
-test('saved VibeZ language replaces stale NEXT_LOCALE and performs full Mistral navigation', () => {
+test('saved VibeZ language is confirmed before Mistral navigation and restored after startup', () => {
   const main = read('src-tauri/src/main.rs');
   const policy = read('src-tauri/src/policy.rs');
+  assert.match(main, /fn set_site_language_cookies/);
   assert.match(main, /delete_cookie\(stale\)/);
-  assert.match(main, /Cookie::build\(\("NEXT_LOCALE", locale\.clone\(\)\)\)/);
+  assert.match(main, /for domain in \["chat\.mistral\.ai", "vibe\.mistral\.ai", "\.mistral\.ai"\]/);
   assert.match(main, /view\.set_cookie\(cookie\)/);
-  assert.match(main, /document\.cookie='NEXT_LOCALE=/);
+  assert.match(main, /async fn write_document_site_language/);
+  assert.match(main, /eval_with_callback/);
+  assert.match(main, /Max-Age=31536000/);
+  assert.match(main, /from_millis\(120\)/);
   assert.match(main, /view\.navigate\(target\)/);
-  assert.match(main, /language_changed/);
-  assert.match(main, /apply_site_language\(&app, &settings\.language, true\)/);
+  assert.match(main, /apply_site_language\(&app, &settings\.language, true\)\.await/);
+  assert.match(main, /set_site_language_cookies\(&vibe, &startup_locale\)/);
+  assert.match(main, /from_millis\(350\)/);
   assert.match(main, /inspect_site_language/);
   assert.match(policy, /pub fn mistral_site_locale/);
 });
