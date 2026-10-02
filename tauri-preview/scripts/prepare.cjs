@@ -23,9 +23,9 @@ const previewLanguages = Object.keys(previewData.translations || {}).sort();
 if (JSON.stringify(baseLanguages) !== JSON.stringify(previewLanguages)) {
   throw new Error('Preview translations must contain exactly the same 34 languages as VibeZ.');
 }
-const previewKeys = Object.keys(previewData.translations.en || {});
+const previewKeys = Object.keys(previewData.translations.en || {}).sort();
 for (const [code, strings] of Object.entries(previewData.translations)) {
-  if (JSON.stringify(Object.keys(strings)) !== JSON.stringify(previewKeys)) {
+  if (JSON.stringify(Object.keys(strings).sort()) !== JSON.stringify(previewKeys)) {
     throw new Error(`Preview translation keys do not match English for ${code}.`);
   }
 }
