@@ -1,6 +1,7 @@
 //! Linux child webviews are packed in a GtkBox, not an absolute-positioned canvas.
-//! Configure packing once. Reapplying it in every native resize event queues new
-//! GTK resizes and can starve allocation/painting before the window is mapped.
+//! Normal resize events leave GTK in charge. A targeted repair is available after
+//! transient related WebKit popup windows are destroyed, because WebKitGTK can
+//! occasionally invalidate the child packing during that lifecycle.
 use gtk::prelude::*;
 use tauri::{AppHandle, Manager};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -8,9 +9,7 @@ use crate::policy::TOOLBAR_HEIGHT;
 
 static PACKING_CONFIGURED: AtomicBool = AtomicBool::new(false);
 
-pub fn layout(app: &AppHandle) -> Result<(), String> {
-    if app.get_webview("shell").is_none() || app.get_webview("vibe").is_none() { return Ok(()); }
-    if PACKING_CONFIGURED.swap(true, Ordering::SeqCst) { return Ok(()); }
+fn apply(app: &AppHandle) -> Result<(), String> {
     for (label, toolbar) in [("shell", true), ("vibe", false)] {
         if let Some(view) = app.get_webview(label) {
             view.with_webview(move |platform| {
@@ -22,14 +21,29 @@ pub fn layout(app: &AppHandle) -> Result<(), String> {
                     container.set_homogeneous(false);
                     container.set_spacing(0);
                     container.set_child_packing(&widget, !toolbar, true, 0, gtk::PackType::Start);
+                    container.queue_resize();
                     container.show();
                 }
+                widget.queue_resize();
                 widget.show();
             }).map_err(crate::err)?;
         }
     }
     if let Some(window) = app.get_window("main") { window.show().map_err(crate::err)?; }
     Ok(())
+}
+
+pub fn layout(app: &AppHandle) -> Result<(), String> {
+    if app.get_webview("shell").is_none() || app.get_webview("vibe").is_none() { return Ok(()); }
+    if PACKING_CONFIGURED.swap(true, Ordering::SeqCst) { return Ok(()); }
+    apply(app)
+}
+
+/// Reapply only after a transient WebKit popup lifecycle. Do not call this from
+/// every resize event; doing so can create a GTK resize feedback loop.
+pub fn repair(app: &AppHandle) -> Result<(), String> {
+    if app.get_webview("shell").is_none() || app.get_webview("vibe").is_none() { return Ok(()); }
+    apply(app)
 }
 
 /// Inspect actual GTK widget allocation, not Wry's unsupported Box position API.
