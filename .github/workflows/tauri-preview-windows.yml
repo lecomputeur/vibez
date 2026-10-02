@@ -104,4 +104,4 @@ jobs:
           retention-days: 30
           if-no-files-found: error
         env:
-          PREVIEW_VERSION: 0.1.4
+          PREVIEW_VERSION: 0.1.5
