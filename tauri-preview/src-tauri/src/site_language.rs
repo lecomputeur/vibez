@@ -77,6 +77,16 @@ async fn confirm(_view: &Webview, _locale: &str) -> Result<(), String> { Ok(()) 
 fn can_reload(url: &url::Url, authenticating: bool, loading: bool) -> bool {
     policy::auth_return_url(url) && !authenticating && !loading
 }
+// A newly created WebKit view can temporarily report an empty URI. The
+// bootstrap target is known; asking Webview::url() here would turn a successful
+// language preparation into "relative URL without a base" on cold start.
+fn navigation_target(first: bool, authenticating: bool, loading: bool,
+    current: impl FnOnce() -> Result<url::Url, String>) -> Result<Option<url::Url>, String> {
+    if authenticating { return Ok(None); }
+    if first { return policy::HOME.parse().map(Some).map_err(err); }
+    let url = current()?;
+    Ok(if can_reload(&url, false, loading) { Some(url) } else { None })
+}
 fn remember(flow: &LanguageState, generation: u64, attempt: usize, detail: &str) {
     // Only operation errors, never cookie values, auth URLs or account tokens.
     let detail: String = detail.chars().map(|c| if c.is_control() { ' ' } else { c }).take(240).collect();
@@ -114,11 +124,11 @@ async fn apply(app: &AppHandle) {
             |attempt, error| remember(flow, generation, attempt, error),
             std::time::Duration::from_millis(250)).await?;
         if prepared == retry::Outcome::Superseded { return Ok(false); }
-        let url = view.url().map_err(err)?;
         let first = flow.bootstrap.load(Ordering::SeqCst);
-        if first || can_reload(&url, crate::auth::active(app), flow.loading.load(Ordering::SeqCst)) {
+        let target = navigation_target(first, crate::auth::active(app),
+            flow.loading.load(Ordering::SeqCst), || view.url().map_err(err))?;
+        if let Some(target) = target {
             if !current() { return Ok(false); }
-            let target = if first { policy::HOME.parse().map_err(err)? } else { url };
             // Do not mark a generation complete if navigation submission fails.
             view.navigate(target).map_err(err)?;
             flow.completed.store(generation, Ordering::SeqCst);
@@ -190,7 +200,7 @@ pub async fn smoke_check(app: &AppHandle) -> Result<(), String> {
         .on_navigation(|u| u.as_str() == "about:blank")
         .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny)
         .on_permission_request(|_, _| tauri::webview::PermissionResponse::Deny)
-        .build().map_err(err)?;
+        .build().map_err(|e| format!("bootstrap-probe/create: {e}"))?;
     let result: Result<(), String> = async {
         let view: &Webview = window.as_ref();
         for locale in ["nl", "en", "nl"] {
@@ -198,7 +208,15 @@ pub async fn smoke_check(app: &AppHandle) -> Result<(), String> {
                 |attempt, error| eprintln!("LANGUAGE_PROBE_RETRY: attempt={attempt}; {error}"),
                 std::time::Duration::from_millis(250)).await?;
             if outcome != retry::Outcome::Ready { return Err("Language probe unexpectedly superseded".into()); }
-            if view.url().map_err(err)?.as_str() != "about:blank" { return Err("Language probe navigated remotely".into()); }
+            // Inspect the native URI without parsing it: an empty URI is a
+            // valid not-yet-committed bootstrap state, not a remote navigation.
+            let (tx, rx) = tokio::sync::oneshot::channel();
+            view.with_webview(move |p| {
+                let _ = tx.send(p.inner().uri().map(|u| u.to_string()).unwrap_or_default());
+            }).map_err(err)?;
+            let uri = tokio::time::timeout(std::time::Duration::from_secs(3), rx)
+                .await.map_err(err)?.map_err(err)?;
+            if !uri.is_empty() && uri != "about:blank" { return Err("Language probe navigated remotely".into()); }
         }
         println!("LANGUAGE_BOOTSTRAP_OK: real WebKit cookie preparation on a fresh about:blank profile; nl/en/nl; no remote navigation");
         Ok(())
@@ -216,4 +234,21 @@ pub async fn smoke_check(app: &AppHandle) -> Result<(), String> {
         assert!(!can_reload(&url, true, false)); assert!(!can_reload(&url, false, true));
         assert!(can_reload(&url, false, false));
     }
+    #[test] fn cold_bootstrap_does_not_parse_unavailable_uri() {
+        let target = navigation_target(true, false, true,
+            || panic!("cold WebKit URI must not be queried")).unwrap().unwrap();
+        assert_eq!(target.as_str(), policy::HOME);
+    }
+    #[test] fn bootstrap_never_redirects_active_authentication() {
+        assert!(navigation_target(true, true, false,
+            || panic!("auth location must not be queried")).unwrap().is_none());
+    }
+    #[test] fn non_bootstrap_respects_loaded_content_and_reports_real_url_errors() {
+        let u = || Ok("https://chat.mistral.ai/chat/example".parse().unwrap());
+        assert!(navigation_target(false, false, true, u).unwrap().is_none());
+        assert_eq!(navigation_target(false, false, false, u).unwrap().unwrap(), u().unwrap());
+        assert!(navigation_target(false, false, false,
+            || Err("missing runtime URL".into())).is_err());
+    }
+
 }
