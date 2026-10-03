@@ -37,6 +37,19 @@ jobs:
             echo 'Refusing to build: changes outside the isolated prototype.' >&2
             exit 1
           fi
+      - name: Archive exact tracked build inputs
+        working-directory: .
+        run: |
+          git archive --format=tar.gz HEAD > "$RUNNER_TEMP/vibez-source.tar.gz"
+          git rev-parse HEAD > "$RUNNER_TEMP/source-commit.txt"
+      - uses: actions/upload-artifact@v5
+        with:
+          name: VibeZ-Tauri-Preview-source
+          path: |
+            ${{ runner.temp }}/vibez-source.tar.gz
+            ${{ runner.temp }}/source-commit.txt
+          retention-days: 14
+          if-no-files-found: error
       - uses: actions/setup-node@v5
         with:
           node-version: 22
