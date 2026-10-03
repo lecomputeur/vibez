@@ -59,7 +59,7 @@ jobs:
       - name: Install Linux build and test dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb openbox dbus-x11 imagemagick
+          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb openbox dbus-x11 imagemagick desktop-file-utils
           rustup toolchain install stable --profile minimal
           rustup default stable
       - uses: Swatinem/rust-cache@v2
@@ -80,7 +80,7 @@ jobs:
         run: |
           rm -rf -- src-tauri/target/release/bundle/deb
           npm run build -- --bundles deb 2>&1 | tee artifacts/build.log
-      - name: Verify package identity and extract for smoke test
+      - name: Verify package identity and launcher
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
@@ -89,34 +89,47 @@ jobs:
           test "$(dpkg-deb -f "$deb" Package)" = vibe-z-tauri-preview
           test "$(dpkg-deb -f "$deb" Architecture)" = amd64
           test "$(dpkg-deb -f "$deb" Version)" = "$VERSION"
+          dpkg-deb -f "$deb" Depends | grep -F 'libc6 (>= 2.39)'
           dpkg-deb --info "$deb" | tee artifacts/package-info.txt
           dpkg-deb -x "$deb" artifacts/unpacked
           test -x artifacts/unpacked/usr/bin/vibez-tauri-preview
+          desktop=artifacts/unpacked/usr/share/applications/nl.lecomputeur.vibez.tauri.preview.desktop
+          desktop-file-validate "$desktop"
+          grep -Fx 'Icon=nl.lecomputeur.vibez.tauri.preview' "$desktop"
+          test -s artifacts/unpacked/usr/share/icons/hicolor/512x512/apps/nl.lecomputeur.vibez.tauri.preview.png
           artifacts/unpacked/usr/bin/vibez-tauri-preview --version | tee artifacts/version.txt
           grep -F "v$VERSION" artifacts/version.txt
-      - name: Native GTK/WebKit smoke test in isolated desktop
+      - name: Native GTK-WebKit exact-size and hidden-window regression tests
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'
           WEBKIT_DISABLE_DMABUF_RENDERER: '1'
         run: |
-          export XDG_CONFIG_HOME="$RUNNER_TEMP/vibez-tauri-smoke/config"
-          export XDG_DATA_HOME="$RUNNER_TEMP/vibez-tauri-smoke/data"
-          export XDG_CACHE_HOME="$RUNNER_TEMP/vibez-tauri-smoke/cache"
-          mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_CACHE_HOME"
           export PREVIEW_BINARY="$PWD/artifacts/unpacked/usr/bin/vibez-tauri-preview"
           export PREVIEW_ARTIFACTS="$PWD/artifacts"
-          status=0
-          timeout 90s dbus-run-session -- xvfb-run -a -s '-screen 0 1600x1000x24' bash -c '
-            openbox --sm-disable > "$PREVIEW_ARTIFACTS/openbox.log" 2>&1 &
-            "$PREVIEW_BINARY" --smoke-test > "$PREVIEW_ARTIFACTS/native-smoke.log" 2>&1 &
-            pid=$!
-            sleep 3
-            import -window root "$PREVIEW_ARTIFACTS/preview-offline-smoke.png" || true
-            wait "$pid"
-          ' || status=$?
-          cat artifacts/native-smoke.log
-          test "$status" = 0
-          grep -F 'SMOKE_OK:' artifacts/native-smoke.log
+          for scale in 1 2; do
+            export GDK_SCALE="$scale"
+            export XDG_CONFIG_HOME="$RUNNER_TEMP/vibez-tauri-smoke/$scale/config"
+            export XDG_DATA_HOME="$RUNNER_TEMP/vibez-tauri-smoke/$scale/data"
+            export XDG_CACHE_HOME="$RUNNER_TEMP/vibez-tauri-smoke/$scale/cache"
+            mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_CACHE_HOME"
+            export PREVIEW_LOG="$PREVIEW_ARTIFACTS/native-smoke-$scale.log"
+            export PREVIEW_IMAGE="$PREVIEW_ARTIFACTS/preview-offline-$scale.png"
+            screen="$((1600 * scale))x$((1000 * scale))x24"
+            status=0
+            timeout 110s dbus-run-session -- xvfb-run -a -s "-screen 0 $screen" bash -c '
+              openbox --sm-disable > "$PREVIEW_ARTIFACTS/openbox-$GDK_SCALE.log" 2>&1 &
+              "$PREVIEW_BINARY" --smoke-test > "$PREVIEW_LOG" 2>&1 &
+              pid=$!
+              sleep 6
+              import -window root "$PREVIEW_IMAGE" || true
+              wait "$pid"
+            ' || status=$?
+            cat "$PREVIEW_LOG"
+            test "$status" = 0
+            grep -F 'SMOKE_OK:' "$PREVIEW_LOG"
+            grep -F 'HIDDEN_OK:' "$PREVIEW_LOG"
+            test "$(grep -c 'RESIZE_OK:' "$PREVIEW_LOG")" -ge 8
+          done
       - name: Prepare verified preview artifacts
         env:
           VERSION: ${{ steps.version.outputs.version }}
@@ -124,7 +137,8 @@ jobs:
           cp src-tauri/target/release/bundle/deb/*.deb "artifacts/vibez-tauri-preview_${VERSION}_amd64.deb"
           cp src-tauri/Cargo.lock artifacts/Cargo.lock
           cp package-lock.json artifacts/package-lock.json
-          cp README.md artifacts/README.md
+          cp README.md TESTING-0.1.15.md artifacts/
+          git rev-parse HEAD > artifacts/source-commit.txt
           cd artifacts
           sha256sum *.deb > SHA256SUMS
       - uses: actions/upload-artifact@v5
@@ -133,7 +147,8 @@ jobs:
           path: |
             tauri-preview/artifacts/*.deb
             tauri-preview/artifacts/SHA256SUMS
-            tauri-preview/artifacts/README.md
+            tauri-preview/artifacts/*.md
+            tauri-preview/artifacts/source-commit.txt
             tauri-preview/artifacts/Cargo.lock
             tauri-preview/artifacts/package-lock.json
           retention-days: 30

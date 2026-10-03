@@ -37,6 +37,12 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+      - name: Resolve version from package metadata
+        id: version
+        shell: pwsh
+        run: |
+          $version = node -p "require('./package.json').version"
+          "version=$version" >> $env:GITHUB_OUTPUT
       - name: Install Rust
         shell: pwsh
         run: |
@@ -54,7 +60,9 @@ jobs:
         shell: pwsh
         run: |
           node scripts/prepare.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Asset preparation failed' }
           npx tauri icon ../icon.png
+          if ($LASTEXITCODE -ne 0) { throw 'Icon generation failed' }
           npm test
           if ($LASTEXITCODE -ne 0) { throw 'Frontend tests failed' }
           npm audit --audit-level=high
@@ -100,17 +108,17 @@ jobs:
           Copy-Item $nsis.FullName "$dir\VibeZ-Tauri-Preview-$version-Windows-x64-Setup.exe"
           Get-FileHash "$dir\*.msix","$dir\*.exe" -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  $([IO.Path]::GetFileName($_.Path))" } | Set-Content "$dir\SHA256SUMS.txt"
           @"
-          VibeZ Tauri Preview $version - Windows x64 diagnostic test packages.
+          VibeZ Tauri Preview $version - Windows x64 diagnostic packages.
           Use *-Setup.exe for normal installation; the plain EXE is a test binary.
-          This build uses stateful authentication routing and confirmed Mistral site-language synchronization with Windows UI-language detection.
-          Injected link interception remains disabled; origin-only routing diagnostics are retained.
-          The offline native link probe is NOT a test of a real Google/Microsoft/Mistral account login.
-          The MSIX uses the separate preview identity LeComputeur.VibeZTauriPreview.
+          Field-level settings updates and quiet diagnostics are included.
+          The offline native link probe is NOT a real account login test.
+          Windows navigation/loading reporting and platform parity remain preview limitations.
+          The MSIX has the separate candidate identity LeComputeur.VibeZTauriPreview.
           Do NOT upload it to the existing VibeZ Desktop Store product.
           "@ | Set-Content "$dir\README.txt"
       - uses: actions/upload-artifact@v5
         with:
-          name: VibeZ-Tauri-Preview-${{ env.PREVIEW_VERSION }}-Windows-x64-Store-Preview
+          name: VibeZ-Tauri-Preview-${{ steps.version.outputs.version }}-Windows-x64-Store-Preview
           path: |
             tauri-preview/artifacts/windows/*.msix
             tauri-preview/artifacts/windows/*.exe
@@ -118,8 +126,6 @@ jobs:
             tauri-preview/artifacts/windows/README.txt
           retention-days: 30
           if-no-files-found: error
-        env:
-          PREVIEW_VERSION: 0.1.14
       - name: Upload native link-probe diagnostics
         if: always()
         uses: actions/upload-artifact@v5

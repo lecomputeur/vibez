@@ -3,16 +3,14 @@ use std::sync::OnceLock;
 use serde_json::Value;
 use tauri::{AppHandle, Manager, menu::{Menu, MenuItem}, tray::TrayIconBuilder};
 use crate::{PreviewState, policy::APP_NAME};
-
 fn translations() -> &'static Value {
     static DATA: OnceLock<Value> = OnceLock::new();
     DATA.get_or_init(|| serde_json::from_str(include_str!("../../dist/translations.json")).expect("validated bundled translations"))
 }
 fn preview_translations() -> &'static Value {
     static DATA: OnceLock<Value> = OnceLock::new();
-    DATA.get_or_init(|| serde_json::from_str(include_str!("../../preview-i18n.json")).expect("validated preview translations"))
+    DATA.get_or_init(|| serde_json::from_str(include_str!("../../dist/preview-translations.json")).expect("validated preview translations"))
 }
-
 pub fn resolve(setting: &str, locale: &str) -> String {
     let raw = if setting.is_empty() || setting == "system" { locale } else { setting };
     let raw = raw.replace('_', "-").to_lowercase();
@@ -35,12 +33,10 @@ pub fn preview_for(language: &str, key: &str) -> String {
 }
 pub fn text(app: &AppHandle, key: &str) -> String { text_for(&language(app), key) }
 pub fn preview(app: &AppHandle, key: &str) -> String { preview_for(&language(app), key) }
-
 fn menu_label(language: &str, key: &str) -> String {
     let text = text_for(language, key);
     if key == "open" { text.replace("VibeZ", APP_NAME) } else { text }
 }
-
 pub fn status(app: &AppHandle, raw: &str) -> String {
     let lang = language(app);
     if let Some(key) = match raw {
@@ -60,9 +56,11 @@ pub fn status(app: &AppHandle, raw: &str) -> String {
         "Could not open the preview's sign-in profile." => Some("signInProfileFailed"),
         "An additional nested sign-in window was blocked." => Some("nestedPopupBlocked"),
         "Could not create the sign-in window. Your Vibe page has not been replaced." => Some("signInWindowFailed"),
+        "settings_saved" => Some("saved"),
+        "settings_recovered" => Some("settingsRecovered"),
+        "site_language_failed" => Some("siteLanguageFailed"),
         _ => None,
     } { return preview_for(&lang, key); }
-
     match raw {
         "Checking for preview updates…" => text_for(&lang, "checking"),
         "Preview update available." => text_for(&lang, "updateReady"),
@@ -70,12 +68,11 @@ pub fn status(app: &AppHandle, raw: &str) -> String {
         "No downloadable tested preview was found." => preview_for(&lang, "noDownloadHelp"),
         "Could not check preview updates. Please try again later." => text_for(&lang, "updateFailed"),
         _ if raw.starts_with("Screenshot cancelled or unavailable:") => text_for(&lang, "shotFailed"),
-        _ if raw.starts_with("Tray unavailable:") => preview_for(&lang, "serviceErrorHelp"),
+        _ if raw.starts_with("Tray unavailable:") => preview_for(&lang, "trayUnavailable"),
         _ if raw.starts_with("Menu update failed:") => preview_for(&lang, "serviceErrorHelp"),
         _ => raw.into(),
     }
 }
-
 pub fn menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     let lang = language(app);
     let label = |key| menu_label(&lang, key);
@@ -110,7 +107,6 @@ pub fn create_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     builder.build(app)?;
     Ok(())
 }
-
 pub fn smoke_check(app: &AppHandle) -> Result<(), String> {
     let original = app.state::<PreviewState>().settings.lock().map_err(crate::err)?.language.clone();
     for lang in ["nl", "en", "de", "ar"] {
@@ -128,9 +124,7 @@ pub fn smoke_check(app: &AppHandle) -> Result<(), String> {
     println!("TRAY_OK: native menu and preview text follow saved language selection");
     Ok(())
 }
-
-#[cfg(test)]
-mod tests {
+#[cfg(test)] mod tests {
     use super::*;
     #[test] fn locale_follows_settings_or_os() {
         assert_eq!(resolve("system", "nl_NL.UTF-8"), "nl");
@@ -142,14 +136,13 @@ mod tests {
     #[test] fn all_34_languages_have_native_and_preview_text() {
         let langs = translations()["translations"].as_object().unwrap();
         let preview = preview_translations()["translations"].as_object().unwrap();
-        assert_eq!(langs.len(), 34);
-        assert_eq!(preview.len(), 34);
+        assert_eq!(langs.len(), 34); assert_eq!(preview.len(), 34);
         for (code, strings) in langs {
             for key in ["open", "screenshot", "settings", "updates", "quit"] {
                 assert!(!strings[key].as_str().unwrap_or_default().is_empty(), "{code}/{key}");
             }
             let extras = preview.get(code).expect("matching preview language");
-            for key in ["intro", "limits", "saved", "languageButton", "chooseLanguage", "updateManualHelp"] {
+            for key in ["intro", "limits", "saved", "languageButton", "chooseLanguage", "updateManualHelp", "settingsConflict", "settingsRecovered", "siteLanguageFailed", "trayUnavailable"] {
                 assert!(!extras[key].as_str().unwrap_or_default().is_empty(), "{code}/{key}");
             }
         }
