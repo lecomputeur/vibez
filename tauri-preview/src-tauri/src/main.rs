@@ -272,7 +272,7 @@ fn main() {
                 capture_busy: AtomicBool::new(false), tray_ready: AtomicBool::new(false), shell_ready: AtomicBool::new(false),
                 auth_active: AtomicBool::new(false), smoke });
             let window = tauri::window::WindowBuilder::new(app, "main")
-                .title(title()).inner_size(1280., 840.).min_inner_size(760., 560.).build()?;
+                .title(title()).inner_size(1280., 840.).min_inner_size(760., 560.).visible(false).build()?;
             let controls = WebviewBuilder::new("shell", WebviewUrl::App("index.html".into()))
                 .data_directory(data.join("controls")).on_navigation(policy::local_url).on_new_window(|_, _| NewWindowResponse::Deny);
             window.add_child(controls, LogicalPosition::new(0., 0.), LogicalSize::new(1280., TOOLBAR_HEIGHT))?;
@@ -322,8 +322,12 @@ fn main() {
                     Ok(()) => app.state::<PreviewState>().tray_ready.store(true, Ordering::Relaxed),
                     Err(error) => message(app.handle(), format!("Tray unavailable: {error}")),
                 }
-                if std::env::args().any(|a| a == "--hidden") && app.state::<PreviewState>().tray_ready.load(Ordering::Relaxed) { window.hide()?; }
-            } else { link_probe::start(app.handle().clone(), link_probe_only); }
+            }
+            // Visibility is an explicit startup decision, never a layout side effect.
+            let start_hidden = !smoke && std::env::args().any(|a| a == "--hidden")
+                && app.state::<PreviewState>().tray_ready.load(Ordering::Relaxed);
+            if !start_hidden { window.show()?; }
+            if smoke { link_probe::start(app.handle().clone(), link_probe_only); }
             Ok(())
         })
         .on_window_event(|window, event| {
