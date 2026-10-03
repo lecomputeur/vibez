@@ -12,8 +12,8 @@ const cap = JSON.parse(read('src-tauri/capabilities/local-shell.json'));
 test('preview identity and versions stay separate from Electron', () => {
   assert.equal(config.identifier,'nl.lecomputeur.vibez.tauri.preview');
   assert.equal(config.productName,'VibeZ Tauri Preview'); assert.equal(config.mainBinaryName,'vibez-tauri-preview');
-  assert.equal(config.version,'0.1.15'); assert.equal(JSON.parse(read('package.json')).version,config.version);
-  assert.match(read('src-tauri/Cargo.toml'),/version = "0\.1\.15"/);
+  assert.equal(config.version,'0.1.16'); assert.equal(JSON.parse(read('package.json')).version,config.version);
+  assert.match(read('src-tauri/Cargo.toml'),/version = "0\.1\.16"/);
 });
 test('native capabilities belong only to bundled controls, not remote content', () => {
   assert.deepEqual(cap.webviews,['shell','settings']); assert.equal(cap.local,true);

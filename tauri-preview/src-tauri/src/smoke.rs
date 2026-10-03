@@ -108,6 +108,8 @@ fn checks(app: &AppHandle) -> Result<(), String> {
     thread::sleep(Duration::from_secs(4));
     if !app.state::<PreviewState>().shell_ready.load(Ordering::Relaxed) { return Err("Bundled toolbar did not complete native IPC handshake".into()); }
     crate::desktop_ui::smoke_check(app)?;
+    #[cfg(target_os = "linux")]
+    tauri::async_runtime::block_on(crate::site_language::smoke_check(app))?;
     check_layout(app)?;
     let window = app.get_window("main").ok_or("Missing main window")?;
     let view = app.get_webview("vibe").ok_or("Missing Vibe webview")?;

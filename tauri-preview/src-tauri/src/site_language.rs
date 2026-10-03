@@ -1,6 +1,9 @@
 //! Serialized language transactions. Bootstrap before remote navigation;
 //! later changes wait for loaded Vibe/Chat content, never an OAuth page.
 use crate::{err, os_locale, policy, PreviewState};
+#[path = "language_retry.rs"]
+mod retry;
+use std::collections::VecDeque;
 use std::sync::{atomic::{AtomicBool, AtomicU64, Ordering}, Mutex};
 use tauri::{AppHandle, Manager, Webview};
 use tauri::webview::Cookie;
@@ -14,12 +17,14 @@ pub struct LanguageState {
     pub bootstrap: AtomicBool,
     pub loading: AtomicBool,
     last_error: Mutex<String>,
+    history: Mutex<VecDeque<String>>,
 }
 impl Default for LanguageState {
     fn default() -> Self {
         Self { gate: tokio::sync::Mutex::new(()), generation: AtomicU64::new(0),
             completed: AtomicU64::new(0), bootstrap: AtomicBool::new(true),
-            loading: AtomicBool::new(true), last_error: Mutex::new(String::new()) }
+            loading: AtomicBool::new(true), last_error: Mutex::new(String::new()),
+            history: Mutex::new(VecDeque::new()) }
     }
 }
 #[cfg(target_os = "linux")]
@@ -72,43 +77,76 @@ async fn confirm(_view: &Webview, _locale: &str) -> Result<(), String> { Ok(()) 
 fn can_reload(url: &url::Url, authenticating: bool, loading: bool) -> bool {
     policy::auth_return_url(url) && !authenticating && !loading
 }
-async fn apply(app: &AppHandle) -> Result<(), String> {
+fn remember(flow: &LanguageState, generation: u64, attempt: usize, detail: &str) {
+    // Only operation errors, never cookie values, auth URLs or account tokens.
+    let detail: String = detail.chars().map(|c| if c.is_control() { ' ' } else { c }).take(240).collect();
+    if let Ok(mut history) = flow.history.lock() {
+        if history.len() >= 8 { history.pop_front(); }
+        history.push_back(format!("request={generation}; attempt={attempt}; {detail}"));
+    }
+}
+fn recovered(app: &AppHandle) {
+    let state = app.state::<PreviewState>();
+    if let Ok(mut detail) = state.site_language.last_error.lock() { detail.clear(); }
+    // Do not erase a newer screenshot, connection or settings message.
+    if let Ok(mut status) = state.status.lock() { status.clear_if("site_language_failed"); };
+}
+async fn prepare_view(view: &Webview, locale: &str) -> Result<(), String> {
+    preferred(view, locale).await.map_err(|e| format!("preferred-language: {e}"))?;
+    cookies(view, locale).map_err(|e| format!("cookie-write: {e}"))?;
+    confirm(view, locale).await.map_err(|e| format!("cookie-confirmation: {e}"))
+}
+async fn apply(app: &AppHandle) {
     let state = app.state::<PreviewState>();
     let flow = &state.site_language;
+    // Keep reporting inside the same gate as preparation and navigation.
     let _gate = flow.gate.lock().await;
-    if flow.generation.load(Ordering::SeqCst) == flow.completed.load(Ordering::SeqCst) { return Ok(()); }
     let generation = flow.generation.load(Ordering::SeqCst);
-    let selected = state.settings.lock().map_err(err)?.language.clone();
-    let locale = policy::mistral_site_locale(&selected, &os_locale());
-    let view = app.get_webview("vibe").ok_or("Vibe view is not ready")?;
-    preferred(&view, &locale).await?;
-    cookies(&view, &locale)?;
-    confirm(&view, &locale).await?;
-    if generation != flow.generation.load(Ordering::SeqCst) { return Ok(()); }
-    *flow.last_error.lock().map_err(err)? = String::new();
-    let current = view.url().map_err(err)?;
-    let first = flow.bootstrap.load(Ordering::SeqCst);
-    if first || can_reload(&current, crate::auth::active(app), flow.loading.load(Ordering::SeqCst)) {
-        // Complete only this generation. Newer requests remain pending.
-        flow.completed.store(generation, Ordering::SeqCst);
-        flow.bootstrap.store(false, Ordering::SeqCst);
-        let target = if first { policy::HOME.parse().map_err(err)? } else { current };
-        view.navigate(target).map_err(err)?;
-    }
-    Ok(())
-}
-fn start(app: AppHandle) {
-    tauri::async_runtime::spawn(async move {
-        if let Err(error) = apply(&app).await {
-            let state = app.state::<PreviewState>();
-            if let Ok(mut detail) = state.site_language.last_error.lock() { *detail = error; }
-            crate::message(&app, "site_language_failed");
-            // Never strand the user on about:blank when a preference fails.
-            if state.site_language.bootstrap.swap(false, Ordering::SeqCst) {
-                if let Some(view) = app.get_webview("vibe") { let _ = view.navigate(policy::HOME.parse().expect("constant")); }
+    if generation == flow.completed.load(Ordering::SeqCst) { return; }
+    let current = || generation == flow.generation.load(Ordering::SeqCst);
+    let result: Result<bool, String> = async {
+        let selected = state.settings.lock().map_err(err)?.language.clone();
+        let locale = policy::mistral_site_locale(&selected, &os_locale());
+        let view = app.get_webview("vibe").ok_or("Vibe view is not ready")?;
+        // A cold browser profile may not yet have its cookie store ready.
+        // Retrying is bounded; genuine failures still reach the user.
+        let prepared = retry::prepare(|| prepare_view(&view, &locale), current,
+            |attempt, error| remember(flow, generation, attempt, error),
+            std::time::Duration::from_millis(250)).await?;
+        if prepared == retry::Outcome::Superseded { return Ok(false); }
+        let url = view.url().map_err(err)?;
+        let first = flow.bootstrap.load(Ordering::SeqCst);
+        if first || can_reload(&url, crate::auth::active(app), flow.loading.load(Ordering::SeqCst)) {
+            if !current() { return Ok(false); }
+            let target = if first { policy::HOME.parse().map_err(err)? } else { url };
+            // Do not mark a generation complete if navigation submission fails.
+            view.navigate(target).map_err(err)?;
+            flow.completed.store(generation, Ordering::SeqCst);
+            flow.bootstrap.store(false, Ordering::SeqCst);
+            return Ok(true);
+        }
+        Ok(false) // Still pending: an auth/loading page must not be redirected.
+    }.await;
+    if !current() { return; }
+    match result {
+        Ok(true) => recovered(app),
+        Ok(false) => (),
+        Err(error) => {
+            remember(flow, generation, 0, &error);
+            if let Ok(mut detail) = flow.last_error.lock() { *detail = error; }
+            crate::message(app, "site_language_failed");
+            // Never strand the user on about:blank. A later successful page
+            // load retries the pending request and clears only our warning.
+            if flow.bootstrap.swap(false, Ordering::SeqCst) {
+                if let Some(view) = app.get_webview("vibe") {
+                    let _ = view.navigate(policy::HOME.parse().expect("constant"));
+                }
             }
         }
-    });
+    }
+}
+fn start(app: AppHandle) {
+    tauri::async_runtime::spawn(async move { apply(&app).await; });
 }
 pub fn request(app: &AppHandle) {
     let state = app.state::<PreviewState>();
@@ -137,7 +175,36 @@ pub async fn inspect(app: &AppHandle) -> String {
         Ok(Ok(raw)) => serde_json::from_str::<String>(&raw).unwrap_or_else(|_| "page=unavailable".into()),
         _ => "page=unavailable".into(),
     };
-    format!("requested={requested}; pending={pending}; {page}; error={failure}")
+    let history = state.site_language.history.lock()
+        .map(|h| h.iter().cloned().collect::<Vec<_>>().join("\n"))
+        .unwrap_or_else(|_| "unavailable".into());
+    format!("requested={requested}; pending={pending}; {page}; error={failure}\nLanguage preparation history (including recovered attempts):\n{history}")
+}
+#[cfg(target_os = "linux")]
+pub async fn smoke_check(app: &AppHandle) -> Result<(), String> {
+    if !app.state::<PreviewState>().smoke { return Err("Language probe requires smoke mode".into()); }
+    let window = tauri::WebviewWindowBuilder::new(app, "language-smoke",
+            tauri::WebviewUrl::External("about:blank".parse().map_err(err)?))
+        .data_directory(app.path().app_data_dir().map_err(err)?.join("language-smoke"))
+        .visible(false)
+        .on_navigation(|u| u.as_str() == "about:blank")
+        .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny)
+        .on_permission_request(|_, _| tauri::webview::PermissionResponse::Deny)
+        .build().map_err(err)?;
+    let result: Result<(), String> = async {
+        let view: &Webview = window.as_ref();
+        for locale in ["nl", "en", "nl"] {
+            let outcome = retry::prepare(|| prepare_view(view, locale), || true,
+                |attempt, error| eprintln!("LANGUAGE_PROBE_RETRY: attempt={attempt}; {error}"),
+                std::time::Duration::from_millis(250)).await?;
+            if outcome != retry::Outcome::Ready { return Err("Language probe unexpectedly superseded".into()); }
+            if view.url().map_err(err)?.as_str() != "about:blank" { return Err("Language probe navigated remotely".into()); }
+        }
+        println!("LANGUAGE_BOOTSTRAP_OK: real WebKit cookie preparation on a fresh about:blank profile; nl/en/nl; no remote navigation");
+        Ok(())
+    }.await;
+    let cleanup = window.destroy().map_err(err);
+    result.and(cleanup)
 }
 #[cfg(test)] mod tests {
     use super::*;

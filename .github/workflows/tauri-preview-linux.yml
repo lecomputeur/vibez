@@ -128,6 +128,7 @@ jobs:
             test "$status" = 0
             grep -F 'SMOKE_OK:' "$PREVIEW_LOG"
             grep -F 'HIDDEN_OK:' "$PREVIEW_LOG"
+            grep -F 'LANGUAGE_BOOTSTRAP_OK:' "$PREVIEW_LOG"
             test "$(grep -c 'RESIZE_OK:' "$PREVIEW_LOG")" -ge 8
           done
       - name: Prepare verified preview artifacts
@@ -137,7 +138,7 @@ jobs:
           cp src-tauri/target/release/bundle/deb/*.deb "artifacts/vibez-tauri-preview_${VERSION}_amd64.deb"
           cp src-tauri/Cargo.lock artifacts/Cargo.lock
           cp package-lock.json artifacts/package-lock.json
-          cp README.md TESTING-0.1.15.md artifacts/
+          cp README.md TESTING-0.1.16.md RELEASE-GATE.md artifacts/
           git rev-parse HEAD > artifacts/source-commit.txt
           cd artifacts
           sha256sum *.deb > SHA256SUMS

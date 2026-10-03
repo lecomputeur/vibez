@@ -1,5 +1,13 @@
 # VibeZ Tauri Preview
 
+## 0.1.16 — startup language recovery
+
+This candidate retries browser-language preparation at most three times before reporting a real failure. Successful recovery clears only its own stale language warning, not newer unrelated messages. Recovered operation errors remain in a bounded diagnostic history. Error reporting is serialized with the operation, obsolete requests do not publish results, and failed navigation submission is not marked complete.
+
+The native Linux smoke test now exercises real nl/en/nl cookie preparation on a fresh neutral WebKit profile without contacting Mistral, in addition to the existing exact-size, popup/isolation and hidden-window checks. This is not a claim that the user's original intermittent failure has been reproduced or that real account login has been retested.
+
+See `RELEASE-GATE.md` before public distribution. No stable release, Electron replacement or Store submission is performed by these build workflows.
+
 ## 0.1.15 — stability update
 
 The separate Rust/Tauri preview runs beside the stable Electron VibeZ application. This version addresses the highest-priority findings of the 0.1.14 code review, not every item in that review.
@@ -27,7 +35,7 @@ Automatic update installation, global shortcuts, microphone/camera permissions a
 
 | Item | Preview |
 | --- | --- |
-| Version | 0.1.15 |
+| Version | 0.1.16 |
 | Name | VibeZ Tauri Preview |
 | Executable | `vibez-tauri-preview` |
 | Debian package | `vibe-z-tauri-preview` |
@@ -43,7 +51,7 @@ XDG directory overrides are respected. The preview never imports Electron cookie
 Fully quit the previous preview through its tray menu, then install from the directory containing the download:
 
 ```sh
-sudo apt install ./vibez-tauri-preview_0.1.15_amd64.deb
+sudo apt install ./vibez-tauri-preview_0.1.16_amd64.deb
 vibez-tauri-preview
 ```
 
@@ -59,4 +67,4 @@ Only bundled shell/settings webviews have native command capabilities. Remote Vi
 
 ## Development
 
-Run `npm install --ignore-scripts`, `npm test`, then `npm run build -- --bundles deb` in `tauri-preview`. Tests prepare assets before Rust compilation. The original Electron logo, toolbar stylesheet and translation bundles are read-only build inputs. Only `tauri-preview/**` and the two preview workflows may differ from the preview base commit. Review `TESTING-0.1.15.md` for release validation scope.
+Run `npm install --ignore-scripts`, `npm test`, then `npm run build -- --bundles deb` in `tauri-preview`. Tests prepare assets before Rust compilation. The original Electron logo, toolbar stylesheet and translation bundles are read-only build inputs. Only `tauri-preview/**` and the two preview workflows may differ from the preview base commit. Review `TESTING-0.1.16.md` for release validation scope.
