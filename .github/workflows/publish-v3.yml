@@ -48,7 +48,8 @@ jobs:
           assert len(jobs)==9 and all(j['conclusion']=='success' for j in jobs)
           print('Verified exact VibeZ 3 source and all nine successful build gates.')
           PY
-      - name: Verify existing draft assets without rebuilding or executing installers
+          python3 -m unittest discover -s tools/release-v3/tests -p 'test_*.py'
+      - name: Verify draft assets without rebuilding or executing installers
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -65,7 +66,10 @@ jobs:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
-      - name: Publish only the existing v3.0.0 draft; preserve Electron Latest
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Validate the existing release identity
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -78,8 +82,24 @@ jobs:
           assert r['tagName']=='v3.0.0' and not r['isPrerelease']
           assert r['targetCommitish']=='b30a4b58e71d3482fa79433779ff24410525ad01'
           PY
-          # The historical Electron updater reads GitHub Latest. Keep it on 2.x.
-          # VibeZ 3 discovers published releases independently; no v2 asset is changed.
-          gh release edit v3.0.0 --repo lecomputeur/vibez --draft=false --latest=false --title 'VibeZ 3.0.0 — Same Vibe. Rebuilt in Rust.' --notes-file V3-RELEASE.md
+      - name: Validate compatibility with the locked historical Electron updater
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npm ci --omit=dev --ignore-scripts
+          npm audit --omit=dev --audit-level=high
+          mkdir -p legacy-feed
+          gh api repos/lecomputeur/vibez/releases/tags/v2.0.2 > legacy-feed/release.json
+          gh release download v2.0.2 --repo lecomputeur/vibez --dir legacy-feed --pattern latest.yml --pattern latest-linux.yml --pattern latest-mac.yml
+          node tools/release-v3/legacy-feed.cjs legacy-feed
+      - name: Publish VibeZ 3 as the new main release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # These are metadata only. Original v2 binaries remain in the archive.
+          # Compatibility was checked using the actual locked updater resolver.
+          gh release upload v3.0.0 legacy-feed/latest.yml legacy-feed/latest-linux.yml legacy-feed/latest-mac.yml --clobber --repo lecomputeur/vibez
+          gh release edit v3.0.0 --repo lecomputeur/vibez --draft=false --latest --title 'VibeZ 3.0.0 — Same Vibe. Rebuilt in Rust.' --notes-file V3-RELEASE.md
+          test "$(gh api repos/lecomputeur/vibez/releases/latest --jq .tag_name)" = v3.0.0
           gh release view v3.0.0 --repo lecomputeur/vibez --json isDraft,isPrerelease,url --jq '{public: (.isDraft == false), prerelease: .isPrerelease, url: .url}'
-          echo 'VibeZ 3.0.0 published. Existing Electron update selection is preserved. No Store submission was performed.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'VibeZ 3.0.0 is public and Latest. Original v2 files are preserved only for archived downloads and compatible legacy updates. Store submission remains separate.' >> "$GITHUB_STEP_SUMMARY"
