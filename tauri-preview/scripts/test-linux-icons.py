@@ -143,7 +143,9 @@ class X11:
             if fmt.value == 8:
                 return C.string_at(data, count.value)
             if fmt.value == 32:
-                return list(C.cast(data, C.POINTER(C.c_ulong))[:count.value])
+                # Xlib sign-extends CARD32 into native 64-bit longs on LP64.
+                # Compare the 32 protocol bits, not the upper padding bits.
+                return [value & 0xffffffff for value in C.cast(data, C.POINTER(C.c_ulong))[:count.value]]
             return []
         finally:
             if data:
