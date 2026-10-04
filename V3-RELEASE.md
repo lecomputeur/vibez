@@ -2,65 +2,43 @@
 
 ## Goodbye, Electron. Hello, Rust + Tauri.
 
-**This is a new chapter for VibeZ — not just another version number.** The desktop application has moved from Electron to a Rust-powered Tauri foundation while retaining its familiar toolbar and focused Mistral Vibe experience.
+**VibeZ's next chapter is a new desktop foundation, not a new coat of paint.** Version 3 moves the native application layer from Electron to Rust/Tauri while keeping the familiar VibeZ workspace and controls. WebKitGTK on Linux, Microsoft WebView2 on Windows and Apple WKWebView on macOS provide the web engine. The interface and the Mistral website still use web technologies; this is not a claim that every line is Rust or that every workload is faster.
 
-VibeZ 3 uses the operating system's browser engine instead of bundling an Electron runtime: WebKitGTK on Linux, WebView2 on Windows and WKWebView on macOS. The native layer is written in Rust; the bundled interface and the remote website still use web technologies. No unmeasured speed or memory claims are implied.
+## A language engine rebuilt around your choice
 
-## Your language. From the very first launch.
+System-language detection, saved preferences, startup preparation and browser handoff have been reworked together. Language changes are revisioned so older responses cannot undo a new choice. Stale settings windows preserve unrelated newer changes. Temporary startup failures get bounded retries; recovery clears only the corresponding old warning. Language-triggered navigation waits during sign-in.
 
-The language module has been rebuilt around system-language detection, explicit user choice and reliable application to the embedded browser. It now prepares the browser before the first remote navigation, confirms the language cookie natively, preserves saved preferences and serializes language changes so stale replies cannot undo your latest choice.
+Native language preparation has been tested on all three browser engines. The maintainer confirmed the reported Dutch/English switching, startup and icon fixes on Linux/Cinnamon. VibeZ includes **34 interface-language bundles**. Website translation support remains Mistral's responsibility; unsupported website languages fall back to English. Physical location does not override the selected language.
 
-A settings window left open on an older language no longer reverses a newer toolbar choice when you change something unrelated. Language navigation waits during authentication. Temporary startup errors have bounded retries, and a recovered language warning no longer remains above an otherwise working page.
+## One version. All twelve release files.
 
-**34 VibeZ interface-language bundles; native language-cookie checks on all three browser engines.** Dutch/English switching and startup recovery have also been checked in the maintainer's Linux/Cinnamon use. The Mistral website controls its own supported translations; unsupported website-language choices fall back to English. Language follows preferences, not physical location.
-
-## One release. Twelve files. Every supported package family.
-
-| Platform | VibeZ 3.0.0 files |
+| Platform | Formats |
 |---|---|
-| Linux x64 | AppImage, DEB, RPM, Arch/Pacman and Flatpak |
-| Windows x64 | Setup EXE, MSI and Store MSIX |
-| macOS Apple Silicon | Developer ID signed, notarized and stapled app in DMG and ZIP |
-| macOS Intel | Developer ID signed, notarized and stapled app in DMG and ZIP |
+| Linux x86-64 | AppImage, DEB, RPM, Arch/Pacman, Flatpak |
+| Windows x64 | Setup EXE, MSI, Store-submission MSIX |
+| macOS Apple Silicon | Developer ID signed, notarized and stapled DMG and ZIP |
+| macOS Intel | Developer ID signed, notarized and stapled DMG and ZIP |
 
-The entire set was built together. No missing platform was waved through to obtain a green release gate. Choose one installer for your operating system; `SHA256SUMS` covers the release files.
+Every package is version **3.0.0** (Store package version **3.0.0.0**) and originates from frozen source `b30a4b58e71d3482fa79433779ff24410525ad01`. The [complete build](https://github.com/lecomputeur/vibez/actions/runs/37219669459) passed all nine jobs, including security and the twelve-file gate. `SHA256SUMS` verifies the original twelve packages and source record. The publication process rechecks them without rebuilding or changing installers.
 
-## More of the foundations fixed
+## Native behavior, checked in the real engines
 
-Window resizing and restore-after-maximize are tested against real requested dimensions. Linux launcher/window/tray icons are checked across repeated starts. Windows and macOS navigation read real browser history state rather than placeholders. Preference updates are field-level and conflict-aware, damaged settings are recoverable, and the manual updater discovers permanent published releases instead of expiring CI downloads.
+Native Back/Forward state replaces placeholder values. Tests exercise cookie preparation, popup callbacks, isolation of native privileges, actual window resize/maximize/restore dimensions and hidden-state preservation. Linux icon checks inspect window/tray pixels across repeated starts. The language and layout fixes from the tested preview are retained.
 
-Remote website content and login popups remain separated from the native privileges of the local toolbar and settings.
+## Upgrading from version 2 or the preview
 
-## Verified build and publication status
+Install one version-3 package for your system and start **VibeZ 3**. The new direct-install app identity is `nl.lecomputeur.vibez3`, its executable is `vibez3`, and its DEB package is `vibe-z-3`. Profiles remain separate; sign in once. Existing data is not silently copied, deleted or overwritten. Store upgrades use the Store product identity and are a separate migration path.
 
-- Frozen application/build source: `b30a4b58e71d3482fa79433779ff24410525ad01`.
-- Successful all-platform workflow: [37219669459](https://github.com/lecomputeur/vibez/actions/runs/37219669459).
-- All nine required jobs passed, including the dependency advisory audit and the twelve-file completeness gate.
-- The successful workflow produced the full release draft. **A draft is not a public release.** Public availability is shown on the [v3.0.0 release page](https://github.com/lecomputeur/vibez/releases/tag/v3.0.0).
-- Publication-only documentation and workflow changes do not replace the tested application binaries.
+Version 3 is the new public main release. Historical version-2 files remain in the archive. Small `latest*.yml` compatibility files are only for existing Electron updaters: they continue to reference the original version-2 packages, never a Tauri installer. Version 3 checks the published v3 release feed and installs updates manually. No in-place automatic Electron-to-Tauri migration is claimed.
 
-Native tests exercise language cookies, history navigation, popup callbacks, restricted native privileges, resizing and hidden-state behavior. They are offline probes, not a claim of live Google/Microsoft/Mistral account sign-in testing on every platform. Wayland, fractional scaling and every distribution are not claimed validated merely because X11 tests passed.
+## Requirements and boundaries
 
-## Installing and moving from older versions
+Native Linux packages/AppImage require glibc 2.39 or newer; DEB targets Ubuntu 24.04-class systems with WebKitGTK 4.1. Flatpak uses its declared GNOME runtime. macOS requires 14 or newer. Windows requires WebView2.
 
-Use the [platform installation guides](https://lecomputeur.github.io/vibez/). VibeZ 3 direct installers use `nl.lecomputeur.vibez3`, executable `vibez3`, and a separate profile. Existing Electron and preview data is not silently migrated or deleted. Sign in once in the new application; keep your old installation until you have confirmed your workflow. The Linux DEB package name is `vibe-z-3`.
+Direct Windows EXE/MSI downloads are unsigned and may show a reputation warning. The unsigned Store MSIX is a submission artifact, not a recommended sideload installer. Its creation does not mean the Microsoft Store listing has been updated or certified. macOS artifacts passed Developer ID signing and Apple notarization.
 
-Native Linux packages/AppImage require glibc >= 2.39. DEB targets Ubuntu 24.04-class systems with WebKitGTK 4.1; RPM/Arch dependencies must resolve on the target system. Flatpak uses its declared GNOME runtime. macOS requires 14+. Windows requires WebView2.
+Automated native probes are offline checks, not a claim that every live sign-in provider, Linux desktop, Wayland configuration, fractional scale, screenshot or upload/download flow has been tested. Microphone/camera access, global screenshot shortcuts and automatic installer execution are not enabled in 3.0.0.
 
-The old Electron release files remain available. VibeZ 3 must not be offered as an Electron automatic update: publication either preserves the old Latest selection or adds verified legacy update metadata and its original files before switching Latest. Store upgrades are a separate delivery path.
+## Independent, free and open source
 
-## Signing, Store and feature boundaries
-
-Direct Windows EXE/MSI installers are **unsigned** and may trigger Windows reputation warnings. The unsigned MSIX is built for the approved Partner Center product with version `3.0.0.0`, but is for Store submission, not ordinary direct installation. It has **not** been submitted or certified just because this GitHub build passed. macOS packages are Developer ID signed, notarized and stapled.
-
-Screenshots use the operating system's interactive capture tools. Automatic installer execution, global screenshot shortcuts and microphone/camera access are not enabled in this release.
-
-## About the old Electron security check
-
-The separately retained Electron build dependency tree has a reported `http-cache-semantics` advisory (GHSA-ch52-4w7c-c8xp). It is not part of VibeZ 3's independently audited dependency tree. The finding must remain visible for Electron maintenance; it is not a reason to label the Rust/Tauri audit as failed or to remove security auditing.
-
----
-
-**A new foundation. A rebuilt language engine. The same VibeZ spirit.**
-
-VibeZ is independent, free and MIT licensed. It is not affiliated with or endorsed by Mistral AI. The website, account features and service availability remain provided by Mistral.
+VibeZ is MIT licensed and independent of Mistral AI. Mistral provides the remote service, accounts and plans. **Enjoy the new generation? Star the project, share it and help make it better.**
