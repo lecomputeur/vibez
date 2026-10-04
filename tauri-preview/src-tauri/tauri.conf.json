@@ -27,6 +27,7 @@
     "shortDescription": "Experimental Rust/Tauri client alongside VibeZ",
     "longDescription": "Experimental Tauri preview using system webviews. Separate installation and profile; does not replace or update the Electron VibeZ application.",
     "icon": [
+      "icons/128x128.png",
       "icons/icon.png"
     ],
     "linux": {

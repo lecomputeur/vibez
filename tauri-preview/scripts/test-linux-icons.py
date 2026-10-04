@@ -14,6 +14,7 @@ import time
 
 import gi
 gi.require_version('Gtk', '3.0')
+gi.require_version('GdkPixbuf', '2.0')
 from gi.repository import Gio, GLib, GdkPixbuf, Gtk
 
 APP_ID = 'nl.lecomputeur.vibez.tauri.preview'
@@ -213,6 +214,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--binary', required=True)
     parser.add_argument('--source-icon', required=True)
+    parser.add_argument('--window-icon', required=True)
     parser.add_argument('--output', required=True)
     args = parser.parse_args()
     output = Path(args.output).resolve()
@@ -227,6 +229,8 @@ def main():
     source = Path(args.source_icon).resolve()
     assert icon_path.read_bytes() == source.read_bytes(), 'Installed image differs from source PNG'
     expected = image_pixels(source)
+    expected_window = image_pixels(Path(args.window_icon).resolve())
+    assert expected_window[:2] == (128, 128), 'Window image must fit the GTK/X11 limit'
     command = shlex.split(launcher.get_commandline())
     assert command == ['vibez-tauri-preview'], command
     results = []
@@ -251,13 +255,13 @@ def main():
                     try:
                         window = wait_for(lambda: x11.window(process.pid), process)
                         # Validate immediately on first mapped appearance, not only after a restart.
-                        metadata = x11.inspect(window, expected)
+                        metadata = x11.inspect(window, expected_window)
                         if late:
                             pump(0.5)
                             watcher.start()
                         tray = wait_for(lambda: watcher.tray(process.pid, expected, cache), process)
                         pump(1.0)
-                        assert x11.inspect(window, expected) == metadata, 'Metadata changed after startup'
+                        assert x11.inspect(window, expected_window) == metadata, 'Metadata changed after startup'
                         assert watcher.tray(process.pid, expected, cache), 'Tray image disappeared'
                         record = {'mode': mode, 'window': metadata, 'tray': tray}
                         results.append(record)
@@ -272,7 +276,9 @@ def main():
                 watcher.stop()
             report = {'version': subprocess.check_output([args.binary, '--version'], text=True).strip(),
                 'launcher': launcher.get_filename(), 'launcher_icon': str(icon_path),
-                'source_icon_sha256': hashlib.sha256(source.read_bytes()).hexdigest(), 'starts': results}
+                'source_icon_sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
+                'window_icon_sha256': hashlib.sha256(Path(args.window_icon).read_bytes()).hexdigest(),
+                'starts': results}
             (output / 'icon-report.json').write_text(json.dumps(report, indent=2) + '\n')
             print('ICON_SMOKE_OK: installed launcher, exact window icon pixels, identity, five starts and late tray host', flush=True)
     finally:

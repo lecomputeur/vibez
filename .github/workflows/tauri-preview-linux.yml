@@ -141,7 +141,7 @@ jobs:
           export PREVIEW_ARTIFACTS="$PWD/artifacts"
           timeout 100s dbus-run-session -- xvfb-run -a -s '-screen 0 1600x1000x24' bash -c '
             openbox --sm-disable > "$PREVIEW_ARTIFACTS/icon-openbox.log" 2>&1 &
-            /usr/bin/python3 scripts/test-linux-icons.py --binary /usr/bin/vibez-tauri-preview --source-icon ../icon.png --output "$PREVIEW_ARTIFACTS" 2>&1 | tee "$PREVIEW_ARTIFACTS/icon-smoke.log"
+            /usr/bin/python3 scripts/test-linux-icons.py --binary /usr/bin/vibez-tauri-preview --source-icon ../icon.png --window-icon src-tauri/icons/128x128.png --output "$PREVIEW_ARTIFACTS" 2>&1 | tee "$PREVIEW_ARTIFACTS/icon-smoke.log"
             exit "${PIPESTATUS[0]}"
           '
           grep -F 'ICON_SMOKE_OK:' artifacts/icon-smoke.log

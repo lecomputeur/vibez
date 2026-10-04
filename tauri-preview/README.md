@@ -2,6 +2,8 @@
 
 ## 0.1.17 — Linux desktop icon identity
 
+GTK/X11 silently excludes a lone 512px icon from `_NET_WM_ICON` because its pixels plus the dimension header exceed the property payload limit. The default native window icon is now an embedded 128px variant of the same VibeZ artwork, explicitly set before the main window is mapped. The 512px launcher/tray asset remains available.
+
 Before creating windows, the preview aligns GLib program name and GDK program class with its existing GTK application ID and StartupWMClass. The DEB launcher uses an installed absolute pixmap (also kept as a themed icon); GTK has an embedded-pixel fallback. Tray image files are isolated per application/process. Installation/removal refresh system desktop caches without changing user data or pinned launchers.
 
 The new installed-package icon test reads actual X11 WM_CLASS, _GTK_APPLICATION_ID and _NET_WM_ICON, checks launcher image bytes and the exported StatusNotifier icon, and repeats cold/warm/direct launches plus a late-starting tray host. This is an X11 integration check, not a claim to have run Cinnamon or every desktop environment.

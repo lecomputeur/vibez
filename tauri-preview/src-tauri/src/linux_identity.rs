@@ -14,10 +14,11 @@ pub fn initialize() -> Result<(), String> {
     gtk::glib::set_application_name(APP_NAME);
     gtk::gdk::set_program_class(APP_ID);
     gtk::Window::set_default_icon_name(APP_ID);
-    // Embedded pixels remain available even before the desktop theme cache
-    // discovers a newly installed icon. Tauri also uses this PNG for windows.
+    // GTK/X11 caps _NET_WM_ICON at 262144 words. A 512x512 image plus
+    // its width/height header exceeds that limit and is silently discarded.
+    // Use the generated 128px variant, also used by the Tauri default icon.
     let icon = gtk::gdk_pixbuf::Pixbuf::from_read(Cursor::new(
-        include_bytes!("../icons/icon.png").as_slice(),
+        include_bytes!("../icons/128x128.png").as_slice(),
     )).map_err(crate::err)?;
     gtk::Window::set_default_icon_list(&[icon]);
     Ok(())
@@ -38,7 +39,7 @@ pub fn tray_directory(app: &AppHandle) -> Result<PathBuf, String> {
 /// fallback. X11 panels can cache the first icon property they observe.
 pub fn prepare_window(window: &tauri::Window) -> Result<(), String> {
     let icon = gtk::gdk_pixbuf::Pixbuf::from_read(Cursor::new(
-        include_bytes!("../icons/icon.png").as_slice(),
+        include_bytes!("../icons/128x128.png").as_slice(),
     )).map_err(crate::err)?;
     window.gtk_window().map_err(crate::err)?.set_icon(Some(&icon));
     Ok(())

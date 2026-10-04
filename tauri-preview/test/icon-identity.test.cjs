@@ -29,3 +29,12 @@ test("tray icon has required embedded pixels and a process-specific directory", 
   assert.match(read("src-tauri/src/linux_identity.rs"), /std::process::id\(\)/);
   assert.doesNotMatch(read("src-tauri/src/desktop_ui.rs"), /if let Some\(icon\) = app.default_window_icon/);
 });
+
+test("the native default window icon fits GTK/X11 and is assigned before showing", () => {
+  assert.equal(config.bundle.icon[0], "icons/128x128.png");
+  // Actual generated dimensions and exported pixels are checked by native CI.
+  assert.ok(2 + 128 * 128 < 262144);
+  const main = read("src-tauri/src/main.rs");
+  assert.match(read("src-tauri/src/linux_identity.rs"), /icons\/128x128\.png/);
+  assert.ok(main.indexOf("linux_identity::prepare_window(&window)") < main.indexOf("if !start_hidden { window.show()?; }"));
+});
