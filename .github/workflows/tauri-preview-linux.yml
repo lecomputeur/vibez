@@ -59,7 +59,7 @@ jobs:
       - name: Install Linux build and test dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb openbox dbus-x11 imagemagick desktop-file-utils
+          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb openbox dbus-x11 imagemagick desktop-file-utils python3-gi gir1.2-gtk-3.0
           rustup toolchain install stable --profile minimal
           rustup default stable
       - uses: Swatinem/rust-cache@v2
@@ -95,7 +95,7 @@ jobs:
           test -x artifacts/unpacked/usr/bin/vibez-tauri-preview
           desktop=artifacts/unpacked/usr/share/applications/nl.lecomputeur.vibez.tauri.preview.desktop
           desktop-file-validate "$desktop"
-          grep -Fx 'Icon=nl.lecomputeur.vibez.tauri.preview' "$desktop"
+          grep -Fx 'Icon=/usr/share/pixmaps/nl.lecomputeur.vibez.tauri.preview.png' "$desktop"
           test -s artifacts/unpacked/usr/share/icons/hicolor/512x512/apps/nl.lecomputeur.vibez.tauri.preview.png
           artifacts/unpacked/usr/bin/vibez-tauri-preview --version | tee artifacts/version.txt
           grep -F "v$VERSION" artifacts/version.txt
@@ -131,6 +131,20 @@ jobs:
             grep -F 'LANGUAGE_BOOTSTRAP_OK:' "$PREVIEW_LOG"
             test "$(grep -c 'RESIZE_OK:' "$PREVIEW_LOG")" -ge 8
           done
+      - name: Installed desktop and tray icon regression across repeated starts
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          WEBKIT_DISABLE_DMABUF_RENDERER: '1'
+        run: |
+          deb="$(find src-tauri/target/release/bundle/deb -name '*.deb' -print -quit)"
+          sudo apt-get install -y --no-install-recommends "$(realpath "$deb")"
+          export PREVIEW_ARTIFACTS="$PWD/artifacts"
+          timeout 100s dbus-run-session -- xvfb-run -a -s '-screen 0 1600x1000x24' bash -c '
+            openbox --sm-disable > "$PREVIEW_ARTIFACTS/icon-openbox.log" 2>&1 &
+            /usr/bin/python3 scripts/test-linux-icons.py --binary /usr/bin/vibez-tauri-preview --source-icon ../icon.png --output "$PREVIEW_ARTIFACTS" 2>&1 | tee "$PREVIEW_ARTIFACTS/icon-smoke.log"
+            exit "${PIPESTATUS[0]}"
+          '
+          grep -F 'ICON_SMOKE_OK:' artifacts/icon-smoke.log
       - name: Prepare verified preview artifacts
         env:
           VERSION: ${{ steps.version.outputs.version }}
@@ -138,7 +152,7 @@ jobs:
           cp src-tauri/target/release/bundle/deb/*.deb "artifacts/vibez-tauri-preview_${VERSION}_amd64.deb"
           cp src-tauri/Cargo.lock artifacts/Cargo.lock
           cp package-lock.json artifacts/package-lock.json
-          cp README.md TESTING-0.1.16.md RELEASE-GATE.md artifacts/
+          cp README.md TESTING-0.1.17.md RELEASE-GATE.md artifacts/
           git rev-parse HEAD > artifacts/source-commit.txt
           cd artifacts
           sha256sum *.deb > SHA256SUMS
@@ -162,6 +176,7 @@ jobs:
           path: |
             tauri-preview/artifacts/*.log
             tauri-preview/artifacts/*.txt
+            tauri-preview/artifacts/icon-report.json
             tauri-preview/artifacts/*.png
             tauri-preview/src-tauri/Cargo.lock
             tauri-preview/package-lock.json

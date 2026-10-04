@@ -1,5 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod policy;
+#[cfg(target_os = "linux")]
+mod linux_identity;
 mod settings_store;
 mod site_language;
 mod status;
@@ -249,7 +251,8 @@ fn create_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> { desk
 fn main() {
     if std::env::args().any(|a| a == "--version") { println!("{}", title()); return; }
     let link_probe_only = std::env::args().any(|a| a == "--link-probe-only");
-    let smoke = link_probe_only || std::env::args().any(|a| a == "--smoke-test");
+    let icon_probe = std::env::args().any(|a| a == "--icon-smoke-test");
+    let smoke = icon_probe || link_probe_only || std::env::args().any(|a| a == "--smoke-test");
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| show_main(app)))
         .plugin(tauri_plugin_opener::Builder::new().open_js_links_on_click(false).build())
@@ -257,6 +260,8 @@ fn main() {
         .plugin(tauri_plugin_autostart::Builder::new().app_name(APP_NAME).arg("--hidden").build())
         .invoke_handler(tauri::generate_handler![get_state, navigate, show_settings, save_settings, close_settings, capture_screenshot, get_diagnostics])
         .setup(move |app| {
+            #[cfg(target_os = "linux")]
+            linux_identity::initialize().map_err(std::io::Error::other)?;
             let config = app.path().app_config_dir()?; let data = app.path().app_data_dir()?;
             for dir in [&config, &data] {
                 fs::create_dir_all(dir)?;
@@ -317,7 +322,7 @@ fn main() {
             // Prepare language on a neutral page; no delayed redirect during OAuth.
             if !smoke { site_language::request(app.handle()); }
             layout(app.handle()).map_err(std::io::Error::other)?;
-            if !smoke {
+            if !smoke || icon_probe {
                 match create_tray(app.handle()) {
                     Ok(()) => app.state::<PreviewState>().tray_ready.store(true, Ordering::Relaxed),
                     Err(error) => message(app.handle(), format!("Tray unavailable: {error}")),
@@ -327,7 +332,8 @@ fn main() {
             let start_hidden = !smoke && std::env::args().any(|a| a == "--hidden")
                 && app.state::<PreviewState>().tray_ready.load(Ordering::Relaxed);
             if !start_hidden { window.show()?; }
-            if smoke { link_probe::start(app.handle().clone(), link_probe_only); }
+            // The external icon probe inspects a real, offline running app.
+            if smoke && !icon_probe { link_probe::start(app.handle().clone(), link_probe_only); }
             Ok(())
         })
         .on_window_event(|window, event| {

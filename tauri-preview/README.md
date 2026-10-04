@@ -1,5 +1,11 @@
 # VibeZ Tauri Preview
 
+## 0.1.17 — Linux desktop icon identity
+
+Before creating windows, the preview aligns GLib program name and GDK program class with its existing GTK application ID and StartupWMClass. The DEB launcher uses an installed absolute pixmap (also kept as a themed icon); GTK has an embedded-pixel fallback. Tray image files are isolated per application/process. Installation/removal refresh system desktop caches without changing user data or pinned launchers.
+
+The new installed-package icon test reads actual X11 WM_CLASS, _GTK_APPLICATION_ID and _NET_WM_ICON, checks launcher image bytes and the exported StatusNotifier icon, and repeats cold/warm/direct launches plus a late-starting tray host. This is an X11 integration check, not a claim to have run Cinnamon or every desktop environment.
+
 ## 0.1.16 — startup language recovery
 
 This candidate retries browser-language preparation at most three times before reporting a real failure. Successful recovery clears only its own stale language warning, not newer unrelated messages. Recovered operation errors remain in a bounded diagnostic history. Error reporting is serialized with the operation, obsolete requests do not publish results, and failed navigation submission is not marked complete.
@@ -35,7 +41,7 @@ Automatic update installation, global shortcuts, microphone/camera permissions a
 
 | Item | Preview |
 | --- | --- |
-| Version | 0.1.16 |
+| Version | 0.1.17 |
 | Name | VibeZ Tauri Preview |
 | Executable | `vibez-tauri-preview` |
 | Debian package | `vibe-z-tauri-preview` |
@@ -51,7 +57,7 @@ XDG directory overrides are respected. The preview never imports Electron cookie
 Fully quit the previous preview through its tray menu, then install from the directory containing the download:
 
 ```sh
-sudo apt install ./vibez-tauri-preview_0.1.16_amd64.deb
+sudo apt install ./vibez-tauri-preview_0.1.17_amd64.deb
 vibez-tauri-preview
 ```
 
@@ -67,4 +73,4 @@ Only bundled shell/settings webviews have native command capabilities. Remote Vi
 
 ## Development
 
-Run `npm install --ignore-scripts`, `npm test`, then `npm run build -- --bundles deb` in `tauri-preview`. Tests prepare assets before Rust compilation. The original Electron logo, toolbar stylesheet and translation bundles are read-only build inputs. Only `tauri-preview/**` and the two preview workflows may differ from the preview base commit. Review `TESTING-0.1.16.md` for release validation scope.
+Run `npm install --ignore-scripts`, `npm test`, then `npm run build -- --bundles deb` in `tauri-preview`. Tests prepare assets before Rust compilation. The original Electron logo, toolbar stylesheet and translation bundles are read-only build inputs. Only `tauri-preview/**` and the two preview workflows may differ from the preview base commit. Review `TESTING-0.1.17.md` for release validation scope.

@@ -1,35 +1,51 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "VibeZ Tauri Preview",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "identifier": "nl.lecomputeur.vibez.tauri.preview",
   "mainBinaryName": "vibez-tauri-preview",
-  "build": { "frontendDist": "../dist" },
+  "build": {
+    "frontendDist": "../dist"
+  },
   "app": {
     "enableGTKAppId": true,
     "windows": [],
     "withGlobalTauri": true,
     "security": {
-      "capabilities": ["local-shell"],
+      "capabilities": [
+        "local-shell"
+      ],
       "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src ipc: http://ipc.localhost; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
     }
   },
   "bundle": {
     "active": true,
-    "targets": ["deb"],
+    "targets": [
+      "deb"
+    ],
     "category": "Development",
     "shortDescription": "Experimental Rust/Tauri client alongside VibeZ",
     "longDescription": "Experimental Tauri preview using system webviews. Separate installation and profile; does not replace or update the Electron VibeZ application.",
-    "icon": ["icons/icon.png"],
+    "icon": [
+      "icons/icon.png"
+    ],
     "linux": {
       "deb": {
-        "depends": ["xdg-desktop-portal", "libc6 (>= 2.39)"],
-        "recommends": ["xdg-desktop-portal-gtk"],
+        "depends": [
+          "xdg-desktop-portal",
+          "libc6 (>= 2.39)"
+        ],
+        "recommends": [
+          "xdg-desktop-portal-gtk"
+        ],
         "desktopTemplate": "linux/hidden-generated.desktop.hbs",
         "files": {
           "/usr/share/applications/nl.lecomputeur.vibez.tauri.preview.desktop": "linux/nl.lecomputeur.vibez.tauri.preview.desktop",
-          "/usr/share/icons/hicolor/512x512/apps/nl.lecomputeur.vibez.tauri.preview.png": "icons/icon.png"
-        }
+          "/usr/share/icons/hicolor/512x512/apps/nl.lecomputeur.vibez.tauri.preview.png": "icons/icon.png",
+          "/usr/share/pixmaps/nl.lecomputeur.vibez.tauri.preview.png": "icons/icon.png"
+        },
+        "postInstallScript": "linux/postinst.sh",
+        "postRemoveScript": "linux/postrm.sh"
       }
     }
   }

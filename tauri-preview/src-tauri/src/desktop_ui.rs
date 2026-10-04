@@ -103,7 +103,9 @@ pub fn create_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             "updates" => crate::preview_updates::start(app.clone()),
             _ => (),
         });
-    if let Some(icon) = app.default_window_icon() { builder = builder.icon(icon.clone()); }
+    builder = builder.icon(tauri::image::Image::from_bytes(include_bytes!("../icons/icon.png"))?);
+    #[cfg(target_os = "linux")]
+    { builder = builder.temp_dir_path(crate::linux_identity::tray_directory(app).map_err(std::io::Error::other)?); }
     builder.build(app)?;
     Ok(())
 }
