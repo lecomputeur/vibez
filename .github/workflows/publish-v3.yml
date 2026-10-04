@@ -1,0 +1,105 @@
+name: Publish verified VibeZ 3.0.0
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-v3.yml'
+      - 'V3-RELEASE.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: publish-verified-vibez-3
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify the exact already-tested application and successful build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOURCE: b30a4b58e71d3482fa79433779ff24410525ad01
+        run: |
+          test "$GITHUB_REPOSITORY" = lecomputeur/vibez
+          test "$GITHUB_REF" = refs/heads/main
+          git merge-base --is-ancestor "$SOURCE" HEAD
+          git diff --exit-code "$SOURCE" HEAD -- desktop icon.png shell.css i18n.js locales
+          gh api repos/lecomputeur/vibez/actions/runs/37219669459 > /tmp/v3-run.json
+          gh api 'repos/lecomputeur/vibez/actions/runs/37219669459/jobs?per_page=100' > /tmp/v3-jobs.json
+          python3 - <<'PY'
+          import json
+          run=json.load(open('/tmp/v3-run.json'))
+          assert run['head_sha']=='b30a4b58e71d3482fa79433779ff24410525ad01'
+          assert run['status']=='completed' and run['conclusion']=='success'
+          jobs=json.load(open('/tmp/v3-jobs.json'))['jobs']
+          assert len(jobs)==9 and all(j['conclusion']=='success' for j in jobs)
+          print('Verified exact VibeZ 3 source and all nine successful build gates.')
+          PY
+          python3 -m unittest discover -s tools/release-v3/tests -p 'test_*.py'
+      - name: Verify draft assets without rebuilding or executing installers
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p verified-assets
+          gh release download v3.0.0 --repo lecomputeur/vibez --dir verified-assets --pattern 'VibeZ-3.0.0-*' --pattern SHA256SUMS --pattern source-commit.txt
+          python3 tools/release-v3/verify-published-assets.py verified-assets
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Validate the existing release identity
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          test "$GITHUB_REPOSITORY" = lecomputeur/vibez
+          test "$GITHUB_REF" = refs/heads/main
+          gh release view v3.0.0 --repo lecomputeur/vibez --json tagName,targetCommitish,isDraft,isPrerelease > /tmp/release.json
+          python3 - <<'PY'
+          import json
+          r=json.load(open('/tmp/release.json'))
+          assert r['tagName']=='v3.0.0' and not r['isPrerelease']
+          assert r['targetCommitish']=='b30a4b58e71d3482fa79433779ff24410525ad01'
+          PY
+      - name: Validate compatibility with the locked historical Electron updater
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npm ci --omit=dev --ignore-scripts
+          npm audit --omit=dev --audit-level=high
+          mkdir -p legacy-feed
+          gh api repos/lecomputeur/vibez/releases/tags/v2.0.2 > legacy-feed/release.json
+          gh release download v2.0.2 --repo lecomputeur/vibez --dir legacy-feed --pattern latest.yml --pattern latest-linux.yml --pattern latest-mac.yml
+          node tools/release-v3/legacy-feed.cjs legacy-feed
+      - name: Publish VibeZ 3 as the new main release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # These are metadata only. Original v2 binaries remain in the archive.
+          # Compatibility was checked using the actual locked updater resolver.
+          gh release upload v3.0.0 legacy-feed/latest.yml legacy-feed/latest-linux.yml legacy-feed/latest-mac.yml --clobber --repo lecomputeur/vibez
+          gh release edit v3.0.0 --repo lecomputeur/vibez --draft=false --latest --title 'VibeZ 3.0.0 — Same Vibe. Rebuilt in Rust.' --notes-file V3-RELEASE.md
+          test "$(gh api repos/lecomputeur/vibez/releases/latest --jq .tag_name)" = v3.0.0
+          gh release view v3.0.0 --repo lecomputeur/vibez --json isDraft,isPrerelease,url --jq '{public: (.isDraft == false), prerelease: .isPrerelease, url: .url}'
+          echo 'VibeZ 3.0.0 is public and Latest. Original v2 files are preserved only for archived downloads and compatible legacy updates. Store submission remains separate.' >> "$GITHUB_STEP_SUMMARY"

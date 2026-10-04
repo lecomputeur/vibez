@@ -1,0 +1,184 @@
+name: VibeZ Tauri Preview - Linux only
+
+on:
+  push:
+    branches: ['vibe/tauri-linux-preview-7c4e90']
+    paths: ['tauri-preview/**', '.github/workflows/tauri-preview-linux.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vibez-tauri-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preview-linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: tauri-preview
+        shell: bash
+    env:
+      CARGO_BUILD_JOBS: 2
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Verify production files are untouched
+        run: |
+          changes="$(git diff --name-only dba23059d1cbd8fba082d95cc49f4ae46eeba0bb HEAD)"
+          printf '%s\n' "$changes"
+          if printf '%s\n' "$changes" | grep -Ev '^(tauri-preview/|\.github/workflows/tauri-preview-(linux|windows)\.yml$|$)'; then
+            echo 'Refusing to build: changes outside the isolated prototype.' >&2
+            exit 1
+          fi
+      - name: Archive exact tracked build inputs
+        working-directory: .
+        run: |
+          git archive --format=tar.gz HEAD > "$RUNNER_TEMP/vibez-source.tar.gz"
+          git rev-parse HEAD > "$RUNNER_TEMP/source-commit.txt"
+      - uses: actions/upload-artifact@v5
+        with:
+          name: VibeZ-Tauri-Preview-source
+          path: |
+            ${{ runner.temp }}/vibez-source.tar.gz
+            ${{ runner.temp }}/source-commit.txt
+          retention-days: 14
+          if-no-files-found: error
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Preview version
+        id: version
+        run: echo "version=$(node -p 'require("./package.json").version')" >> "$GITHUB_OUTPUT"
+      - name: Install Linux build and test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb openbox dbus-x11 imagemagick desktop-file-utils python3-gi gir1.2-gtk-3.0
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tauri-preview/src-tauri -> target
+          key: isolated-linux-preview
+          cache-on-failure: true
+      - name: Install only the preview build tooling
+        run: npm install --ignore-scripts
+      - name: Frontend and isolation tests
+        run: |
+          mkdir -p artifacts
+          npm test 2>&1 | tee artifacts/frontend-tests.log
+          npm audit --audit-level=high
+      - name: Rust policy and update-discovery tests
+        run: cargo test --release --manifest-path src-tauri/Cargo.toml 2>&1 | tee artifacts/rust-tests.log
+      - name: Build Linux DEB preview
+        run: |
+          rm -rf -- src-tauri/target/release/bundle/deb
+          npm run build -- --bundles deb 2>&1 | tee artifacts/build.log
+      - name: Verify package identity and launcher
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          deb="$(find src-tauri/target/release/bundle/deb -name '*.deb' -print -quit)"
+          test -n "$deb"
+          test "$(dpkg-deb -f "$deb" Package)" = vibe-z-tauri-preview
+          test "$(dpkg-deb -f "$deb" Architecture)" = amd64
+          test "$(dpkg-deb -f "$deb" Version)" = "$VERSION"
+          dpkg-deb -f "$deb" Depends | grep -F 'libc6 (>= 2.39)'
+          dpkg-deb --info "$deb" | tee artifacts/package-info.txt
+          dpkg-deb -x "$deb" artifacts/unpacked
+          test -x artifacts/unpacked/usr/bin/vibez-tauri-preview
+          desktop=artifacts/unpacked/usr/share/applications/nl.lecomputeur.vibez.tauri.preview.desktop
+          desktop-file-validate "$desktop"
+          grep -Fx 'Icon=/usr/share/pixmaps/nl.lecomputeur.vibez.tauri.preview.png' "$desktop"
+          test -s artifacts/unpacked/usr/share/icons/hicolor/512x512/apps/nl.lecomputeur.vibez.tauri.preview.png
+          artifacts/unpacked/usr/bin/vibez-tauri-preview --version | tee artifacts/version.txt
+          grep -F "v$VERSION" artifacts/version.txt
+      - name: Native GTK-WebKit exact-size and hidden-window regression tests
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          WEBKIT_DISABLE_DMABUF_RENDERER: '1'
+        run: |
+          export PREVIEW_BINARY="$PWD/artifacts/unpacked/usr/bin/vibez-tauri-preview"
+          export PREVIEW_ARTIFACTS="$PWD/artifacts"
+          for scale in 1 2; do
+            export GDK_SCALE="$scale"
+            export XDG_CONFIG_HOME="$RUNNER_TEMP/vibez-tauri-smoke/$scale/config"
+            export XDG_DATA_HOME="$RUNNER_TEMP/vibez-tauri-smoke/$scale/data"
+            export XDG_CACHE_HOME="$RUNNER_TEMP/vibez-tauri-smoke/$scale/cache"
+            mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_CACHE_HOME"
+            export PREVIEW_LOG="$PREVIEW_ARTIFACTS/native-smoke-$scale.log"
+            export PREVIEW_IMAGE="$PREVIEW_ARTIFACTS/preview-offline-$scale.png"
+            screen="$((1600 * scale))x$((1000 * scale))x24"
+            status=0
+            timeout 110s dbus-run-session -- xvfb-run -a -s "-screen 0 $screen" bash -c '
+              openbox --sm-disable > "$PREVIEW_ARTIFACTS/openbox-$GDK_SCALE.log" 2>&1 &
+              "$PREVIEW_BINARY" --smoke-test > "$PREVIEW_LOG" 2>&1 &
+              pid=$!
+              sleep 6
+              import -window root "$PREVIEW_IMAGE" || true
+              wait "$pid"
+            ' || status=$?
+            cat "$PREVIEW_LOG"
+            test "$status" = 0
+            grep -F 'SMOKE_OK:' "$PREVIEW_LOG"
+            grep -F 'HIDDEN_OK:' "$PREVIEW_LOG"
+            grep -F 'LANGUAGE_BOOTSTRAP_OK:' "$PREVIEW_LOG"
+            test "$(grep -c 'RESIZE_OK:' "$PREVIEW_LOG")" -ge 8
+          done
+      - name: Installed desktop and tray icon regression across repeated starts
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          WEBKIT_DISABLE_DMABUF_RENDERER: '1'
+        run: |
+          deb="$(find src-tauri/target/release/bundle/deb -name '*.deb' -print -quit)"
+          sudo apt-get install -y --no-install-recommends "$(realpath "$deb")"
+          export PREVIEW_ARTIFACTS="$PWD/artifacts"
+          timeout 100s dbus-run-session -- xvfb-run -a -s '-screen 0 1600x1000x24' bash -c '
+            openbox --sm-disable > "$PREVIEW_ARTIFACTS/icon-openbox.log" 2>&1 &
+            /usr/bin/python3 scripts/test-linux-icons.py --binary /usr/bin/vibez-tauri-preview --source-icon ../icon.png --window-icon src-tauri/icons/128x128.png --output "$PREVIEW_ARTIFACTS" 2>&1 | tee "$PREVIEW_ARTIFACTS/icon-smoke.log"
+            exit "${PIPESTATUS[0]}"
+          '
+          grep -F 'ICON_SMOKE_OK:' artifacts/icon-smoke.log
+      - name: Prepare verified preview artifacts
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          cp src-tauri/target/release/bundle/deb/*.deb "artifacts/vibez-tauri-preview_${VERSION}_amd64.deb"
+          cp src-tauri/Cargo.lock artifacts/Cargo.lock
+          cp package-lock.json artifacts/package-lock.json
+          cp README.md TESTING-0.1.17.md RELEASE-GATE.md artifacts/
+          git rev-parse HEAD > artifacts/source-commit.txt
+          cd artifacts
+          sha256sum *.deb > SHA256SUMS
+      - uses: actions/upload-artifact@v5
+        with:
+          name: VibeZ-Tauri-Preview-${{ steps.version.outputs.version }}-Linux-x64
+          path: |
+            tauri-preview/artifacts/*.deb
+            tauri-preview/artifacts/SHA256SUMS
+            tauri-preview/artifacts/*.md
+            tauri-preview/artifacts/source-commit.txt
+            tauri-preview/artifacts/Cargo.lock
+            tauri-preview/artifacts/package-lock.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: Upload validation logs even on failure
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: VibeZ-Tauri-Preview-validation
+          path: |
+            tauri-preview/artifacts/*.log
+            tauri-preview/artifacts/*.txt
+            tauri-preview/artifacts/icon-report.json
+            tauri-preview/artifacts/*.png
+            tauri-preview/src-tauri/Cargo.lock
+            tauri-preview/package-lock.json
+          retention-days: 14
+          if-no-files-found: warn

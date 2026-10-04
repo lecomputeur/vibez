@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=VibeZ 3
+Comment=Rust-powered desktop client for Mistral Vibe
+Exec=vibez3
+Icon=/usr/share/pixmaps/nl.lecomputeur.vibez3.png
+Categories=Development;
+Terminal=false
+StartupWMClass=nl.lecomputeur.vibez3

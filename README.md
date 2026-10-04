@@ -1,204 +1,101 @@
-# VibeZ
+<div align="center">
 
-A free cross-platform desktop client for [Mistral Vibe](https://vibe.mistral.ai/) with native desktop integration, screenshot tools and automatic update checks.
+<img src="icon.png" width="128" alt="VibeZ application logo">
 
-Latest release: **VibeZ 2.0.2** — fixes a Linux window-layout issue that could leave a large black area after maximizing and restoring the app window.
+<h1>VibeZ 3</h1>
+<h2>Same Vibe. Rebuilt in Rust.</h2>
 
-> VibeZ is an independent desktop client and is not affiliated with or supported by Mistral AI. A Mistral account may be required to use Vibe.
+<p><strong>Goodbye, Electron. Hello, Rust + Tauri.</strong></p>
+<p>A new desktop foundation. A rebuilt language engine.<br>Windows, macOS and Linux — one version, twelve release files.</p>
 
-## Platforms
+<p>
+<a href="https://github.com/lecomputeur/vibez/releases/tag/v3.0.0"><strong>Explore VibeZ 3.0.0</strong></a> ·
+<a href="https://lecomputeur.github.io/vibez/">Website & installation guides</a> ·
+<a href="V3-RELEASE.md">What's new</a>
+</p>
 
-VibeZ brings the same experience to all three major desktop platforms from one shared Electron codebase.
+<p><strong>RUST / TAURI</strong> &nbsp; | &nbsp; <strong>34 INTERFACE LANGUAGES</strong> &nbsp; | &nbsp; <strong>FREE & OPEN SOURCE</strong></p>
 
-| Platform | Architectures | Packages |
-| --- | --- | --- |
-| **Windows** | x64 | NSIS `.exe` (unsigned direct download); MSIX for Microsoft Store |
-| **macOS** | Apple Silicon, Intel | Developer ID signed and Apple-notarized `.dmg` and `.zip` |
-| **Linux** | x86_64 | AppImage, DEB, RPM, Pacman and Flatpak |
+</div>
 
-VibeZ 2 macOS builds are Developer ID signed and Apple-notarized. The Windows x64 installer downloaded directly from GitHub remains **unsigned** while VibeZ builds enough public adoption to qualify for sponsored signing. The separate **[VibeZ Desktop Microsoft Store listing](https://apps.microsoft.com/detail/9NR7L2G4MS08)** is live and is the recommended Windows route. Microsoft validates and signs the Store MSIX. See **[Windows & macOS installation](WINDOWS-MACOS.md)** for Windows SmartScreen guidance, macOS screenshot permission and checksum verification.
+> **Release status:** the complete 3.0.0 build has passed its all-format gate. Public availability is determined by the [release page](https://github.com/lecomputeur/vibez/releases/tag/v3.0.0); the Microsoft Store listing is updated separately. [View the verified build](https://github.com/lecomputeur/vibez/actions/runs/37219669459).
 
-See the **[Code signing policy](https://lecomputeur.github.io/vibez/code-signing-policy.html)** for the current Windows and macOS release policy.
+## Not a new coat of paint. A new desktop foundation.
 
-## Features
+**VibeZ 3 is the project's move from an Electron desktop shell to a Rust-powered Tauri application.** The familiar VibeZ controls remain; the technology underneath has changed.
 
-- Opens the official Mistral Vibe web app in a dedicated desktop window.
-- **Global Screenshot** shortcut (`Ctrl+Shift+S` by default; Command is used on macOS where appropriate).
-- Built-in Screenshot button with multi-monitor support.
-- System tray/menu-bar access with Open, Screenshot, Settings, Check for updates, About and Quit actions.
-- Platform-aware start-at-login, tray behavior, hardware acceleration, zoom, language and update settings.
-- Wayland/X11 display-backend controls on Linux only.
-- VibeZ-owned interface follows the operating-system language automatically, with 34 built-in languages and RTL support.
-- Optional start at login, minimize to tray and close to tray.
-- Safer update flow with **Restart & update** or **Later** where the platform supports in-app installation.
-- External links open in your normal browser and web permissions are restricted to trusted Mistral pages.
-- About window with version and system information for bug reports.
-- `vibez://` protocol support.
-- Automated CI builds and package verification on Linux, Windows and macOS.
-- SHA-256 checksums for public release downloads.
+Instead of shipping its own Electron runtime, VibeZ 3 uses the operating system's webview: **WebKitGTK on Linux, Microsoft WebView2 on Windows and Apple's WKWebView on macOS**. Rust handles the native application layer; the bundled interface still uses web technologies. This is not a claim that the Mistral website has been rewritten in Rust.
 
-## Questions & Support
+Back and Forward, reload, language selection, zoom, screenshot capture, optional tray/menu-bar access and optional start-at-login bring Mistral Vibe into its own focused desktop window.
 
-Need help using VibeZ, have a question, or want to suggest an idea? Start a **[Q&A discussion](https://github.com/lecomputeur/vibez/discussions/categories/q-a)**. Discussions are the preferred place for how-to questions, ideas, feedback and general conversation.
+**A substantial architectural change — without inventing benchmark numbers.** Package size, startup time and memory use depend on the platform and workload; no universal speed or memory reduction is claimed here.
 
-Found a reproducible bug or error? **[Open a bug report](https://github.com/lecomputeur/vibez/issues/new?template=bug_report.yml)**. Please include your operating system, VibeZ version, what you expected, what happened and the steps needed to reproduce the problem.
+## A language engine rebuilt around your choice
 
-Before posting, please check the existing **[Discussions](https://github.com/lecomputeur/vibez/discussions)** and **[Issues](https://github.com/lecomputeur/vibez/issues)** to see whether your question or problem has already been reported.
+**System language should mean system language — not an unexpected English default.** The language module was reworked from startup preparation to saved preferences and browser handoff.
 
-## Download
+| What you choose | What VibeZ 3 does |
+|---|---|
+| **System** | Resolves the operating-system language and selects the matching VibeZ interface bundle. |
+| **A specific language** | Saves your choice and applies the corresponding supported preference to the Mistral page. |
+| **Switch languages while using the app** | Processes changes in order; an older delayed response cannot overwrite your newer choice. |
+| **Open the app again** | Restores the saved preference and prepares the browser language before opening remote content. |
+| **Sign in** | Defers language-triggered navigation during authentication instead of sending an in-progress login back to Home. |
 
-Public releases are available on the **[GitHub Releases page](https://github.com/lecomputeur/vibez/releases)**.
+The rebuilt module also prevents stale settings windows from reverting a newer language, retries temporary startup failures within a fixed limit and clears only its own recovered warning. Detailed diagnostics stay in Settings rather than filling the toolbar.
 
-### Windows
+**Tested, not just translated:** the automated suite exercises native language-cookie preparation on WebKitGTK, WebView2 and WKWebView. The reported Dutch/English switching and startup issues were also tested by the maintainer on Linux/Cinnamon. VibeZ includes **34 interface-language bundles**; the embedded website's available translations are controlled by Mistral, and unsupported website languages fall back to English. Your physical location does not override your language choice.
 
-- Recommended: [install VibeZ Desktop from the Microsoft Store](https://apps.microsoft.com/detail/9NR7L2G4MS08).
-- Direct download: `VibeZ-<version>-Windows-x64.exe` for Windows x64.
+## One version. Every distribution format.
 
-The direct GitHub installer is unsigned, so Windows may show **Windows protected your PC** or **Unknown publisher**. Verify `SHA256SUMS` and use the steps in [WINDOWS-MACOS.md](WINDOWS-MACOS.md) only when the installer came from this official repository. The [Microsoft Store version](https://apps.microsoft.com/detail/9NR7L2G4MS08) is the recommended Windows installation route.
+All files below belong to the same **VibeZ 3.0.0** release. No platform was dropped to make the build green.
 
-### macOS
+| Platform | Downloads |
+|---|---|
+| **Linux x86-64** | [AppImage](https://github.com/lecomputeur/vibez/releases/download/v3.0.0/VibeZ-3.0.0-Linux-x64.AppImage) · [DEB](https://github.com/lecomputeur/vibez/releases/download/v3.0.0/VibeZ-3.0.0-Linux-x64.deb) · [RPM](https://github.com/lecomputeur/vibez/releases/download/v3.0.0/VibeZ-3.0.0-Linux-x64.rpm) · [Arch/Pacman](https://github.com/lecomputeur/vibez/releases/download/v3.0.0/VibeZ-3.0.0-Linux-x64.pkg.tar.zst) · [Flatpak](https://github.com/lecomputeur/vibez/releases/download/v3.0.0/VibeZ-3.0.0-Linux-x64.flatpak) |
+| **Windows x64** | [Setup EXE](https://github.com/lecomputeur/vibez/releases/download/v3.0.0/VibeZ-3.0.0-Windows-x64-Setup.exe) · [MSI](https://github.com/lecomputeur/vibez/releases/download/v3.0.0/VibeZ-3.0.0-Windows-x64.msi) · [Store submission MSIX](https://github.com/lecomputeur/vibez/releases/download/v3.0.0/VibeZ-3.0.0-Windows-x64-Store.msix) |
+| **macOS Apple Silicon** | [DMG](https://github.com/lecomputeur/vibez/releases/download/v3.0.0/VibeZ-3.0.0-macOS-arm64.dmg) · [ZIP](https://github.com/lecomputeur/vibez/releases/download/v3.0.0/VibeZ-3.0.0-macOS-arm64.zip) |
+| **macOS Intel** | [DMG](https://github.com/lecomputeur/vibez/releases/download/v3.0.0/VibeZ-3.0.0-macOS-x64.dmg) · [ZIP](https://github.com/lecomputeur/vibez/releases/download/v3.0.0/VibeZ-3.0.0-macOS-x64.zip) |
 
-- Apple Silicon (M1/M2/M3/M4 and newer): `VibeZ-<version>-macOS-arm64.dmg`
-- Intel Mac: `VibeZ-<version>-macOS-x64.dmg`
-- ZIP builds are also published for both architectures.
+**Downloads become accessible when the release is published.** Until then the complete set is held in the release draft. macOS packages are Developer ID signed, notarized and stapled. Direct Windows EXE/MSI installers are unsigned; Windows may show a reputation warning. The unsigned MSIX is for Partner Center submission, not the recommended direct installer. Building it does **not** mean Microsoft has certified or published version 3.
 
-VibeZ 2 macOS builds are Developer ID signed and Apple-notarized. The Screenshot feature still requires macOS Screen & System Audio Recording / Screen Recording permission.
+Check downloads against the release's `SHA256SUMS`. Choose one package for your system, not every file. Installation guides: [Linux](https://lecomputeur.github.io/vibez/linux.html) · [Windows](https://lecomputeur.github.io/vibez/windows.html) · [macOS](https://lecomputeur.github.io/vibez/macos.html).
 
-### Linux quick install
+## Familiar controls. Stronger foundations.
 
-Install the latest Linux release with one command:
+The Linux window no longer grows its minimum size when maximized. Shrink, grow, maximize and restore are checked against requested dimensions. Window and tray icons are checked across repeated starts. Navigation now reads the native browser's history state on each platform instead of using placeholder values.
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/lecomputeur/vibez/main/install.sh | bash
-```
+Preferences use field-level updates and conflict detection, with versioned storage and recovery for damaged settings. The manual updater selects **published releases**, not expiring CI artifacts. Remote website content and login popups do not receive the native privileges of the bundled toolbar and settings window.
 
-The installer supports x86_64 Linux, detects your distribution, downloads the matching package from the latest GitHub release and verifies its SHA-256 checksum when `SHA256SUMS` is available.
+## Moving from VibeZ 2 or the Tauri preview
 
-To uninstall a package installed this way:
+VibeZ 3 uses the `nl.lecomputeur.vibez3` app identity and the `vibez3` executable. Its direct installers keep their profile separate from the old Electron app and the 0.1.x preview. Existing profiles are not silently copied, deleted or overwritten; sign in once in the new app. Old releases remain in the [release archive](https://github.com/lecomputeur/vibez/releases).
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/lecomputeur/vibez/main/install.sh | bash -s -- --uninstall
-```
+On Linux, the DEB package is **`vibe-z-3`**. Close any running copy before updating. The separate preview is not automatically uninstalled. Store-delivered upgrades use the Store product identity and are a separate migration path.
 
-### Linux packages
+Native Linux packages and AppImage require **glibc 2.39 or newer**; DEB targets Ubuntu 24.04-class systems with WebKitGTK 4.1. An AppImage is not a guarantee of compatibility with older distributions. Flatpak uses the declared GNOME runtime. macOS requires **14 or newer**. Windows requires **WebView2**.
 
-For x86_64 Linux systems, the release page provides:
+## What the tests prove — and what they do not
 
-- Debian / Ubuntu / Linux Mint: `.deb`
-- Fedora and RPM-based distributions: `.rpm`
-- Arch Linux / Manjaro / EndeavourOS: `.pacman` / `.pkg.tar.zst`
-- Portable Linux: `.AppImage`
-- Flatpak bundle on x86_64: `.flatpak`
+The verified release workflow passed its dependency-security check, frontend/Rust tests, native browser/window probes, Linux icon tests, packaging checks and macOS signing/notarization gates. All twelve required deliverables were collected from the frozen source. See [validation and release notes](V3-RELEASE.md).
 
-Manual examples:
+Automated native probes are offline tests. They are not a claim that every live sign-in provider, Linux distribution, Wayland session, fractional scale or website feature has been tested. Microphone/camera access, global screenshot shortcuts and automatic installer execution are not enabled in this version. Screenshots use the operating system's interactive tools; updates are installed manually.
 
-```bash
-sudo apt install ./VibeZ_<version>_amd64.deb
-sudo dnf install ./VibeZ-<version>.x86_64.rpm
-sudo pacman -U ./VibeZ-<version>.pacman
-chmod +x VibeZ-<version>.AppImage && ./VibeZ-<version>.AppImage
-flatpak install --user ./VibeZ-<version>-x86_64.flatpak
-```
+## Build, contribute, make it better
 
-## Security and direct Windows downloads
+The new application lives in [`desktop/`](desktop/). The original root JavaScript/package files retain the Electron 2.x source, and [`tauri-preview/`](tauri-preview/) retains the preview history.
 
-VibeZ does **not** bypass Windows SmartScreen or administrator policies. Direct GitHub Windows installers remain unsigned and are clearly identified as such. VibeZ 2 macOS packages are Developer ID signed and Apple-notarized.
-
-Install the Windows version from the [Microsoft Store](https://apps.microsoft.com/detail/9NR7L2G4MS08). For direct GitHub downloads:
-
-1. Download VibeZ only from this repository or the website linked by this repository.
-2. Download `SHA256SUMS` from the same release.
-3. Verify the checksum if you want an additional integrity check.
-4. For a direct Windows download, follow the SmartScreen instructions in [WINDOWS-MACOS.md](WINDOWS-MACOS.md).
-
-Managed work/school computers can block unsigned Windows software completely; an administrator may be required in that case.
-
-## Languages
-
-By default, **System** follows the language reported by Windows, macOS or Linux. VibeZ has complete built-in translations for 34 major languages, including English, Dutch, German, French, Spanish, Italian, Portuguese, Polish, Russian, Ukrainian, Turkish, Simplified and Traditional Chinese, Japanese, Korean, Hindi, Bengali, Punjabi, Marathi, Telugu, Tamil, Gujarati, Indonesian, Vietnamese, Thai, Filipino, Javanese, Swahili, Hausa, Amharic, Arabic, Hebrew, Persian and Urdu.
-
-Arabic, Hebrew, Persian and Urdu use right-to-left layout in VibeZ-owned interfaces. Unsupported system locales fall back to English. Choosing a VibeZ language manually changes VibeZ menus, dialogs, screenshot tools and Settings; it does not force the embedded Mistral Vibe website into that language.
-
-## Screenshot workflow
-
-Start the Screenshot tool from VibeZ or use the global shortcut, then drag over the area you want to share. VibeZ captures the selected region across multi-monitor setups and brings VibeZ forward.
-
-In Vibe Chat and Work, VibeZ places the screenshot on the clipboard and pastes it into the composer. In Vibe Code, VibeZ keeps the screenshot on the clipboard and shows guidance for saving it into your project as context.
-
-On macOS, screen capture is protected by an operating-system permission. Enable VibeZ under **System Settings → Privacy & Security → Screen & System Audio Recording** (or **Screen Recording** on versions that use that name) when prompted.
-
-## Desktop integration
-
-VibeZ can stay available in the Windows system tray, macOS menu bar or Linux system tray, start automatically when you sign in, and optionally minimize or close to the tray.
-
-Hardware acceleration can be Automatic, Enabled or Disabled on every platform. Linux additionally exposes Automatic, Wayland and X11 display-backend choices; these Linux-only controls are hidden on Windows and macOS.
-
-## Command line
-
-Package builds accept:
-
-```text
-vibez --version
-vibez --screenshot
-vibez --settings
-```
-
-The executable name/path differs by operating system, so Windows and macOS users will usually launch these through their installed app or a terminal path rather than a globally installed `vibez` shell command.
-
-## Updates
-
-Microsoft Store installations receive updates through the Store. Direct GitHub installations check GitHub Releases for updates; Linux, direct Windows and the signed and notarized macOS packages support VibeZ's in-app update flow where their package type allows it.
-
-Automatic update checking and install-on-quit can be configured in Settings. On macOS, VibeZ downloads the signed ZIP matching the Mac's processor and offers **Restart & update** or **Later** after verification.
-
-## Build from source
-
-### Requirements
-
-- Windows, macOS or Linux
-- A current Node.js LTS release
-- npm
-
-### Development
-
-```bash
-git clone https://github.com/lecomputeur/vibez.git
-cd vibez
-npm install
+```sh
+cd desktop
+npm ci --ignore-scripts
 npm test
-npm start
+npm run build -- -- --locked
 ```
 
-Build the packages configured for the current operating system with:
+Install the native Tauri build prerequisites for your operating system first. Dependency lockfiles and the Rust toolchain version are tracked with the source.
 
-```bash
-npm run build
-```
+**Enjoy the new generation? Star the project, share it, or report a reproducible issue.** VibeZ is free and MIT licensed.
 
-Public release packages are built on native GitHub Actions runners: Ubuntu for Linux, Windows for Windows installers and macOS for DMG/ZIP packages.
+---
 
-## Testing
-
-GitHub CI runs:
-
-- dependency security audit at high severity and above;
-- unit tests and JavaScript syntax checks;
-- shell syntax validation for the Linux installer;
-- x86_64 Linux package builds;
-- x86_64 Flatpak build;
-- Windows x64 NSIS build;
-- macOS Intel and Apple Silicon DMG/ZIP builds;
-- packaged-app version smoke checks on all supported native CI runners where practical;
-- a full Linux packaged application smoke test under a virtual display with Chromium sandboxing enabled.
-
-## Project structure
-
-VibeZ is built with [Electron](https://www.electronjs.org/). The main application code is in [`main.js`](main.js), screenshot handling is in [`screenshot.js`](screenshot.js), persistent desktop preferences are handled by [`settings-store.js`](settings-store.js), and GitHub Actions workflows live in [`.github/workflows`](.github/workflows).
-
-## Privacy
-
-See the [Privacy Policy](PRIVACY.md) for details about local settings, browser data, screenshots, Mistral Vibe and update checks.
-
-## License
-
-VibeZ is released under the [MIT License](LICENSE).
+VibeZ is an independent desktop client for [Mistral Vibe](https://vibe.mistral.ai/). It is **not affiliated with, endorsed by or supported by Mistral AI**. Internet access and a Mistral account may be required; website features and account plans remain provided by Mistral.

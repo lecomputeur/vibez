@@ -1,258 +1,34 @@
-name: Release VibeZ
+name: Electron 2 — manual maintenance checks
 
+# VibeZ 3 is built in vibez-v3.yml and published by publish-v3.yml.
+# A main-branch documentation/native-code merge must never overwrite 2.x assets.
+# The original Electron release workflow remains in the v2.x Git history.
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - 'docs/**'
-      - 'README.md'
-      - '.github/ISSUE_TEMPLATE/**'
-      - '.github/DISCUSSION_TEMPLATE/**'
-      - '.github/FUNDING.yml'
   workflow_dispatch:
+    inputs:
+      legacy_ref:
+        description: 'Existing Electron tag or maintenance branch to audit (no publication)'
+        required: true
+        default: v2.0.2
+        type: string
 
 permissions:
-  actions: read
-  contents: write
-
-concurrency:
-  group: vibez-release
-  cancel-in-progress: false
+  contents: read
 
 jobs:
   test:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.legacy_ref }}
+          persist-credentials: false
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-          cache: npm
       - run: npm ci
-      - name: Security audit
+      - name: Preserve the legacy dependency security gate
         run: npm audit --audit-level=high
-      - name: Run tests
-        run: npm test
-
-  linux-x64:
-    needs: test
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - name: Install packaging tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y rpm libarchive-tools xvfb
-      - run: npm ci
-      - name: Build Linux x64
-        run: npx electron-builder --linux AppImage deb rpm pacman --x64 --publish never
-      - name: Smoke test packaged Linux app
-        shell: bash
-        env:
-          ELECTRON_ENABLE_LOGGING: "1"
-          LIBGL_ALWAYS_SOFTWARE: "1"
-        run: |
-          APP="dist/linux-unpacked/vibez"
-          SANDBOX="dist/linux-unpacked/chrome-sandbox"
-          test -x "$APP"
-          test -f "$SANDBOX"
-          sudo chown root:root "$SANDBOX"
-          sudo chmod 4755 "$SANDBOX"
-          EXPECTED="$(node -p "require('./package.json').version")"
-          ACTUAL="$(xvfb-run -a "$APP" --version 2>/tmp/vibez-version.log | tail -n 1)"
-          test "$ACTUAL" = "$EXPECTED"
-          set +e
-          xvfb-run -a timeout 12s "$APP" --hidden > /tmp/vibez-smoke.log 2>&1
-          code=$?
-          set -e
-          test "$code" -eq 124
-      - uses: actions/upload-artifact@v5
-        with:
-          name: release-linux-x64
-          path: |
-            dist/*.AppImage
-            dist/*.deb
-            dist/*.rpm
-            dist/*.pacman
-            dist/*.pkg.tar.zst
-            dist/latest*.yml
-            dist/*.blockmap
-          if-no-files-found: error
-
-  flatpak-x64:
-    needs: test
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - name: Install Flatpak build tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder
-          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-          flatpak install --user -y flathub org.freedesktop.Platform//24.08 org.freedesktop.Sdk//24.08
-      - run: npm ci
-      - run: npm install --no-save @malept/flatpak-bundler@0.4.0
-      - name: Build Flatpak x64
-        run: npx electron-builder --linux flatpak --x64 --publish never
-      - uses: actions/upload-artifact@v5
-        with:
-          name: release-flatpak-x64
-          path: dist/*.flatpak
-          if-no-files-found: error
-
-  windows-x64:
-    needs: test
-    runs-on: windows-2025
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: Build unsigned Windows x64 installer
-        shell: pwsh
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
-        run: npx electron-builder --win nsis --x64 --publish never
-      - name: Smoke test Windows x64 package
-        shell: pwsh
-        run: |
-          $installer = Get-ChildItem dist -File -Filter '*Windows-x64.exe' | Select-Object -First 1
-          if (-not $installer) { throw 'Windows x64 installer missing.' }
-          $signature = Get-AuthenticodeSignature $installer.FullName
-          if ($signature.Status -ne 'NotSigned') {
-            throw "Expected the direct GitHub Windows installer to be unsigned until a trusted signing provider is available; got $($signature.Status)."
-          }
-          $app = 'dist\win-unpacked\vibez.exe'
-          if (-not (Test-Path $app)) { throw 'Windows x64 packaged executable missing.' }
-          $expected = (node -p "require('./package.json').version").Trim()
-          $actual = (& $app --version | Select-Object -Last 1).Trim()
-          if ($actual -ne $expected) { throw "Unexpected VibeZ version: $actual" }
-      - uses: actions/upload-artifact@v5
-        with:
-          name: release-windows-x64
-          path: |
-            dist/*Windows-x64.exe
-            dist/latest*.yml
-            dist/*.blockmap
-          if-no-files-found: error
-
-  windows-store-msix:
-    needs: test
-    runs-on: windows-2025
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: Build and validate Partner Center MSIX
-        shell: pwsh
-        run: npm run build:store:msix
-      - uses: actions/upload-artifact@v5
-        with:
-          name: partner-center-windows-x64-msix
-          path: dist/store/*.msix
-          if-no-files-found: error
-          retention-days: 90
-
-  macos-intel:
-    needs: test
-    uses: ./.github/workflows/macos-signed-release.yml
-    with:
-      arch: x64
-      runner: macos-15-intel
-      outdir: dist/mac
-      label: intel
-    secrets: inherit
-
-  macos-arm64:
-    needs: test
-    uses: ./.github/workflows/macos-signed-release.yml
-    with:
-      arch: arm64
-      runner: macos-15
-      outdir: dist/mac-arm64
-      label: arm64
-    secrets: inherit
-
-  publish:
-    needs: [linux-x64, flatpak-x64, windows-x64, windows-store-msix, macos-intel, macos-arm64]
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-      - uses: actions/download-artifact@v5
-        with:
-          pattern: release-*
-          path: downloads
-      - name: Prepare release notes
-        shell: bash
-        run: |
-          VERSION="$(node -p "require('./package.json').version")"
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-          awk -v version="$VERSION" '
-            $0 ~ "^## \\[" version "\\]" { capture=1; next }
-            capture && /^## \[/ { exit }
-            capture { print }
-          ' CHANGELOG.md > release-notes-body.md
-          if [ ! -s release-notes-body.md ]; then printf 'See CHANGELOG.md for details.\n' > release-notes-body.md; fi
-
-          {
-            printf '> [!IMPORTANT]\n'
-            printf '> The Windows x64 installer downloaded directly from GitHub is currently **unsigned**. Windows SmartScreen may show **Windows protected your PC** or **Unknown publisher**. Verify `SHA256SUMS` and continue only if the installer came from this official repository.\n\n'
-            printf 'The macOS packages are Developer ID signed and Apple-notarized. VibeZ Desktop is live in the Microsoft Store and is the recommended Windows installation route: https://apps.microsoft.com/detail/9NR7L2G4MS08\n\n'
-            cat release-notes-body.md
-          } > release-notes.md
-      - name: Collect release assets and checksums
-        shell: bash
-        run: |
-          mkdir -p release-assets
-          find downloads -type f \( \
-            -name '*.AppImage' -o -name '*.deb' -o -name '*.rpm' -o \
-            -name '*.pacman' -o -name '*.pkg.tar.zst' -o -name '*.flatpak' -o \
-            -name '*Windows-*.exe' -o -name '*macOS-*.dmg' -o -name '*macOS-*.zip' -o \
-            -name '*.blockmap' \
-          \) -print0 | while IFS= read -r -d '' file; do cp "$file" "release-assets/$(basename "$file")"; done
-
-          test -n "$(find downloads/release-linux-x64 -type f -name 'latest-linux.yml' -print -quit)" && cp "$(find downloads/release-linux-x64 -type f -name 'latest-linux.yml' -print -quit)" release-assets/latest-linux.yml || true
-          WIN_META="$(find downloads/release-windows-x64 -type f -name 'latest.yml' -print -quit || true)"
-          [ -z "$WIN_META" ] || cp "$WIN_META" release-assets/latest.yml
-          node build/generate-mac-update-metadata.js release-assets "$VERSION"
-          test -s release-assets/latest-mac.yml
-
-          cd release-assets
-          find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%f\0' | sort -z | xargs -0 sha256sum > SHA256SUMS
-          test -s SHA256SUMS
-          cat SHA256SUMS
-      - name: Publish GitHub Release
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          mapfile -t assets < <(find release-assets -maxdepth 1 -type f -print | sort)
-          test "${#assets[@]}" -gt 0
-          if gh release view "v${VERSION}" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "v${VERSION}" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --clobber
-            gh release edit "v${VERSION}" --repo "$GITHUB_REPOSITORY" --notes-file release-notes.md
-          else
-            gh release create "v${VERSION}" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --title "${VERSION}" --notes-file release-notes.md
-          fi
-      - name: Verify published release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release view "v${VERSION}" --repo "$GITHUB_REPOSITORY"
-          test "$(gh release view "v${VERSION}" --repo "$GITHUB_REPOSITORY" --json isDraft -q .isDraft)" = "false"
+      - run: npm test
+      - name: Maintenance result
+        run: echo 'Legacy Electron checks completed. No release assets or Store submission were changed.' >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,83 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "VibeZ 3",
+  "version": "3.0.0",
+  "identifier": "nl.lecomputeur.vibez3",
+  "mainBinaryName": "vibez3",
+  "build": {
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "enableGTKAppId": true,
+    "windows": [],
+    "withGlobalTauri": true,
+    "security": {
+      "capabilities": [
+        "local-shell"
+      ],
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src ipc: http://ipc.localhost; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "category": "Development",
+    "shortDescription": "Mistral Vibe in a dedicated Rust-powered desktop app",
+    "longDescription": "VibeZ 3 is an independent desktop client for Mistral Vibe with native webviews, system language support, screenshot tools and a dedicated desktop window.",
+    "icon": [
+      "icons/128x128.png",
+      "icons/icon.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "linux": {
+      "deb": {
+        "depends": [
+          "xdg-desktop-portal",
+          "libc6 (>= 2.39)"
+        ],
+        "recommends": [
+          "xdg-desktop-portal-gtk"
+        ],
+        "desktopTemplate": "linux/hidden-generated.desktop.hbs",
+        "files": {
+          "/usr/share/applications/nl.lecomputeur.vibez3.desktop": "linux/nl.lecomputeur.vibez3.desktop",
+          "/usr/share/icons/hicolor/512x512/apps/nl.lecomputeur.vibez3.png": "icons/icon.png",
+          "/usr/share/pixmaps/nl.lecomputeur.vibez3.png": "icons/icon.png"
+        },
+        "postInstallScript": "linux/postinst.sh",
+        "postRemoveScript": "linux/postrm.sh"
+      },
+      "rpm": {
+        "depends": [
+          "webkit2gtk4.1",
+          "gtk3",
+          "xdg-desktop-portal"
+        ],
+        "desktopTemplate": "linux/themed.desktop.hbs"
+      },
+      "appimage": {
+        "bundleMediaFramework": true
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "14.0",
+      "entitlements": "macos/Entitlements.plist"
+    },
+    "windows": {
+      "webviewInstallMode": {
+        "type": "embedBootstrapper"
+      },
+      "nsis": {
+        "languages": [
+          "English",
+          "Dutch",
+          "German",
+          "French",
+          "Spanish"
+        ],
+        "displayLanguageSelector": true
+      }
+    }
+  }
+}

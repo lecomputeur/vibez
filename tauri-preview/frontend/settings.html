@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>VibeZ Tauri Preview</title><link rel="stylesheet" href="shell.css"><link rel="stylesheet" href="preview.css"><script src="translations.js" defer></script><script src="preview-translations.js" defer></script><script src="common.js" defer></script><script src="settings.js" defer></script></head>
+<body class="settings-page"><main>
+  <header class="settings-heading"><img src="icon.png" width="42" height="42" alt="VibeZ"><div><h1 data-extra="previewTitle">VibeZ Tauri Preview</h1><p id="version"></p></div></header>
+  <p class="notice" data-extra="intro"></p>
+  <form id="preferences">
+    <h2 data-i18n="display">Display</h2>
+    <label class="field"><span data-i18n="language">Language</span><select id="language"></select></label>
+    <label class="field"><span data-i18n="zoom">Zoom</span><select id="zoom"><option value="0.5">50%</option><option value="0.75">75%</option><option value="0.9">90%</option><option value="1">100%</option><option value="1.1">110%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="1.75">175%</option><option value="2">200%</option></select></label>
+    <h2 data-i18n="desktopIntegration">Desktop integration</h2>
+    <label class="check"><input type="checkbox" id="show-screenshot"><span data-i18n="showShot">Show screenshot button</span></label>
+    <p class="hint" data-extra="screenshotHint"></p>
+    <label class="check"><input type="checkbox" id="close-to-tray"><span data-i18n="closeTray">Close to tray</span></label>
+    <p class="hint" data-extra="trayHint"></p>
+    <label class="check"><input type="checkbox" id="start-at-login"><span data-i18n="startLogin">Start at login</span></label>
+    <p class="notice" data-extra="limits"></p>
+    <div class="settings-actions"><button class="screenshot-button" type="submit" id="save" data-i18n="save">Save</button><button class="settings-button" type="button" id="close" data-i18n="close">Close</button><span id="result" role="status"></span></div>
+  </form>
+  <details><summary data-extra="diagnostics">Diagnostic information</summary><p class="hint" data-extra="copy"></p><div class="settings-actions"><button class="settings-button" type="button" id="diagnostics-refresh" data-extra="reload">Refresh</button><button class="settings-button" type="button" id="diagnostics-copy" data-i18n="copy">Copy</button></div><textarea id="diagnostics" rows="11" readonly></textarea></details>
+  <p class="hint" data-extra="disclaimer"></p>
+</main></body></html>

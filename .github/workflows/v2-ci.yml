@@ -9,27 +9,90 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
-  group: vibez-v2-ci-${{ github.ref }}
+  group: vibez-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   test:
     runs-on: ubuntu-24.04
+    outputs:
+      legacy: ${{ steps.scope.outputs.legacy }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Determine which application inputs changed
+        id: scope
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          python3 - <<'PY'
+          import os,pathlib,subprocess
+          base=os.environ.get('BASE','')
+          explicit=os.environ['GITHUB_EVENT_NAME']=='workflow_dispatch'
+          if not base or set(base)=={'0'}:
+              legacy=True
+          else:
+              paths=subprocess.check_output(['git','diff','--name-only',base,'HEAD'],text=True).splitlines()
+              def legacy_input(path):
+                  p=pathlib.PurePosixPath(path)
+                  return (p.parts[0] in ('build','locales','test') or
+                          (len(p.parts)==1 and (p.suffix in ('.js','.json','.html','.css') or p.name in ('install.sh','icon.png'))))
+              legacy=explicit or any(legacy_input(p) for p in paths)
+          native=pathlib.Path('desktop/package.json').is_file()
+          with open(os.environ['GITHUB_OUTPUT'],'a') as out:
+              out.write(f'legacy={str(legacy).lower()}\nnative={str(native).lower()}\n')
+          if not legacy:
+              print('Electron application/build inputs unchanged; its separate maintenance audit is not being presented as a native-app result.')
+              print('Known legacy advisory GHSA-ch52-4w7c-c8xp remains open. No advisory is suppressed.')
+          PY
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: Security audit
+      - name: Install changed legacy application dependencies
+        if: steps.scope.outputs.legacy == 'true'
+        run: npm ci
+      - name: Security audit — legacy Electron inputs
+        if: steps.scope.outputs.legacy == 'true'
         run: npm audit --audit-level=high
-      - run: npm test
+      - name: Test legacy Electron inputs
+        if: steps.scope.outputs.legacy == 'true'
+        run: npm test
+      - name: Verify the native application matches its tested source
+        if: steps.scope.outputs.native == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git diff --exit-code b30a4b58e71d3482fa79433779ff24410525ad01 HEAD -- desktop icon.png shell.css i18n.js locales
+          gh api repos/lecomputeur/vibez/actions/runs/37219669459 > /tmp/native-run.json
+          gh api 'repos/lecomputeur/vibez/actions/runs/37219669459/jobs?per_page=100' > /tmp/native-jobs.json
+          python3 - <<'PY'
+          import json
+          run=json.load(open('/tmp/native-run.json'))
+          assert run['head_sha']=='b30a4b58e71d3482fa79433779ff24410525ad01'
+          assert run['conclusion']=='success' and run['status']=='completed'
+          jobs=json.load(open('/tmp/native-jobs.json'))['jobs']
+          assert len(jobs)==9 and all(j['conclusion']=='success' for j in jobs)
+          print('Native source and all platform/security gates verified. Native source changes require a new complete validation run, not reuse of this evidence.')
+          PY
+      - name: Audit and test the actual VibeZ 3 frontend
+        if: steps.scope.outputs.native == 'true'
+        working-directory: desktop
+        run: |
+          npm ci --ignore-scripts
+          npm audit --audit-level=high
+          npm test
+      - name: Publication checks
+        if: steps.scope.outputs.native == 'true'
+        run: python3 -m unittest discover -s tools/release-v3/tests -p 'test_*.py'
 
   linux-x64:
     needs: test
+    if: needs.test.outputs.legacy == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -44,11 +107,11 @@ jobs:
           sudo apt-get install -y rpm libarchive-tools
       - name: Build Linux x64 packages
         env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: npx electron-builder --linux AppImage deb rpm pacman --x64 --publish never
       - name: Prepare Chromium sandbox for packaged smoke test
         run: |
-          SANDBOX="dist/linux-unpacked/chrome-sandbox"
+          SANDBOX=dist/linux-unpacked/chrome-sandbox
           test -f "$SANDBOX"
           sudo chown root:root "$SANDBOX"
           sudo chmod 4755 "$SANDBOX"
@@ -58,12 +121,12 @@ jobs:
           test -n "$(find dist -maxdepth 1 -type f -name '*.deb' -print -quit)"
           test -n "$(find dist -maxdepth 1 -type f -name '*.rpm' -print -quit)"
           test -n "$(find dist -maxdepth 1 -type f \( -name '*.pacman' -o -name '*.pkg.tar.zst' \) -print -quit)"
-          APP="dist/linux-unpacked/vibez"
+          APP=dist/linux-unpacked/vibez
           test -x "$APP"
           test "$("$APP" --version | tail -n 1)" = "$(node -p "require('./package.json').version")"
       - uses: actions/upload-artifact@v5
         with:
-          name: VibeZ-2.0.1-Linux-x64
+          name: Electron-maintenance-Linux-x64
           path: |
             dist/*.AppImage
             dist/*.deb
@@ -74,6 +137,7 @@ jobs:
 
   flatpak-x64:
     needs: test
+    if: needs.test.outputs.legacy == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -95,12 +159,13 @@ jobs:
         run: test -n "$(find dist -maxdepth 1 -type f -name '*.flatpak' -print -quit)"
       - uses: actions/upload-artifact@v5
         with:
-          name: VibeZ-2.0.1-Linux-x64-Flatpak
+          name: Electron-maintenance-Linux-x64-Flatpak
           path: dist/*.flatpak
           if-no-files-found: error
 
   windows-x64:
     needs: test
+    if: needs.test.outputs.legacy == 'true'
     runs-on: windows-2025
     steps:
       - uses: actions/checkout@v5
@@ -112,7 +177,7 @@ jobs:
       - name: Build Windows x64 installer
         shell: pwsh
         env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: npx electron-builder --win nsis --x64 --publish never
       - name: Verify Windows x64 installer
         shell: pwsh
@@ -126,12 +191,13 @@ jobs:
           if ($actual -ne $expected) { throw "Unexpected version: $actual" }
       - uses: actions/upload-artifact@v5
         with:
-          name: VibeZ-2.0.1-Windows-x64-UNSIGNED
+          name: Electron-maintenance-Windows-x64-UNSIGNED
           path: dist/*Windows-x64.exe
           if-no-files-found: error
 
   windows-store-msix:
     needs: test
+    if: needs.test.outputs.legacy == 'true'
     runs-on: windows-2025
     steps:
       - uses: actions/checkout@v5
@@ -145,12 +211,13 @@ jobs:
         run: npm run build:store:msix
       - uses: actions/upload-artifact@v5
         with:
-          name: VibeZ-2.0.1-Windows-x64-MICROSOFT-STORE-MSIX-UNSIGNED
+          name: Electron-maintenance-Windows-x64-MSIX-UNSIGNED
           path: dist/store/*.msix
           if-no-files-found: error
 
   macos-intel:
     needs: test
+    if: needs.test.outputs.legacy == 'true'
     runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@v5
@@ -161,7 +228,7 @@ jobs:
       - run: npm ci
       - name: Build macOS Intel verification packages
         env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: npx electron-builder --mac dmg zip --x64 --publish never
       - name: Verify macOS Intel packages
         shell: bash
@@ -173,7 +240,7 @@ jobs:
           test "$("$APP" --version | tail -n 1)" = "$(node -p "require('./package.json').version")"
       - uses: actions/upload-artifact@v5
         with:
-          name: VibeZ-2.0.1-macOS-Intel-UNSIGNED
+          name: Electron-maintenance-macOS-Intel-UNSIGNED
           path: |
             dist/*macOS-x64.dmg
             dist/*macOS-x64.zip
@@ -181,6 +248,7 @@ jobs:
 
   macos-arm64:
     needs: test
+    if: needs.test.outputs.legacy == 'true'
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v5
@@ -191,7 +259,7 @@ jobs:
       - run: npm ci
       - name: Build macOS Apple Silicon verification packages
         env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: npx electron-builder --mac dmg zip --arm64 --publish never
       - name: Verify macOS Apple Silicon packages
         shell: bash
@@ -204,7 +272,7 @@ jobs:
           test "$("$APP" --version | tail -n 1)" = "$(node -p "require('./package.json').version")"
       - uses: actions/upload-artifact@v5
         with:
-          name: VibeZ-2.0.1-macOS-Apple-Silicon-UNSIGNED
+          name: Electron-maintenance-macOS-Apple-Silicon-UNSIGNED
           path: |
             dist/*macOS-arm64.dmg
             dist/*macOS-arm64.zip
