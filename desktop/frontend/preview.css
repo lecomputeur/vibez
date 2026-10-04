@@ -1,0 +1,30 @@
+.preview-badge { font-size: 8px; letter-spacing: .08em; color: #ffad7b; border: 1px solid #66402e; padding: 3px 4px; border-radius: 4px; }
+.preview-status { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #9da4af; font-size: 10px; }
+button:focus-visible, select:focus-visible, textarea:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid #ff8954; outline-offset: 2px; }
+.screenshot-button:disabled { opacity: .55; cursor: wait; }
+.settings-page { overflow: auto; user-select: text; font-size: 14px; line-height: 1.55; }
+.settings-page main { max-width: 760px; padding: 28px; margin: auto; }
+.settings-heading { display: flex; align-items: center; gap: 13px; }
+.settings-heading img { border-radius: 10px; }
+.settings-heading h1 { margin: 0; font-size: 23px; }
+.settings-heading p { margin: 0; color: #9da4af; }
+.settings-page h2 { margin: 24px 0 12px; font-size: 17px; }
+.settings-page .field { display: flex; justify-content: space-between; align-items: center; margin: 12px 0; gap: 20px; }
+.settings-page select { min-width: 200px; background: #21242c; color: #f7f8fa; padding: 9px; border: 1px solid #454a55; border-radius: 6px; }
+.settings-page .check { display: flex; gap: 10px; margin: 14px 0 6px; align-items: center; }
+.settings-page input[type=checkbox] { width: 17px; height: 17px; accent-color: #f46c43; }
+.notice { padding: 12px 14px; background: #251d19; border: 1px solid #554034; border-radius: 9px; color: #e8caba; }
+.hint { color: #a6aeba; font-size: 12px; margin: 6px 0 14px; }
+.settings-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 20px 0; }
+#result { font-size: 12px; }
+.settings-page details { margin-top: 24px; }
+.settings-page textarea { width: 100%; resize: vertical; background: #191c22; color: #c6ced9; border: 1px solid #454a55; border-radius: 6px; padding: 12px; }
+
+.language-control { position: relative; display: flex; align-items: center; }
+.language-button { width: auto; min-width: 48px; gap: 4px; padding: 0 8px; }
+.language-button svg { width: 17px; height: 17px; }
+#language-code { font-size: 9px; font-weight: 700; letter-spacing: .04em; }
+.language-panel { position: absolute; z-index: 50; top: -4px; right: 0; width: 230px; height: 40px; padding: 3px; background: #1b1e25; border: 1px solid #454a55; border-radius: 8px; box-shadow: 0 8px 22px rgba(0,0,0,.35); }
+.language-panel[hidden] { display: none; }
+.language-panel select { width: 100%; height: 32px; background: #252933; color: #f7f8fa; border: 1px solid #4b5260; border-radius: 6px; padding: 4px 8px; }
+[dir="rtl"] .language-panel { right: auto; left: 0; }
