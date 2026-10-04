@@ -204,8 +204,22 @@ pub async fn smoke_check(app: &AppHandle) -> Result<(), String> {
                 |attempt, error| eprintln!("LANGUAGE_PROBE_RETRY: attempt={attempt}; {error}"),
                 std::time::Duration::from_millis(250)).await?;
             if outcome != retry::Outcome::Ready { return Err("Language probe unexpectedly superseded".into()); }
-            if let Ok(uri) = view.url() {
-                if uri.as_str() != "about:blank" { return Err("Language probe navigated remotely".into()); }
+            let (tx, rx) = tokio::sync::oneshot::channel();
+            view.with_webview(move |platform| {
+                #[cfg(target_os = "linux")]
+                let uri = platform.inner().uri().map(|s| s.to_string());
+                #[cfg(target_os = "windows")]
+                let uri: Option<String> = None; // Cookie probe performs no navigation.
+                #[cfg(target_os = "macos")]
+                let uri = unsafe {
+                    let native = &*platform.inner().cast::<objc2_web_kit::WKWebView>();
+                    native.URL().and_then(|url| url.absoluteString()).map(|s| s.to_string())
+                };
+                let _ = tx.send(uri);
+            }).map_err(err)?;
+            let uri = tokio::time::timeout(std::time::Duration::from_secs(3), rx).await.map_err(err)?.map_err(err)?;
+            if uri.as_deref().is_some_and(|s| !s.is_empty() && s != "about:blank") {
+                return Err("Language probe navigated remotely".into());
             }
         }
         println!("LANGUAGE_BOOTSTRAP_OK: real WebKit cookie preparation on a fresh about:blank profile; nl/en/nl; no remote navigation");
