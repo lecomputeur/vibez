@@ -1,0 +1,307 @@
+name: VibeZ 3 — all desktop formats
+on:
+  push:
+    branches: ['release/v3.0.0']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: vibez-v3-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  source:
+    name: Track v3 source and freeze dependencies
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+      rust: ${{ steps.source.outputs.rust }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Promote tested source without rewriting Electron or preview
+        run: |
+          if [ ! -d desktop ]; then python3 tools/seed-v3.py; fi
+          rustup toolchain install stable --profile minimal
+          if [ ! -f desktop/rust-toolchain.toml ]; then
+            version="$(rustup run stable rustc --version | cut -d' ' -f2)"
+            printf '[toolchain]\nchannel = "%s"\nprofile = "minimal"\n' "$version" > desktop/rust-toolchain.toml
+          fi
+          cd desktop
+          if [ ! -f package-lock.json ]; then npm install --package-lock-only --ignore-scripts; fi
+          if [ ! -f src-tauri/Cargo.lock ]; then cargo generate-lockfile --manifest-path src-tauri/Cargo.toml; fi
+      - name: Commit resolved build inputs before compiling
+        id: source
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add desktop
+          if ! git diff --cached --quiet; then
+            git commit -m 'VibeZ 3.0.0: track promoted desktop source and frozen dependencies'
+            git push origin HEAD:release/v3.0.0
+          fi
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "rust=$(sed -n 's/^channel = "\(.*\)"/\1/p' desktop/rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
+          git diff --exit-code c8178697fa9db6df9259e4d9e4520cdd28b05b4e -- tauri-preview main-v2.js main.js package.json package-lock.json
+  audit:
+    name: Dependency security gate
+    needs: source
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.source.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: rustup toolchain install '${{ needs.source.outputs.rust }}' --profile minimal
+      - name: JavaScript and Rust advisories
+        working-directory: desktop
+        run: |
+          npm ci --ignore-scripts
+          npm audit --audit-level=high
+          cargo install cargo-audit --version 0.22.2 --locked
+          cargo audit --file src-tauri/Cargo.lock
+  linux:
+    name: Linux — AppImage, DEB and RPM
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      CARGO_BUILD_JOBS: 2
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      WEBKIT_DISABLE_DMABUF_RENDERER: '1'
+      APPIMAGE_EXTRACT_AND_RUN: '1'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.source.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Native build and test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf rpm libfuse2t64 xvfb openbox dbus-x11 imagemagick desktop-file-utils python3-gi gir1.2-gtk-3.0 gstreamer1.0-plugins-good gstreamer1.0-plugins-base gstreamer1.0-plugins-bad
+          rustup toolchain install '${{ needs.source.outputs.rust }}' --profile minimal
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+          key: vibez-v3-linux
+          cache-on-failure: true
+      - name: Frontend and Rust tests
+        working-directory: desktop
+        run: |
+          mkdir -p artifacts
+          npm ci --ignore-scripts
+          npm test 2>&1 | tee artifacts/frontend.log
+          cargo test --release --locked --manifest-path src-tauri/Cargo.toml 2>&1 | tee artifacts/rust.log
+      - name: Package all three native formats
+        working-directory: desktop
+        run: npm run build -- --bundles deb,rpm,appimage -- --locked 2>&1 | tee artifacts/build.log
+      - name: Native history, language, layout and installed icon tests
+        run: bash tools/release-v3/linux-smoke.sh
+      - name: Inspect and name installable packages
+        run: python3 tools/release-v3/collect.py linux
+      - uses: actions/upload-artifact@v5
+        with:
+          name: v3-linux
+          path: release-assets/*
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: v3-linux-validation
+          path: desktop/artifacts/*
+          if-no-files-found: warn
+  arch:
+    name: Linux — Arch/Pacman
+    needs: [source, linux]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.source.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v5
+        with:
+          name: v3-linux
+          path: release-assets
+      - run: bash tools/release-v3/arch.sh
+      - uses: actions/upload-artifact@v5
+        with:
+          name: v3-arch
+          path: release-assets/*.pkg.tar.zst
+          if-no-files-found: error
+  flatpak:
+    name: Linux — Flatpak
+    needs: [source, linux]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.source.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v5
+        with:
+          name: v3-linux
+          path: release-assets
+      - name: Install Flatpak tools and runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y flathub org.gnome.Platform//50 org.gnome.Sdk//50
+      - run: python3 tools/release-v3/flatpak.py
+      - uses: actions/upload-artifact@v5
+        with:
+          name: v3-flatpak
+          path: release-assets/*.flatpak
+          if-no-files-found: error
+  windows:
+    name: Windows — EXE, MSI and Store MSIX
+    needs: source
+    runs-on: windows-2025
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.source.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: rustup toolchain install '${{ needs.source.outputs.rust }}' --profile minimal
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+          key: vibez-v3-windows
+          cache-on-failure: true
+      - name: Test and build native Windows app
+        working-directory: desktop
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          npm ci --ignore-scripts
+          npm test 2>&1 | tee artifacts/frontend.log
+          cargo test --release --locked --manifest-path src-tauri/Cargo.toml 2>&1 | tee artifacts/rust.log
+          npm run build -- --bundles nsis,msi -- --locked 2>&1 | tee artifacts/build.log
+      - name: Actual WebView2 history, cookie and popup tests
+        run: python tools/release-v3/native-smoke.py desktop/src-tauri/target/release/vibez3.exe desktop/artifacts/native.log
+      - name: Build approved-identity Store package without submitting it
+        shell: pwsh
+        run: ./desktop/scripts/build-store.ps1 -OutputDirectory "$PWD/release-assets"
+      - run: python tools/release-v3/collect.py windows
+      - uses: actions/upload-artifact@v5
+        with:
+          name: v3-windows
+          path: release-assets/*
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: v3-windows-validation
+          path: desktop/artifacts/*.log
+          if-no-files-found: warn
+  macos:
+    name: macOS — ${{ matrix.arch }} signed DMG and ZIP
+    needs: source
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15-intel
+            arch: x64
+          - runner: macos-15
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.source.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: rustup toolchain install '${{ needs.source.outputs.rust }}' --profile minimal
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+          key: vibez-v3-macos-${{ matrix.arch }}
+          cache-on-failure: true
+      - name: Test and build WKWebView application
+        working-directory: desktop
+        run: |
+          mkdir -p artifacts
+          npm ci --ignore-scripts
+          npm test 2>&1 | tee artifacts/frontend.log
+          cargo test --release --locked --manifest-path src-tauri/Cargo.toml 2>&1 | tee artifacts/rust.log
+          npm run build -- --bundles app --no-sign -- --locked 2>&1 | tee artifacts/build.log
+      - name: Actual WKWebView history, language, popup and window tests
+        run: python3 tools/release-v3/native-smoke.py desktop/src-tauri/target/release/vibez3 desktop/artifacts/native.log
+      - name: Developer ID signing, notarization and DMG creation
+        env:
+          MAC_CERTIFICATE_P12_BASE64: ${{ secrets.MAC_CERTIFICATE_P12_BASE64 }}
+          MAC_CERTIFICATE_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+          APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: bash tools/release-v3/sign-macos.sh '${{ matrix.arch }}'
+      - uses: actions/upload-artifact@v5
+        with:
+          name: v3-macos-${{ matrix.arch }}
+          path: release-assets/*
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: v3-macos-${{ matrix.arch }}-validation
+          path: desktop/artifacts/*.log
+          if-no-files-found: warn
+  release-gate:
+    name: All formats present — prepare GitHub release draft
+    needs: [source, audit, linux, arch, flatpak, windows, macos]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.source.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: v3-*
+          path: downloads
+      - name: Collect all twelve required deliverables
+        run: |
+          mkdir -p release-assets
+          find downloads -type f -name 'VibeZ-3.0.0-*' -exec cp '{}' release-assets/ \;
+          printf '%s\n' '${{ needs.source.outputs.sha }}' > release-assets/source-commit.txt
+          python3 tools/release-v3/collect.py all
+      - name: Create complete draft, never publish a partial platform set
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOURCE_SHA: ${{ needs.source.outputs.sha }}
+        run: |
+          current="$(gh api repos/$GITHUB_REPOSITORY/git/ref/heads/release/v3.0.0 --jq .object.sha)"
+          test "$current" = "$SOURCE_SHA"
+          if gh release view v3.0.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            test "$(gh release view v3.0.0 --repo "$GITHUB_REPOSITORY" --json isDraft -q .isDraft)" = true
+            gh release upload v3.0.0 release-assets/* --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create v3.0.0 release-assets/* --draft --target "$SOURCE_SHA" --title 'VibeZ 3.0.0 — A new native desktop generation' --notes-file V3-RELEASE.md --repo "$GITHUB_REPOSITORY"
+          fi
+          echo 'All package gates passed. Complete draft prepared; promotion requires final release review.' >> "$GITHUB_STEP_SUMMARY"
