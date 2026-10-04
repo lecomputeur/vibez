@@ -10,13 +10,15 @@ for (const name of fs.readdirSync(path.join(project, 'frontend'))) fs.copyFileSy
 fs.copyFileSync(path.join(root, 'shell.css'), path.join(out, 'shell.css'));
 fs.copyFileSync(path.join(root, 'icon.png'), path.join(out, 'icon.png'));
 fs.mkdirSync(path.join(project, 'src-tauri/icons'), { recursive: true });
-fs.copyFileSync(path.join(root, 'icon.png'), path.join(project, 'src-tauri/icons/icon.png'));
 // Generate platform-sized icons with the already installed Tauri tool (no network).
 // A single 512px icon exceeds GTK/X11's _NET_WM_ICON payload limit.
 require('node:child_process').execFileSync(process.execPath, [
   path.join(project, 'node_modules/@tauri-apps/cli/tauri.js'), 'icon',
   path.join(root, 'icon.png'), '--output', path.join(project, 'src-tauri/icons'),
 ], { stdio: 'pipe' });
+// The generator also emits icon.png. Keep the original 512px launcher/tray
+// artwork byte-for-byte while retaining its generated 128px native variant.
+fs.copyFileSync(path.join(root, 'icon.png'), path.join(project, 'src-tauri/icons/icon.png'));
 const { LANGUAGE_OPTIONS, TRANSLATIONS } = require(path.join(root, 'i18n.js'));
 const data = { options: LANGUAGE_OPTIONS, translations: TRANSLATIONS };
 fs.writeFileSync(path.join(out, 'translations.json'), JSON.stringify(data));
