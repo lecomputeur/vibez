@@ -94,7 +94,10 @@ pub fn attach_errors(app: &AppHandle, view: &Webview) -> Result<(), String> {
     }).map_err(crate::err)
 }
 #[cfg(target_os = "macos")]
-pub fn attach_errors(_app: &AppHandle, _view: &Webview) -> Result<(), String> { Ok(()) }
+#[path = "macos_popup.rs"]
+mod macos_popup;
+#[cfg(target_os = "macos")]
+pub fn attach_errors(app: &AppHandle, view: &Webview) -> Result<(), String> { macos_popup::attach(app, view) }
 pub fn close_popups(app: &AppHandle) {
     for (label, window) in app.webview_windows() { if label.starts_with(PREFIX) { let _ = window.close(); } }
 }

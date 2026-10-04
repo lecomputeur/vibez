@@ -7,7 +7,7 @@
     "prepare:assets": "node scripts/prepare.cjs",
     "test": "node --test test/*.test.cjs",
     "dev": "node scripts/prepare.cjs && tauri dev",
-    "build": "node scripts/prepare.cjs && tauri build",
+    "build": "node scripts/build.cjs",
     "tauri": "tauri"
   },
   "devDependencies": {
