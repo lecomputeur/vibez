@@ -277,7 +277,10 @@ fn main() {
                 capture_busy: AtomicBool::new(false), tray_ready: AtomicBool::new(false), shell_ready: AtomicBool::new(false),
                 auth_active: AtomicBool::new(false), smoke });
             let window = tauri::window::WindowBuilder::new(app, "main")
-                .title(title()).inner_size(1280., 840.).min_inner_size(760., 560.).visible(false).build()?;
+                .title(title()).inner_size(1280., 840.).min_inner_size(760., 560.).visible(false)
+                .icon(tauri::image::Image::from_bytes(include_bytes!("../icons/icon.png"))?)?.build()?;
+            #[cfg(target_os = "linux")]
+            linux_identity::prepare_window(&window).map_err(std::io::Error::other)?;
             let controls = WebviewBuilder::new("shell", WebviewUrl::App("index.html".into()))
                 .data_directory(data.join("controls")).on_navigation(policy::local_url).on_new_window(|_, _| NewWindowResponse::Deny);
             window.add_child(controls, LogicalPosition::new(0., 0.), LogicalSize::new(1280., TOOLBAR_HEIGHT))?;

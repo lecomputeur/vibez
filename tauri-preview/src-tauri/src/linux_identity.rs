@@ -2,6 +2,7 @@
 //! GTK's application ID (Wayland) does not set the X11 WM_CLASS. Cinnamon
 //! matches StartupWMClass against that separate property, not our Rust label.
 use crate::policy::{APP_ID, APP_NAME};
+use gtk::prelude::GtkWindowExt;
 use std::{fs, io::Cursor, path::PathBuf};
 use tauri::{AppHandle, Manager};
 
@@ -31,4 +32,14 @@ pub fn tray_directory(app: &AppHandle) -> Result<PathBuf, String> {
     use std::os::unix::fs::PermissionsExt;
     fs::set_permissions(&directory, fs::Permissions::from_mode(0o700)).map_err(crate::err)?;
     Ok(directory)
+}
+
+/// Set the per-window image before add_child/realize/show, not only a global
+/// fallback. X11 panels can cache the first icon property they observe.
+pub fn prepare_window(window: &tauri::Window) -> Result<(), String> {
+    let icon = gtk::gdk_pixbuf::Pixbuf::from_read(Cursor::new(
+        include_bytes!("../icons/icon.png").as_slice(),
+    )).map_err(crate::err)?;
+    window.gtk_window().map_err(crate::err)?.set_icon(Some(&icon));
+    Ok(())
 }
