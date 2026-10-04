@@ -5,6 +5,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+defaults:
+  run:
+    shell: bash
 concurrency:
   group: vibez-v3-${{ github.ref }}
   cancel-in-progress: false
@@ -28,6 +31,7 @@ jobs:
       - name: Promote tested source without rewriting Electron or preview
         run: |
           if [ ! -d desktop ]; then python3 tools/seed-v3.py; fi
+          python3 tools/release-v3/prepare-source.py
           rustup toolchain install stable --profile minimal
           if [ ! -f desktop/rust-toolchain.toml ]; then
             version="$(rustup run stable rustc --version | cut -d' ' -f2)"
@@ -43,12 +47,17 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add desktop
           if ! git diff --cached --quiet; then
-            git commit -m 'VibeZ 3.0.0: track promoted desktop source and frozen dependencies'
+            git commit -m 'VibeZ 3.0.0: freeze reviewed native integration corrections'
             git push origin HEAD:release/v3.0.0
           fi
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "rust=$(sed -n 's/^channel = "\(.*\)"/\1/p' desktop/rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
           git diff --exit-code c8178697fa9db6df9259e4d9e4520cdd28b05b4e -- tauri-preview main-v2.js main.js package.json package-lock.json
+          git archive --format=tar.gz HEAD > "$RUNNER_TEMP/v3-source.tar.gz"
+      - uses: actions/upload-artifact@v5
+        with:
+          name: v3-source
+          path: ${{ runner.temp }}/v3-source.tar.gz
   audit:
     name: Dependency security gate
     needs: source
@@ -79,6 +88,7 @@ jobs:
       LIBGL_ALWAYS_SOFTWARE: '1'
       WEBKIT_DISABLE_DMABUF_RENDERER: '1'
       APPIMAGE_EXTRACT_AND_RUN: '1'
+      NO_STRIP: '1'
     steps:
       - uses: actions/checkout@v5
         with:
@@ -90,7 +100,7 @@ jobs:
       - name: Native build and test dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf rpm libfuse2t64 xvfb openbox dbus-x11 imagemagick desktop-file-utils python3-gi gir1.2-gtk-3.0 gstreamer1.0-plugins-good gstreamer1.0-plugins-base gstreamer1.0-plugins-bad
+          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf rpm libfuse2t64 xvfb openbox dbus-x11 imagemagick desktop-file-utils python3-gi gir1.2-gtk-3.0 gstreamer1.0-tools gstreamer1.0-plugins-good gstreamer1.0-plugins-base gstreamer1.0-plugins-bad libgdk-pixbuf2.0-bin squashfs-tools zsync xdg-utils
           rustup toolchain install '${{ needs.source.outputs.rust }}' --profile minimal
       - uses: Swatinem/rust-cache@v2
         with:
@@ -104,11 +114,14 @@ jobs:
           npm ci --ignore-scripts
           npm test 2>&1 | tee artifacts/frontend.log
           cargo test --release --locked --manifest-path src-tauri/Cargo.toml 2>&1 | tee artifacts/rust.log
-      - name: Package all three native formats
+      - name: Package native DEB and RPM
         working-directory: desktop
-        run: npm run build -- --bundles deb,rpm,appimage -- --locked 2>&1 | tee artifacts/build.log
+        run: npm run build -- --bundles deb,rpm -- --locked 2>&1 | tee artifacts/build.log
       - name: Native history, language, layout and installed icon tests
         run: bash tools/release-v3/linux-smoke.sh
+      - name: Package standalone AppImage with detailed bundler diagnostics
+        working-directory: desktop
+        run: npm run build -- --verbose --bundles appimage -- --locked 2>&1 | tee artifacts/appimage.log
       - name: Inspect and name installable packages
         run: python3 tools/release-v3/collect.py linux
       - uses: actions/upload-artifact@v5
@@ -189,7 +202,6 @@ jobs:
           cache-on-failure: true
       - name: Test and build native Windows app
         working-directory: desktop
-        shell: bash
         run: |
           mkdir -p artifacts
           npm ci --ignore-scripts
@@ -249,6 +261,8 @@ jobs:
           cargo test --release --locked --manifest-path src-tauri/Cargo.toml 2>&1 | tee artifacts/rust.log
           npm run build -- --bundles app --no-sign -- --locked 2>&1 | tee artifacts/build.log
       - name: Actual WKWebView history, language, popup and window tests
+        env:
+          RUST_BACKTRACE: '1'
         run: python3 tools/release-v3/native-smoke.py desktop/src-tauri/target/release/vibez3 desktop/artifacts/native.log
       - name: Developer ID signing, notarization and DMG creation
         env:
