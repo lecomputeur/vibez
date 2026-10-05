@@ -49,7 +49,7 @@ fn err(e: impl std::fmt::Display) -> String { e.to_string() }
 fn title() -> String { format!("{APP_NAME} v{}", env!("CARGO_PKG_VERSION")) }
 fn require_local(webview: &Webview) -> Result<(), String> {
     if policy::trusted_caller(webview.label(), &webview.url().map_err(err)?) { Ok(()) }
-    else { Err("Native commands are restricted to the bundled preview controls".into()) }
+    else { Err("Native commands are restricted to the bundled VibeZ controls".into()) }
 }
 fn message(app: &AppHandle, text: impl Into<String>) {
     if let Ok(mut status) = app.state::<PreviewState>().status.lock() { *status = status::Status::persistent(text); }
@@ -113,7 +113,6 @@ async fn navigate(webview: Webview, app: AppHandle, action: String) -> Result<()
         "home" => {
             auth::close_popups(&app); auth::end(&app);
             link_trace::record("auth-mode-reset-home", &HOME.parse().map_err(err)?);
-            message(&app, "Returning to Vibe. Your preview profile has not been cleared.");
             view.navigate(HOME.parse().map_err(err)?).map_err(err)
         },
         _ => Err("Unsupported navigation action".into()),
@@ -184,7 +183,7 @@ async fn take_screenshot(app: &AppHandle) -> Result<(), String> {
             .send().await.map_err(err)?.response().map_err(err)?;
         let uri = url::Url::parse(response.uri().as_str()).map_err(err)?;
         let file = uri.to_file_path().map_err(|_| "The portal did not return a local image".to_string())?;
-        if fs::metadata(&file).map_err(err)?.len() > 64 * 1024 * 1024 { return Err("Screenshot is larger than the 64 MiB preview limit".into()); }
+        if fs::metadata(&file).map_err(err)?.len() > 64 * 1024 * 1024 { return Err("Screenshot is larger than the 64 MiB VibeZ limit".into()); }
         let image = tauri::image::Image::from_bytes(&fs::read(file).map_err(err)?).map_err(err)?;
         app.clipboard().write_image(&image).map_err(err)?; Ok(())
     }.await;
