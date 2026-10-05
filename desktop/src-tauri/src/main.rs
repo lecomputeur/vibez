@@ -226,24 +226,31 @@ async fn take_screenshot(app: &AppHandle) -> Result<(), String> {
 #[tauri::command]
 async fn capture_screenshot(webview: Webview, app: AppHandle) -> Result<(), String> { require_local(&webview)?; take_screenshot(&app).await }
 #[tauri::command]
+async fn check_for_updates(webview: Webview, app: AppHandle) -> Result<(), String> {
+    require_local(&webview)?;
+    preview_updates::check(app, true);
+    Ok(())
+}
+#[tauri::command]
 async fn get_diagnostics(webview: Webview, app: AppHandle) -> Result<String, String> {
     require_local(&webview)?;
     let (engine, os_name, session, desktop, update_text) = if cfg!(target_os = "windows") {
         ("Tauri 2 / Microsoft WebView2", "Windows", String::new(), String::new(),
-         "Updates: published VibeZ 3 releases; Store delivery is separate")
+         "Updates: automatic startup checks; Microsoft Store delivery is used for Store installs")
     } else if cfg!(target_os = "macos") {
-        ("Tauri 2 / Apple WKWebView", "macOS", String::new(), String::new(), "Updates: published VibeZ 3 releases; manual installation")
+        ("Tauri 2 / Apple WKWebView", "macOS", String::new(), String::new(), "Updates: automatic startup checks; installation remains user-confirmed")
     } else {
         ("Tauri 2 / system WebKitGTK", "Linux", std::env::var("XDG_SESSION_TYPE").unwrap_or_default(),
          std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default(),
-         "Updates: published VibeZ 3 releases; manual installation")
+         "Updates: automatic startup checks; installation remains user-confirmed")
     };
     let auth_mode = auth::active(&app);
+    let auto_updates = app.state::<PreviewState>().settings.lock().map(|s| s.auto_updates).unwrap_or(false);
     let site_language = site_language::inspect(&app).await;
-    Ok(format!("{}\nApplication ID: {}\nEngine: {}\nOS: {} {}\nSystem/UI locale: {}\nSession: {}\nDesktop: {}\nConfig: {}\nData: {}\n{}\nAutomatic installation: disabled\nMicrophone/camera: not enabled in this version\nGlobal shortcut: not registered (does not conflict with Electron)\nSign-in popups: related webview; provider restrictions still apply\nAuthentication routing mode: {}\nMistral site language: {}\nAutomatic JS link interception: disabled\nRecent navigation (origins only, no credentials or tokens):\n{}\nLink routing (current process, origins only):\n{}",
+    Ok(format!("{}\nApplication ID: {}\nEngine: {}\nOS: {} {}\nSystem/UI locale: {}\nSession: {}\nDesktop: {}\nConfig: {}\nData: {}\n{}\nAutomatic update checks: {}; automatic installation: disabled\nMicrophone/camera: not enabled in this version\nGlobal shortcut: not registered (does not conflict with Electron)\nSign-in popups: related webview; provider restrictions still apply\nAuthentication routing mode: {}\nMistral site language: {}\nAutomatic JS link interception: disabled\nRecent navigation (origins only, no credentials or tokens):\n{}\nLink routing (current process, origins only):\n{}",
         title(), APP_ID, engine, os_name, std::env::consts::ARCH, os_locale(), session, desktop,
         app.path().app_config_dir().map_err(err)?.display(), app.path().app_data_dir().map_err(err)?.display(),
-        update_text, if auth_mode { "active" } else { "inactive" }, site_language, auth::diagnostics(), link_trace::diagnostics()))
+        update_text, if auto_updates { "enabled" } else { "disabled" }, if auth_mode { "active" } else { "inactive" }, site_language, auth::diagnostics(), link_trace::diagnostics()))
 }
 fn create_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> { desktop_ui::create_tray(app) }
 fn main() {
@@ -256,7 +263,7 @@ fn main() {
         .plugin(tauri_plugin_opener::Builder::new().open_js_links_on_click(false).build())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_autostart::Builder::new().app_name(APP_NAME).arg("--hidden").build())
-        .invoke_handler(tauri::generate_handler![get_state, navigate, show_settings, save_settings, close_settings, capture_screenshot, get_diagnostics])
+        .invoke_handler(tauri::generate_handler![get_state, navigate, show_settings, save_settings, close_settings, capture_screenshot, check_for_updates, get_diagnostics])
         .setup(move |app| {
             #[cfg(target_os = "linux")]
             linux_identity::initialize().map_err(std::io::Error::other)?;
@@ -333,6 +340,7 @@ fn main() {
             let start_hidden = !smoke && std::env::args().any(|a| a == "--hidden")
                 && app.state::<PreviewState>().tray_ready.load(Ordering::Relaxed);
             if !start_hidden { window.show()?; }
+            if !smoke { preview_updates::schedule(app.handle().clone()); }
             // The external icon probe inspects a real, offline running app.
             if smoke && !icon_probe { link_probe::start(app.handle().clone(), link_probe_only); }
             Ok(())

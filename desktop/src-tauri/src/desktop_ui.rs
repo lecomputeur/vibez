@@ -104,7 +104,7 @@ pub fn create_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                 if let Err(e) = crate::open_settings(&app).await { crate::message(&app, e); }
             }); },
             "capture" => { let app = app.clone(); tauri::async_runtime::spawn(async move { let _ = crate::take_screenshot(&app).await; }); },
-            "updates" => crate::preview_updates::start(app.clone()),
+            "updates" => crate::preview_updates::check(app.clone(), true),
             _ => (),
         });
     builder = builder.icon(tauri::image::Image::from_bytes(include_bytes!("../icons/icon.png"))?);

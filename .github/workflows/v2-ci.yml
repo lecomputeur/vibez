@@ -67,13 +67,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git diff --exit-code b30a4b58e71d3482fa79433779ff24410525ad01 HEAD -- desktop icon.png shell.css i18n.js locales
-          gh api repos/lecomputeur/vibez/actions/runs/37219669459 > /tmp/native-run.json
-          gh api 'repos/lecomputeur/vibez/actions/runs/37219669459/jobs?per_page=100' > /tmp/native-jobs.json
+          git diff --exit-code 655c8eda589cda720c0c264c5b6b4f42e86127ae HEAD -- desktop icon.png shell.css i18n.js locales
+          gh api repos/lecomputeur/vibez/actions/runs/37346347043 > /tmp/native-run.json
+          gh api 'repos/lecomputeur/vibez/actions/runs/37346347043/jobs?per_page=100' > /tmp/native-jobs.json
           python3 - <<'PY'
           import json
           run=json.load(open('/tmp/native-run.json'))
-          assert run['head_sha']=='b30a4b58e71d3482fa79433779ff24410525ad01'
+          assert run['head_sha']=='655c8eda589cda720c0c264c5b6b4f42e86127ae'
           assert run['conclusion']=='success' and run['status']=='completed'
           jobs=json.load(open('/tmp/native-jobs.json'))['jobs']
           assert len(jobs)==9 and all(j['conclusion']=='success' for j in jobs)

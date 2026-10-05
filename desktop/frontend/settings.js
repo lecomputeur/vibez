@@ -1,7 +1,7 @@
 'use strict';
 (async () => {
   const $ = id => document.getElementById(id);
-  const fields = { language: ['language', 'value'], zoom_factor: ['zoom', 'value'], show_screenshot: ['show-screenshot', 'checked'], close_to_tray: ['close-to-tray', 'checked'], start_at_login: ['start-at-login', 'checked'] };
+  const fields = { language: ['language', 'value'], zoom_factor: ['zoom', 'value'], show_screenshot: ['show-screenshot', 'checked'], close_to_tray: ['close-to-tray', 'checked'], start_at_login: ['start-at-login', 'checked'], auto_updates: ['auto-updates', 'checked'] };
   let state = null, baseline = {}, saving = false, polling = false, epoch = 0;
   function values() {
     const result = {};
@@ -76,6 +76,15 @@
       try { accept(await preview.invoke('get_state'), true); }
       catch (error) { $('result').textContent = preview.errorText(error); }
     }
+  });
+  $('check-updates').addEventListener('click', async () => {
+    const button = $('check-updates'); button.disabled = true;
+    try {
+      await preview.invoke('check_for_updates');
+      const strings = preview.data.translations[preview.currentLanguage()] || preview.data.translations.en;
+      $('result').textContent = strings.updateStarted || 'Update check started.';
+    } catch (error) { $('result').textContent = preview.errorText(error); }
+    finally { button.disabled = false; }
   });
   $('close').addEventListener('click', () => preview.invoke('close_settings').catch(e => $('result').textContent = preview.errorText(e)));
   setInterval(refresh, 1500);

@@ -11,6 +11,7 @@ pub struct Patch {
     pub show_screenshot: Option<bool>,
     pub close_to_tray: Option<bool>,
     pub start_at_login: Option<bool>,
+    pub auto_updates: Option<bool>,
 }
 impl Patch {
     pub fn apply(&self, expected: &Self, current: &Settings) -> Result<Settings, String> {
@@ -26,7 +27,7 @@ impl Patch {
             };
         }
         field!(language); field!(zoom_factor); field!(show_screenshot);
-        field!(close_to_tray); field!(start_at_login);
+        field!(close_to_tray); field!(start_at_login); field!(auto_updates);
         next.validate()?;
         Ok(next)
     }

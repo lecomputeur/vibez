@@ -46,7 +46,7 @@ $manifest = @"
  IgnorableNamespaces="uap rescap">
  <Identity Name="LeComputeur.VibeZDesktop" Publisher="CN=613EFBB1-83C3-495D-9C3B-D4EE98C72B95" Version="$msixVersion" ProcessorArchitecture="x64" />
  <Properties>
-  <DisplayName>VibeZ 3</DisplayName>
+  <DisplayName>VibeZ Desktop</DisplayName>
   <PublisherDisplayName>Le Computeur</PublisherDisplayName>
   <Description>VibeZ 3 desktop client for Mistral Vibe.</Description>
   <Logo>Assets\StoreLogo.png</Logo>
@@ -55,10 +55,10 @@ $manifest = @"
  <Resources><Resource Language="en-us" /><Resource Language="nl-nl" /></Resources>
  <Applications>
   <Application Id="VibeZDesktop" Executable="vibez3.exe" EntryPoint="Windows.FullTrustApplication">
-   <uap:VisualElements DisplayName="VibeZ 3"
+   <uap:VisualElements DisplayName="VibeZ Desktop"
     Description="VibeZ 3 desktop client for Mistral Vibe."
     BackgroundColor="transparent" Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets\Square44x44Logo.png">
-    <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" Square310x310Logo="Assets\Square310x310Logo.png" ShortName="VibeZ 3" />
+    <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" Square310x310Logo="Assets\Square310x310Logo.png" ShortName="VibeZ Desktop" />
    </uap:VisualElements>
   </Application>
  </Applications>
@@ -83,4 +83,11 @@ if ($LASTEXITCODE -ne 0) { throw "MSIX verification failed: $LASTEXITCODE" }
 if ($packed.Package.Identity.Name -ne 'LeComputeur.VibeZDesktop') { throw 'Preview identity mismatch' }
 # Package creation is not Store submission.
 if ($packed.Package.Identity.Version -ne $msixVersion) { throw 'Version mismatch' }
+if ([string]$packed.Package.Properties.DisplayName -ne 'VibeZ Desktop') { throw 'Store display-name mismatch' }
+# AppxManifest uses a UAP namespace. Query by local-name so PowerShell StrictMode
+# never depends on exposing a prefixed XML element as an object property.
+$visual = $packed.SelectSingleNode("//*[local-name()='VisualElements']")
+if ($null -eq $visual -or [string]$visual.GetAttribute('DisplayName') -ne 'VibeZ Desktop') {
+  throw 'Visual display-name mismatch'
+}
 Write-Output $out

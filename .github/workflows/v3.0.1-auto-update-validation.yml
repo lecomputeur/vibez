@@ -1,0 +1,70 @@
+name: VibeZ 3.0.1 automatic update validation
+
+on:
+  push:
+    branches: ['feature/v3.0.1-auto-updates']
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Linux compile and update tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+          rustup toolchain install '1.99.0' --profile minimal
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+          key: vibez-301-update-linux
+      - name: Frontend and Rust tests
+        working-directory: desktop
+        run: |
+          npm ci --ignore-scripts
+          npm test
+          cargo test --release --locked --manifest-path src-tauri/Cargo.toml
+
+  windows:
+    name: Windows 3.0.1 plus corrected Store MSIX
+    runs-on: windows-2025
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: rustup toolchain install '1.99.0' --profile minimal
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+          key: vibez-301-update-windows
+      - name: Test and build VibeZ 3.0.1
+        working-directory: desktop
+        run: |
+          npm ci --ignore-scripts
+          npm test
+          cargo test --release --locked --manifest-path src-tauri/Cargo.toml
+          npm run build -- --bundles nsis,msi -- --locked
+      - name: Native WebView2 smoke tests
+        run: python tools/release-v3/native-smoke.py desktop/src-tauri/target/release/vibez3.exe desktop/artifacts/native.log
+      - name: Build and unpack-verify Store package
+        shell: pwsh
+        run: ./desktop/scripts/build-store.ps1 -OutputDirectory "$PWD/store-output"
+      - uses: actions/upload-artifact@v5
+        with:
+          name: vibez-3.0.1-windows-store
+          path: store-output/*.msix
+          if-no-files-found: error

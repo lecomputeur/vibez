@@ -1,22 +1,26 @@
 #!/usr/bin/env python3
-"""Check the exact v3.0.0 release draft without executing its installers."""
+"""Verify the exact VibeZ 3.0.1 release asset set without executing installers."""
 import hashlib
+import os
 from pathlib import Path
 import re
 import sys
 
-SOURCE = 'b30a4b58e71d3482fa79433779ff24410525ad01'
+VERSION = '3.0.1'
+# Deterministic default for unit tests. Real publication supplies VIBEZ_RELEASE_SOURCE.
+SOURCE = '1111111111111111111111111111111111111111'
 SUFFIXES = (
     [f'Linux-x64.{ext}' for ext in ('AppImage', 'deb', 'rpm', 'pkg.tar.zst', 'flatpak')]
     + ['Windows-x64-Setup.exe', 'Windows-x64.msi', 'Windows-x64-Store.msix']
     + [f'macOS-{arch}.{ext}' for arch in ('x64', 'arm64') for ext in ('dmg', 'zip')]
 )
-REQUIRED = {f'VibeZ-3.0.0-{suffix}' for suffix in SUFFIXES}
+REQUIRED = {f'VibeZ-{VERSION}-{suffix}' for suffix in SUFFIXES}
 
-
-def verify(directory: Path) -> None:
+def verify(directory: Path, expected_source: str = SOURCE) -> None:
+    if not re.fullmatch(r'[0-9a-f]{40}', expected_source):
+        raise ValueError('Invalid expected source commit')
     expected = REQUIRED | {'source-commit.txt'}
-    if (directory / 'source-commit.txt').read_text().strip() != SOURCE:
+    if (directory / 'source-commit.txt').read_text().strip() != expected_source:
         raise ValueError('Release source does not match the tested application')
     records = {}
     for line in (directory / 'SHA256SUMS').read_text().splitlines():
@@ -44,11 +48,11 @@ def verify(directory: Path) -> None:
         print(f'SHA256_OK: {name}')
     print('PUBLICATION_ASSETS_OK: all twelve installers/archives and source commit verified')
 
-
 if __name__ == '__main__':
     if len(sys.argv) != 2:
         raise SystemExit('Usage: verify-published-assets.py DIRECTORY')
+    expected_source = os.environ.get('VIBEZ_RELEASE_SOURCE', SOURCE)
     try:
-        verify(Path(sys.argv[1]))
+        verify(Path(sys.argv[1]), expected_source)
     except (OSError, ValueError) as error:
         raise SystemExit(str(error)) from error

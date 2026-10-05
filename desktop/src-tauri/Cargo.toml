@@ -1,6 +1,6 @@
 [package]
 name = "vibez3"
-version = "3.0.0"
+version = "3.0.1"
 description = "VibeZ 3 desktop client for Mistral Vibe"
 edition = "2021"
 license = "MIT"
