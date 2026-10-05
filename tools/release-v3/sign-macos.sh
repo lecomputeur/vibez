@@ -55,7 +55,7 @@ codesign --force --options runtime --timestamp --keychain "$keychain" --sign "$i
 codesign --force --options runtime --timestamp --entitlements desktop/src-tauri/macos/Entitlements.plist --keychain "$keychain" --sign "$identity" "$app"
 codesign --verify --deep --strict --verbose=2 "$app"
 codesign -dv --verbose=4 "$app" 2>&1 | grep "TeamIdentifier=$APPLE_TEAM_ID"
-zip="$PWD/release-assets/VibeZ-3.0.0-macOS-$arch.zip"
+zip="$PWD/release-assets/VibeZ-3.0.1-macOS-$arch.zip"
 ditto -c -k --sequesterRsrc --keepParent "$app" "$zip"
 printf '%s\n' 'SIGNING_STAGE: notarize application'
 xcrun notarytool submit "$zip" --key "$RUNNER_TEMP/v3-notary.p8" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER" --wait --timeout 40m --output-format json > "release-assets/notary-app-$arch.json"
@@ -64,7 +64,7 @@ xcrun stapler staple "$app";xcrun stapler validate "$app"
 spctl --assess --type execute --verbose=4 "$app"
 rm "$zip";ditto -c -k --sequesterRsrc --keepParent "$app" "$zip"
 stage="$RUNNER_TEMP/v3-dmg";mkdir -p "$stage";ditto "$app" "$stage/VibeZ 3.app";ln -s /Applications "$stage/Applications"
-dmg="$PWD/release-assets/VibeZ-3.0.0-macOS-$arch.dmg"
+dmg="$PWD/release-assets/VibeZ-3.0.1-macOS-$arch.dmg"
 hdiutil create -volname 'VibeZ 3' -srcfolder "$stage" -ov -format UDZO "$dmg"
 codesign --force --timestamp --keychain "$keychain" --sign "$identity" "$dmg"
 printf '%s\n' 'SIGNING_STAGE: notarize disk image'
