@@ -1,8 +1,8 @@
 # VibeZ 3.0.1 — Same Vibe. Rebuilt in Rust. Now update-aware.
 
-**Goodbye Electron. Hello Rust + Tauri — with the language engine and update flow rebuilt for the new generation.**
+**Goodbye Electron. Hello Rust + Tauri. VibeZ 3 was rewritten from the ground up, including a redesigned language system that directly addresses the earlier startup and language-switching issues.**
 
-VibeZ 3.0.1 is the first refinement release of the Rust/Tauri generation. It keeps the native foundation introduced in VibeZ 3, preserves the corrected language behavior, and restores a capability users of VibeZ 2 expected: **automatic update checking**.
+VibeZ 3.0.1 is the first refinement release of the completely rebuilt Rust/Tauri generation. VibeZ 3 is not a reskinned Electron build: the desktop application layer was rebuilt around Rust, Tauri and the operating system's native webview. The language flow was also redesigned as part of that rewrite, specifically to resolve the earlier system-language, startup and switching problems. Version 3.0.1 keeps those fixes and restores a capability users of VibeZ 2 expected: **automatic update checking**.
 
 ## What changed in 3.0.1
 
@@ -28,9 +28,9 @@ That architecture is shared across all supported VibeZ 3 packages:
 
 Every release asset is version **3.0.1**; the Store package version is **3.0.1.0**. The release workflow requires all twelve application packages before the release can be promoted.
 
-## Language handling rebuilt around the user's choice
+## Language handling rebuilt to solve the earlier problems
 
-System means the operating-system UI language. Explicit choices are stored. Language changes are serialized so an older delayed operation cannot overwrite a newer choice. Authentication navigation is protected from language-triggered redirects, and temporary startup failures are retried without leaving stale warnings behind.
+The language system was redesigned rather than carried over from Electron. System now resolves the operating-system UI language; explicit choices are stored and restored; startup prepares the selected website locale before normal browsing; and live changes are serialized so an older delayed operation cannot overwrite a newer choice. Authentication navigation is protected from language-triggered redirects, and temporary startup failures are retried without leaving stale warnings behind.
 
 VibeZ provides **34 interface-language bundles**. Mistral controls which languages its own website supports; unsupported website languages fall back safely instead of writing invalid locale values.
 

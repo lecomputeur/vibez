@@ -6,7 +6,7 @@
 <h2>Same Vibe. Rebuilt in Rust.</h2>
 
 <p><strong>Goodbye, Electron. Hello, Rust + Tauri.</strong></p>
-<p>A new desktop foundation. A rebuilt language engine.<br>Windows, macOS and Linux — one version, twelve release files.</p>
+<p>Rewritten from the ground up for VibeZ 3. A rebuilt language engine that directly addresses the earlier language-selection and startup issues.<br>Windows, macOS and Linux — one version, twelve release files.</p>
 
 <p>
 <a href="https://github.com/lecomputeur/vibez/releases/tag/v3.0.1"><strong>Explore VibeZ 3.0.1</strong></a> ·
@@ -22,7 +22,7 @@
 
 ## Not a new coat of paint. A new desktop foundation.
 
-**VibeZ 3 is the project's move from an Electron desktop shell to a Rust-powered Tauri application.** The familiar VibeZ controls remain; the technology underneath has changed.
+**VibeZ 3 was rewritten from the ground up around Rust + Tauri.** This is not an incremental Electron port: the VibeZ desktop application architecture, native window layer, settings flow, navigation integration and platform packaging were rebuilt for the new generation. The familiar VibeZ controls remain, but the application underneath is new.
 
 Instead of shipping its own Electron runtime, VibeZ 3 uses the operating system's webview: **WebKitGTK on Linux, Microsoft WebView2 on Windows and Apple's WKWebView on macOS**. Rust handles the native application layer; the bundled interface still uses web technologies. This is not a claim that the Mistral website has been rewritten in Rust.
 
@@ -30,9 +30,9 @@ Back and Forward, reload, language selection, zoom, screenshot capture, optional
 
 **A substantial architectural change — without inventing benchmark numbers.** Package size, startup time and memory use depend on the platform and workload; no universal speed or memory reduction is claimed here.
 
-## A language engine rebuilt around your choice
+## The language problem was rebuilt, not patched around
 
-**System language should mean system language — not an unexpected English default.** The language module was reworked from startup preparation to saved preferences and browser handoff.
+**System language should mean system language — not an unexpected English default.** VibeZ 3 specifically rebuilds the language flow that caused the earlier startup and switching problems. System-language detection, saved preferences, startup preparation, live switching and the handoff to Mistral's supported website locale were redesigned together instead of layering another workaround onto the old Electron behavior.
 
 | What you choose | What VibeZ 3 does |
 |---|---|
