@@ -83,4 +83,10 @@ if ($LASTEXITCODE -ne 0) { throw "MSIX verification failed: $LASTEXITCODE" }
 if ($packed.Package.Identity.Name -ne 'LeComputeur.VibeZDesktop') { throw 'Preview identity mismatch' }
 # Package creation is not Store submission.
 if ($packed.Package.Identity.Version -ne $msixVersion) { throw 'Version mismatch' }
+if ([string]$packed.Package.Properties.DisplayName -ne 'VibeZ Desktop') { throw 'Store display-name mismatch' }
+if ([string]$packed.Package.Applications.Application.'uap:VisualElements'.DisplayName -ne 'VibeZ Desktop') {
+  # Namespace-aware fallback: the attribute still exists even when PowerShell does not expose the prefix literally.
+  $visual = $packed.SelectSingleNode("//*[local-name()='VisualElements']")
+  if ([string]$visual.GetAttribute('DisplayName') -ne 'VibeZ Desktop') { throw 'Visual display-name mismatch' }
+}
 Write-Output $out
