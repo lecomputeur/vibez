@@ -3,7 +3,7 @@
 from pathlib import Path
 import json, shutil, sys, hashlib, subprocess
 ROOT=Path(__file__).resolve().parents[2]; DESK=ROOT/'desktop'; OUT=ROOT/'release-assets';OUT.mkdir(exist_ok=True)
-v=json.loads((DESK/'package.json').read_text())['version']; assert v=='3.0.0'
+v=json.loads((DESK/'package.json').read_text())['version']; assert v=='3.0.1'
 platform=sys.argv[1]
 patterns={'linux': [('deb','deb'),('rpm','rpm'),('appimage','AppImage')], 'windows':[('nsis','exe'),('msi','msi')]}
 for folder,ext in patterns.get(platform,[]):
