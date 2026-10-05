@@ -10,7 +10,7 @@ defaults:
     shell: bash
 concurrency:
   group: vibez-v3-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   source:
     name: Track v3 source and freeze dependencies
