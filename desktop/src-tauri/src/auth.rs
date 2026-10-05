@@ -116,7 +116,7 @@ fn create_auth_window(app: &AppHandle, url: Url, features: NewWindowFeatures, tr
     }
     let data = match app.path().app_data_dir() {
         Ok(path) => path.join("webview"),
-        Err(_) => { crate::message(app, "Could not open the preview's sign-in profile."); return NewWindowResponse::Deny; }
+        Err(_) => { crate::message(app, "Could not open the VibeZ sign-in profile."); return NewWindowResponse::Deny; }
     };
     let label = format!("{PREFIX}{}", NEXT_ID.fetch_add(1, Ordering::Relaxed));
     let navigation_app = app.clone(); let nested_app = app.clone();
