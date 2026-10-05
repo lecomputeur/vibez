@@ -32,7 +32,7 @@ window.preview = (() => {
     return strings;
   }
   function invoke(command, args = {}) {
-    if (!window.__TAURI__?.core?.invoke) return Promise.reject(new Error(extra('bridgeError')));
+    if (!window.__TAURI__?.core?.invoke) return Promise.reject(new Error('VibeZ connection is unavailable'));
     return window.__TAURI__.core.invoke(command, args);
   }
   function errorText(error) {
