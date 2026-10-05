@@ -2,7 +2,7 @@
 use std::{sync::atomic::{AtomicBool, Ordering}, time::Duration};
 use serde_json::Value;
 use semver::Version;
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use tauri_plugin_opener::OpenerExt;
 
 const API: &str = "https://api.github.com/repos/lecomputeur/vibez/releases?per_page=100";
