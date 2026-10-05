@@ -84,9 +84,10 @@ if ($packed.Package.Identity.Name -ne 'LeComputeur.VibeZDesktop') { throw 'Previ
 # Package creation is not Store submission.
 if ($packed.Package.Identity.Version -ne $msixVersion) { throw 'Version mismatch' }
 if ([string]$packed.Package.Properties.DisplayName -ne 'VibeZ Desktop') { throw 'Store display-name mismatch' }
-if ([string]$packed.Package.Applications.Application.'uap:VisualElements'.DisplayName -ne 'VibeZ Desktop') {
-  # Namespace-aware fallback: the attribute still exists even when PowerShell does not expose the prefix literally.
-  $visual = $packed.SelectSingleNode("//*[local-name()='VisualElements']")
-  if ([string]$visual.GetAttribute('DisplayName') -ne 'VibeZ Desktop') { throw 'Visual display-name mismatch' }
+# AppxManifest uses a UAP namespace. Query by local-name so PowerShell StrictMode
+# never depends on exposing a prefixed XML element as an object property.
+$visual = $packed.SelectSingleNode("//*[local-name()='VisualElements']")
+if ($null -eq $visual -or [string]$visual.GetAttribute('DisplayName') -ne 'VibeZ Desktop') {
+  throw 'Visual display-name mismatch'
 }
 Write-Output $out
