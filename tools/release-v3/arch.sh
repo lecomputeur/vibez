@@ -11,7 +11,7 @@ docker run --rm -v "$PWD/arch-stage:/work" archlinux:base-devel bash -eu -c '
  mkdir payload; bsdtar -xf data.tar.* -C payload
  cat > PKGBUILD <<"PKG"
 pkgname=vibez3
-pkgver=3.0.1
+pkgver=3.0.2
 pkgrel=1
 pkgdesc="VibeZ 3 — Rust/Tauri client for Mistral Vibe"
 arch=(x86_64)
@@ -25,7 +25,7 @@ PKG
  su builder -c "cd /work && makepkg --nodeps --noconfirm"
  pacman -Qip /work/*.pkg.tar.zst
  pacman -U --noconfirm /work/*.pkg.tar.zst
- vibez3 --version | grep 3.0.1
+ vibez3 --version | grep 3.0.2
  if ldd /usr/bin/vibez3 | grep "not found"; then exit 1; fi
 '
-cp arch-stage/*.pkg.tar.zst release-assets/VibeZ-3.0.1-Linux-x64.pkg.tar.zst
+cp arch-stage/*.pkg.tar.zst release-assets/VibeZ-3.0.2-Linux-x64.pkg.tar.zst
