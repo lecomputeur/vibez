@@ -1,7 +1,7 @@
 name: VibeZ 3 — all desktop formats
 on:
   push:
-    branches: ['release/v3.0.0']
+    branches: ['release/v3.0.0', 'fix/store-v3-reserved-name']
   workflow_dispatch:
 permissions:
   contents: read
