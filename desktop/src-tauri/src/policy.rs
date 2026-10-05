@@ -87,12 +87,13 @@ pub struct Settings {
     pub show_screenshot: bool,
     pub close_to_tray: bool,
     pub start_at_login: bool,
+    pub auto_updates: bool,
 }
 
 impl Default for Settings {
     fn default() -> Self {
         Self { language: "system".into(), zoom_factor: 1.0, show_screenshot: true,
-            close_to_tray: false, start_at_login: false }
+            close_to_tray: false, start_at_login: false, auto_updates: true }
     }
 }
 
