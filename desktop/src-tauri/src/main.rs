@@ -245,11 +245,12 @@ async fn get_diagnostics(webview: Webview, app: AppHandle) -> Result<String, Str
          "Updates: automatic startup checks; installation remains user-confirmed")
     };
     let auth_mode = auth::active(&app);
+    let auto_updates = app.state::<PreviewState>().settings.lock().map(|s| s.auto_updates).unwrap_or(false);
     let site_language = site_language::inspect(&app).await;
-    Ok(format!("{}\nApplication ID: {}\nEngine: {}\nOS: {} {}\nSystem/UI locale: {}\nSession: {}\nDesktop: {}\nConfig: {}\nData: {}\n{}\nAutomatic update checks: enabled by default; automatic installation: disabled\nMicrophone/camera: not enabled in this version\nGlobal shortcut: not registered (does not conflict with Electron)\nSign-in popups: related webview; provider restrictions still apply\nAuthentication routing mode: {}\nMistral site language: {}\nAutomatic JS link interception: disabled\nRecent navigation (origins only, no credentials or tokens):\n{}\nLink routing (current process, origins only):\n{}",
+    Ok(format!("{}\nApplication ID: {}\nEngine: {}\nOS: {} {}\nSystem/UI locale: {}\nSession: {}\nDesktop: {}\nConfig: {}\nData: {}\n{}\nAutomatic update checks: {}; automatic installation: disabled\nMicrophone/camera: not enabled in this version\nGlobal shortcut: not registered (does not conflict with Electron)\nSign-in popups: related webview; provider restrictions still apply\nAuthentication routing mode: {}\nMistral site language: {}\nAutomatic JS link interception: disabled\nRecent navigation (origins only, no credentials or tokens):\n{}\nLink routing (current process, origins only):\n{}",
         title(), APP_ID, engine, os_name, std::env::consts::ARCH, os_locale(), session, desktop,
         app.path().app_config_dir().map_err(err)?.display(), app.path().app_data_dir().map_err(err)?.display(),
-        update_text, if auth_mode { "active" } else { "inactive" }, site_language, auth::diagnostics(), link_trace::diagnostics()))
+        update_text, if auto_updates { "enabled" } else { "disabled" }, if auth_mode { "active" } else { "inactive" }, site_language, auth::diagnostics(), link_trace::diagnostics()))
 }
 fn create_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> { desktop_ui::create_tray(app) }
 fn main() {
