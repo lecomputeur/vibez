@@ -18,7 +18,7 @@
 
 </div>
 
-> **Release status:** the complete 3.0.1 build has passed its all-format gate. Public availability is determined by the [release page](https://github.com/lecomputeur/vibez/releases/tag/v3.0.1); the Microsoft Store listing is updated separately. [View the verified build](https://github.com/lecomputeur/vibez/actions/runs/37219669459).
+> **Release status:** **VibeZ 3.0.1 is the current public GitHub Latest release.** The complete build passed the all-format gate; the Microsoft Store listing is updated separately. [View the verified build](https://github.com/lecomputeur/vibez/actions/runs/37346347043).
 
 ## Not a new coat of paint. A new desktop foundation.
 
