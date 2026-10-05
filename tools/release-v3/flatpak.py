@@ -55,7 +55,7 @@ def main():
         f'[Desktop Entry]\nName=VibeZ 3\nType=Application\nExec=vibez3\nIcon={APP}\n'
         f'Terminal=false\nCategories=Development;\nStartupWMClass={APP}\n')
     (stage / 'metainfo.xml').write_text(f'''<?xml version="1.0" encoding="UTF-8"?>
-<component type="desktop-application"><id>{APP}</id><metadata_license>CC0-1.0</metadata_license><project_license>MIT</project_license><name>VibeZ 3</name><summary>Desktop client for Mistral Vibe</summary><description><p>A dedicated Rust/Tauri desktop window for Mistral Vibe, with language selection and screenshot tools.</p></description><launchable type="desktop-id">{APP}.desktop</launchable><url type="homepage">https://github.com/lecomputeur/vibez</url><releases><release version="3.0.0" date="2026-10-04"/></releases><content_rating type="oars-1.1"/></component>''')
+<component type="desktop-application"><id>{APP}</id><metadata_license>CC0-1.0</metadata_license><project_license>MIT</project_license><name>VibeZ 3</name><summary>Desktop client for Mistral Vibe</summary><description><p>A dedicated Rust/Tauri desktop window for Mistral Vibe, with language selection and screenshot tools.</p></description><launchable type="desktop-id">{APP}.desktop</launchable><url type="homepage">https://github.com/lecomputeur/vibez</url><releases><release version="3.0.1" date="2026-10-05"/></releases><content_rating type="oars-1.1"/></component>''')
     manifest = {
         'app-id': APP, 'runtime': 'org.gnome.Platform', 'runtime-version': '50',
         'sdk': 'org.gnome.Sdk', 'command': 'vibez3',
@@ -80,10 +80,10 @@ def main():
                     '--repo=repo', 'build', f'{APP}.json'], cwd=stage, check=True)
     version = subprocess.check_output(['flatpak', 'run', APP, '--version'], text=True)
     print(version, end='')
-    if '3.0.0' not in version:
-        raise SystemExit('Installed Flatpak does not report version 3.0.0')
+    if '3.0.1' not in version:
+        raise SystemExit('Installed Flatpak does not report version 3.0.1')
     subprocess.run(['flatpak', 'build-bundle', 'repo',
-                    str(out / 'VibeZ-3.0.0-Linux-x64.flatpak'), APP,
+                    str(out / 'VibeZ-3.0.1-Linux-x64.flatpak'), APP,
                     '--runtime-repo=https://flathub.org/repo/flathub.flatpakrepo'],
                    cwd=stage, check=True)
 
