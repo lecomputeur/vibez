@@ -58,13 +58,19 @@
     for (const key of Object.keys(fields)) {
       if (edited[key] !== baseline[key]) { patch[key] = edited[key]; expected[key] = baseline[key]; }
     }
-    if (!Object.keys(patch).length) { $('result').textContent = preview.extra('saved'); return; }
+    if (!Object.keys(patch).length) {
+      const strings = preview.data.translations[preview.currentLanguage()] || preview.data.translations.en;
+      $('result').textContent = strings.saved || 'Saved.';
+      return;
+    }
     saving = true; ++epoch; $('save').disabled = true;
     for (const [id] of Object.values(fields)) $(id).disabled = true;
     let conflict = false;
     try {
       const saved = await preview.invoke('save_settings', { patch, expected });
-      accept({ ...state, ...saved }, true); $('result').textContent = preview.extra('saved');
+      accept({ ...state, ...saved }, true);
+      const strings = preview.data.translations[preview.currentLanguage()] || preview.data.translations.en;
+      $('result').textContent = strings.saved || 'Saved.';
     } catch (error) {
       conflict = String(error) === 'settings_conflict'; $('result').textContent = preview.errorText(error);
     } finally {
