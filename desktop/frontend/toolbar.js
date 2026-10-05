@@ -52,7 +52,9 @@
       const patch = { language: $('quick-language').value };
       const expected = { language: state.settings.language };
       const saved = await preview.invoke('save_settings', { patch, expected });
-      state = { ...state, ...saved }; preview.localize(state); showLanguageState(); status(preview.extra('saved'));
+      state = { ...state, ...saved }; preview.localize(state); showLanguageState();
+      const strings = preview.data.translations[preview.currentLanguage()] || preview.data.translations.en;
+      status(strings.saved || 'Saved.');
       $('language-panel').hidden = true; $('language-button').setAttribute('aria-expanded', 'false');
     } catch (error) { status(preview.errorText(error)); }
     finally { languageBusy = false; $('quick-language').disabled = false; }
