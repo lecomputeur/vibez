@@ -1,7 +1,7 @@
 name: VibeZ 3 — all desktop formats
 on:
   push:
-    branches: ['release/v3.0.0']
+    branches: ['release/v3.0.1']
   workflow_dispatch:
 permissions:
   contents: read
@@ -47,8 +47,8 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add desktop
           if ! git diff --cached --quiet; then
-            git commit -m 'VibeZ 3.0.0: freeze reviewed native integration corrections'
-            git push origin HEAD:release/v3.0.0
+            git commit -m 'VibeZ 3.0.1: freeze reviewed automatic-update release'
+            git push origin HEAD:release/v3.0.1
           fi
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "rust=$(sed -n 's/^channel = "\(.*\)"/\1/p' desktop/rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
@@ -302,7 +302,7 @@ jobs:
       - name: Collect all twelve required deliverables
         run: |
           mkdir -p release-assets
-          find downloads -type f -name 'VibeZ-3.0.0-*' -exec cp '{}' release-assets/ \;
+          find downloads -type f -name 'VibeZ-3.0.1-*' -exec cp '{}' release-assets/ \;
           printf '%s\n' '${{ needs.source.outputs.sha }}' > release-assets/source-commit.txt
           python3 tools/release-v3/collect.py all
       - name: Create complete draft, never publish a partial platform set
@@ -310,12 +310,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SOURCE_SHA: ${{ needs.source.outputs.sha }}
         run: |
-          current="$(gh api repos/$GITHUB_REPOSITORY/git/ref/heads/release/v3.0.0 --jq .object.sha)"
+          current="$(gh api repos/$GITHUB_REPOSITORY/git/ref/heads/release/v3.0.1 --jq .object.sha)"
           test "$current" = "$SOURCE_SHA"
-          if gh release view v3.0.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            test "$(gh release view v3.0.0 --repo "$GITHUB_REPOSITORY" --json isDraft -q .isDraft)" = true
-            gh release upload v3.0.0 release-assets/* --clobber --repo "$GITHUB_REPOSITORY"
+          if gh release view v3.0.1 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            test "$(gh release view v3.0.1 --repo "$GITHUB_REPOSITORY" --json isDraft -q .isDraft)" = true
+            gh release upload v3.0.1 release-assets/* --clobber --repo "$GITHUB_REPOSITORY"
           else
-            gh release create v3.0.0 release-assets/* --draft --target "$SOURCE_SHA" --title 'VibeZ 3.0.0 — A new native desktop generation' --notes-file V3-RELEASE.md --repo "$GITHUB_REPOSITORY"
+            gh release create v3.0.1 release-assets/* --draft --target "$SOURCE_SHA" --title 'VibeZ 3.0.1 — Rust-powered, language-smart, update-aware' --notes-file V3-RELEASE.md --repo "$GITHUB_REPOSITORY"
           fi
           echo 'All package gates passed. Complete draft prepared; promotion requires final release review.' >> "$GITHUB_STEP_SUMMARY"
