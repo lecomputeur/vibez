@@ -1,4 +1,4 @@
-//! Native menus and preview-specific status text share the saved language selection.
+//! Native menus and localized status text share the saved language selection.
 use std::sync::OnceLock;
 use serde_json::Value;
 use tauri::{AppHandle, Manager, menu::{Menu, MenuItem}, tray::TrayIconBuilder};
@@ -43,6 +43,7 @@ pub fn status(app: &AppHandle, raw: &str) -> String {
 }
 fn status_inner(app: &AppHandle, raw: &str) -> String {
     let lang = language(app);
+    if raw == "settings_saved" { return text_for(&lang, "saved"); }
     if let Some(key) = match raw {
         "Rust / WebKitGTK · isolated preview" | "Rust / WebView2 · isolated preview" | "Rust / Tauri · isolated preview" => Some("isolatedStatus"),
         "Choose a screenshot in the desktop dialog…" => Some("screenshotChoose"),
@@ -60,7 +61,6 @@ fn status_inner(app: &AppHandle, raw: &str) -> String {
         "Could not open the preview's sign-in profile." => Some("signInProfileFailed"),
         "An additional nested sign-in window was blocked." => Some("nestedPopupBlocked"),
         "Could not create the sign-in window. Your Vibe page has not been replaced." => Some("signInWindowFailed"),
-        "settings_saved" => Some("saved"),
         "settings_recovered" => Some("settingsRecovered"),
         "site_language_failed" => Some("siteLanguageFailed"),
         _ => None,
