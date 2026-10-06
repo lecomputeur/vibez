@@ -1,0 +1,40 @@
+name: VibeZ 3.0.2 freeze screenshot dependencies
+
+on:
+  push:
+    branches: ['feature/v3.0.2-screenshot-modes']
+    paths:
+      - 'desktop/package.json'
+      - 'desktop/src-tauri/Cargo.toml'
+      - '.github/workflows/v3.0.2-locks.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  locks:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feature/v3.0.2-screenshot-modes
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: rustup toolchain install '1.99.0' --profile minimal
+      - name: Resolve exact JavaScript and Rust locks
+        working-directory: desktop
+        run: |
+          npm install --package-lock-only --ignore-scripts
+          cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
+      - name: Commit resolved locks
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add desktop/package-lock.json desktop/src-tauri/Cargo.lock
+          if ! git diff --cached --quiet; then
+            git commit -m 'Freeze VibeZ 3.0.2 screenshot dependencies'
+            git push origin HEAD:feature/v3.0.2-screenshot-modes
+          fi
