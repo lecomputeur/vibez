@@ -1,4 +1,5 @@
 name: VibeZ 3.0.2 screenshot modes validation
+# Validates the frozen 3.0.2 screenshot source on all native webview engines.
 
 on:
   push:
