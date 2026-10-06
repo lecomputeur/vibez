@@ -4,6 +4,7 @@
 use crate::{err, PreviewState};
 use tauri::{AppHandle, Manager, Webview};
 use tauri_plugin_clipboard_manager::ClipboardExt;
+use tauri_plugin_opener::OpenerExt;
 use std::sync::atomic::Ordering;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -55,8 +56,18 @@ pub async fn take(app: &AppHandle, mode: Mode) -> Result<(), String> {
     state.capture_busy.store(false, Ordering::SeqCst);
     match &result {
         Ok(()) => {
-            crate::message(app, "Screenshot copied — paste it into Vibe with Ctrl+V.");
-            crate::show_main(app);
+            #[cfg(target_os = "windows")]
+            if mode == Mode::Selection {
+                crate::message(app, "Windows screen capture opened — select an area, then paste it into Vibe with Ctrl+V.");
+            } else {
+                crate::message(app, "Screenshot copied — paste it into Vibe with Ctrl+V.");
+                crate::show_main(app);
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                crate::message(app, "Screenshot copied — paste it into Vibe with Ctrl+V.");
+                crate::show_main(app);
+            }
         }
         Err(error) => crate::message(app, format!("Screenshot cancelled or unavailable: {error}")),
     }
