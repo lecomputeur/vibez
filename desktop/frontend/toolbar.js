@@ -26,7 +26,9 @@
       if (started !== epoch || languageBusy || (state && incoming.revision < state.revision)) return;
       state = incoming; preview.localize(state); $('version').textContent = state.version;
       $('back').disabled = !state.can_go_back; $('forward').disabled = !state.can_go_forward;
-      $('loading').classList.toggle('active', state.loading); $('screenshot').hidden = !state.settings.show_screenshot;
+      $('loading').classList.toggle('active', state.loading);
+      const shotControl = document.querySelector('.screenshot-control');
+      if (shotControl) shotControl.hidden = !state.settings.show_screenshot;
       showLanguageState(); status(state.status);
     } catch (error) { status(preview.errorText(error)); }
     finally { polling = false; }
@@ -69,12 +71,23 @@
     }
   });
   $('settings').addEventListener('click', () => preview.invoke('show_settings').catch(e => status(preview.errorText(e))));
-  $('screenshot').addEventListener('click', async () => {
-    if (captureBusy) return;
+  // The OS/browser owns this popup, so it can extend beyond the toolbar webview.
+  $('screenshot').addEventListener('change', async () => {
+    const mode = $('screenshot').value;
+    $('screenshot').value = '';
+    if (captureBusy || !['full','visible','selection'].includes(mode)) return;
     captureBusy = true; $('screenshot').disabled = true;
-    try { await preview.invoke('capture_screenshot'); }
-    catch (error) { status(preview.errorText(error)); }
-    finally { captureBusy = false; $('screenshot').disabled = false; await refresh(); }
+    const control = document.querySelector('.screenshot-control');
+    control?.classList.toggle('busy',true);
+    let failure = '';
+    try { await preview.invoke('capture_screenshot', { mode }); }
+    catch (error) { failure = preview.errorText(error); }
+    finally {
+      captureBusy = false; $('screenshot').disabled = false;
+      control?.classList.toggle('busy',false);
+      await refresh();
+      if (failure) status(failure);
+    }
   });
   refresh(); setInterval(refresh, 1500);
 })();

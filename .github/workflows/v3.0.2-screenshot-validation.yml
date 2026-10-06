@@ -1,0 +1,140 @@
+name: VibeZ 3.0.2 screenshot modes validation
+on:
+  push:
+    branches: ['feature/v3.0.2-screenshot-modes']
+  workflow_dispatch:
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+concurrency:
+  group: vibez-302-screenshot-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  VIBEZ_SCREENSHOT_ARTIFACT_DIR: ${{ github.workspace }}/desktop/artifacts/screenshots
+jobs:
+  linux:
+    name: Linux — screenshot pixels, clipboard and native smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CARGO_BUILD_JOBS: 2
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      WEBKIT_DISABLE_DMABUF_RENDERER: '1'
+      APPIMAGE_EXTRACT_AND_RUN: '1'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev xvfb openbox dbus-x11 imagemagick desktop-file-utils python3-gi gir1.2-gtk-3.0 gstreamer1.0-tools gstreamer1.0-plugins-good gstreamer1.0-plugins-base gstreamer1.0-plugins-bad libgdk-pixbuf2.0-bin xdg-utils
+          rustup toolchain install '1.99.0' --profile minimal
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+          key: vibez-302-screenshot-linux
+          cache-on-failure: true
+      - name: Frontend and Rust tests
+        working-directory: desktop
+        run: |
+          mkdir -p artifacts
+          npm ci --ignore-scripts
+          npm test 2>&1 | tee artifacts/frontend.log
+          cargo test --release --locked --manifest-path src-tauri/Cargo.toml 2>&1 | tee artifacts/rust.log
+          npm run build -- --bundles deb -- --locked 2>&1 | tee artifacts/build.log
+      - name: Real WebKitGTK screenshot and package tests
+        run: bash tools/release-v3/linux-smoke.sh
+      - name: Upload Linux test package
+        uses: actions/upload-artifact@v5
+        with:
+          name: vibez-3.0.2-linux-test
+          path: desktop/src-tauri/target/release/bundle/deb/*.deb
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: screenshot-validation-linux
+          path: desktop/artifacts/
+          if-no-files-found: warn
+  windows:
+    name: Windows — screenshot pixels, clipboard and WebView2
+    runs-on: windows-2025
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: rustup toolchain install '1.99.0' --profile minimal
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+          key: vibez-302-screenshot-windows
+          cache-on-failure: true
+      - name: Test and build
+        working-directory: desktop
+        run: |
+          mkdir -p artifacts
+          npm ci --ignore-scripts
+          npm test 2>&1 | tee artifacts/frontend.log
+          cargo test --release --locked --manifest-path src-tauri/Cargo.toml 2>&1 | tee artifacts/rust.log
+          npm run build -- --bundles nsis,msi -- --locked 2>&1 | tee artifacts/build.log
+      - name: Real WebView2 screenshot tests
+        run: python tools/release-v3/native-smoke.py desktop/src-tauri/target/release/vibez3.exe desktop/artifacts/native.log
+      - name: Build and unpack-verify Store test package
+        shell: pwsh
+        run: ./desktop/scripts/build-store.ps1 -OutputDirectory "$PWD/store-output"
+      - uses: actions/upload-artifact@v5
+        with:
+          name: vibez-3.0.2-windows-store
+          path: store-output/*.msix
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: screenshot-validation-windows
+          path: desktop/artifacts/
+          if-no-files-found: warn
+  macos:
+    name: macOS — screenshot pixels, clipboard and WKWebView
+    runs-on: macos-15
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: rustup toolchain install '1.99.0' --profile minimal
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+          key: vibez-302-screenshot-macos
+          cache-on-failure: true
+      - name: Test and build
+        working-directory: desktop
+        run: |
+          mkdir -p artifacts
+          npm ci --ignore-scripts
+          npm test 2>&1 | tee artifacts/frontend.log
+          cargo test --release --locked --manifest-path src-tauri/Cargo.toml 2>&1 | tee artifacts/rust.log
+          npm run build -- --bundles app --no-sign -- --locked 2>&1 | tee artifacts/build.log
+      - name: Real WKWebView screenshot tests
+        env:
+          RUST_BACKTRACE: '1'
+        run: python3 tools/release-v3/native-smoke.py desktop/src-tauri/target/release/vibez3 desktop/artifacts/native.log
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: screenshot-validation-macos
+          path: desktop/artifacts/
+          if-no-files-found: warn

@@ -17,6 +17,7 @@ mod native_layout;
 mod native_layout;
 mod auth;
 mod desktop_ui;
+mod screenshots;
 #[path = "release_updates.rs"]
 mod preview_updates;
 
@@ -26,7 +27,6 @@ use std::{fs, path::PathBuf, sync::{Mutex, atomic::{AtomicBool, AtomicU64, Order
 use tauri::{AppHandle, Manager, Webview, WebviewUrl, WebviewWindowBuilder, LogicalPosition, LogicalSize};
 use tauri::webview::{WebviewBuilder, NewWindowResponse, PermissionResponse};
 use tauri_plugin_autostart::ManagerExt as AutostartExt;
-use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_opener::OpenerExt;
 #[cfg(target_os = "linux")]
 use webkit2gtk::WebViewExt;
@@ -174,57 +174,14 @@ async fn close_settings(webview: Webview) -> Result<(), String> {
     if webview.label() != "settings" { return Err("Only settings can close itself".into()); }
     webview.window().close().map_err(err)
 }
-#[cfg(target_os = "linux")]
 async fn take_screenshot(app: &AppHandle) -> Result<(), String> {
-    let state = app.state::<PreviewState>();
-    if state.capture_busy.swap(true, Ordering::SeqCst) { return Err(desktop_ui::status(app, "A screenshot is already in progress")); }
-    message(app, "Choose a screenshot in the desktop dialog…");
-    let result: Result<(), String> = async {
-        let response = ashpd::desktop::screenshot::Screenshot::request().interactive(true).modal(true)
-            .send().await.map_err(err)?.response().map_err(err)?;
-        let uri = url::Url::parse(response.uri().as_str()).map_err(err)?;
-        let file = uri.to_file_path().map_err(|_| "The portal did not return a local image".to_string())?;
-        if fs::metadata(&file).map_err(err)?.len() > 64 * 1024 * 1024 { return Err("Screenshot is larger than the 64 MiB preview limit".into()); }
-        let image = tauri::image::Image::from_bytes(&fs::read(file).map_err(err)?).map_err(err)?;
-        app.clipboard().write_image(&image).map_err(err)?; Ok(())
-    }.await;
-    state.capture_busy.store(false, Ordering::SeqCst);
-    match &result {
-        Ok(()) => { message(app, "Screenshot copied — paste it into Vibe with Ctrl+V."); show_main(app); },
-        Err(error) => message(app, format!("Screenshot cancelled or unavailable: {error}")),
-    }
-    result
-}
-#[cfg(target_os = "windows")]
-async fn take_screenshot(app: &AppHandle) -> Result<(), String> {
-    let state = app.state::<PreviewState>();
-    if state.capture_busy.swap(true, Ordering::SeqCst) { return Err(desktop_ui::status(app, "A screenshot is already in progress")); }
-    message(app, "Opening Windows screen capture…");
-    let result = app.opener().open_url("ms-screenclip:", None::<&str>).map_err(err);
-    state.capture_busy.store(false, Ordering::SeqCst);
-    match &result {
-        Ok(()) => message(app, "Windows screen capture opened — select an area, then paste it into Vibe with Ctrl+V."),
-        Err(error) => message(app, format!("Screenshot cancelled or unavailable: {error}")),
-    }
-    result
-}
-#[cfg(target_os = "macos")]
-async fn take_screenshot(app: &AppHandle) -> Result<(), String> {
-    let state = app.state::<PreviewState>();
-    if state.capture_busy.swap(true, Ordering::SeqCst) { return Err(desktop_ui::status(app, "A screenshot is already in progress")); }
-    let result = tauri::async_runtime::spawn_blocking(|| {
-        let status = std::process::Command::new("/usr/sbin/screencapture").args(["-i", "-c"]).status().map_err(err)?;
-        if status.success() { Ok(()) } else { Err("Capture cancelled or permission denied".to_string()) }
-    }).await.map_err(err).and_then(|r| r);
-    state.capture_busy.store(false, Ordering::SeqCst);
-    match &result {
-        Ok(()) => message(app, "Screenshot copied — paste it into Vibe with Ctrl+V."),
-        Err(error) => message(app, format!("Screenshot cancelled or unavailable: {error}")),
-    }
-    result
+    screenshots::capture(app, "selection").await
 }
 #[tauri::command]
-async fn capture_screenshot(webview: Webview, app: AppHandle) -> Result<(), String> { require_local(&webview)?; take_screenshot(&app).await }
+async fn capture_screenshot(webview: Webview, app: AppHandle, mode: String) -> Result<(), String> {
+    require_local(&webview)?;
+    screenshots::capture(&app, &mode).await
+}
 #[tauri::command]
 async fn check_for_updates(webview: Webview, app: AppHandle) -> Result<(), String> {
     require_local(&webview)?;

@@ -1,6 +1,6 @@
 [package]
 name = "vibez3"
-version = "3.0.1"
+version = "3.0.2"
 description = "VibeZ 3 desktop client for Mistral Vibe"
 edition = "2021"
 license = "MIT"
@@ -22,6 +22,7 @@ url = "2"
 tokio = { version = "1", features = ["sync", "time"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 semver = "1"
+base64 = "0.22"
 sys-locale = "0.3"
 
 [target.'cfg(target_os = "windows")'.dependencies.windows]
@@ -31,7 +32,6 @@ features = ["Win32_Globalization", "Win32_System_Com"]
 [target.'cfg(target_os = "linux")'.dependencies]
 webkit2gtk = "2"
 gtk = "0.18"
-ashpd = { version = "=0.13.13", default-features = false, features = ["tokio", "screenshot"] }
 
 [profile.release]
 opt-level = "s"
