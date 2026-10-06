@@ -47,6 +47,12 @@ jobs:
           npm run build -- --bundles deb -- --locked
       - name: Real WebKitGTK screenshot smoke
         run: bash tools/release-v3/linux-smoke.sh
+      - name: Upload Linux test package
+        uses: actions/upload-artifact@v5
+        with:
+          name: vibez-3.0.2-linux-test
+          path: desktop/src-tauri/target/release/bundle/deb/*.deb
+          if-no-files-found: error
 
   windows:
     name: Windows — screenshot modes + WebView2 + Store MSIX
