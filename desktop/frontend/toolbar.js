@@ -71,43 +71,23 @@
     }
   });
   $('settings').addEventListener('click', () => preview.invoke('show_settings').catch(e => status(preview.errorText(e))));
-  const screenshotPanel = $('screenshot-panel');
-  const closeScreenshotPanel = () => {
-    screenshotPanel.hidden = true;
-    $('screenshot').setAttribute('aria-expanded', 'false');
-  };
-  $('screenshot').addEventListener('click', () => {
-    if (captureBusy) return;
-    screenshotPanel.hidden = !screenshotPanel.hidden;
-    $('screenshot').setAttribute('aria-expanded', String(!screenshotPanel.hidden));
-    if (!screenshotPanel.hidden) screenshotPanel.querySelector('button')?.focus();
-  });
-  for (const button of screenshotPanel.querySelectorAll('[data-screenshot-mode]')) {
-    button.addEventListener('click', async () => {
-      if (captureBusy) return;
-      const mode = button.dataset.screenshotMode;
-      closeScreenshotPanel();
-      captureBusy = true;
-      $('screenshot').disabled = true;
-      for (const item of screenshotPanel.querySelectorAll('button')) item.disabled = true;
-      try { await preview.invoke('capture_screenshot', { mode }); }
-      catch (error) { status(preview.errorText(error)); }
-      finally {
-        captureBusy = false;
-        $('screenshot').disabled = false;
-        for (const item of screenshotPanel.querySelectorAll('button')) item.disabled = false;
-        await refresh();
-      }
-    });
-  }
-  document.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && !screenshotPanel.hidden) {
-      closeScreenshotPanel(); $('screenshot').focus();
-    }
-  });
-  document.addEventListener('pointerdown', event => {
+  // The OS/browser owns this popup, so it can extend beyond the toolbar webview.
+  $('screenshot').addEventListener('change', async () => {
+    const mode = $('screenshot').value;
+    $('screenshot').value = '';
+    if (captureBusy || !['full','visible','selection'].includes(mode)) return;
+    captureBusy = true; $('screenshot').disabled = true;
     const control = document.querySelector('.screenshot-control');
-    if (control && !control.contains(event.target)) closeScreenshotPanel();
+    control?.classList.toggle('busy',true);
+    let failure = '';
+    try { await preview.invoke('capture_screenshot', { mode }); }
+    catch (error) { failure = preview.errorText(error); }
+    finally {
+      captureBusy = false; $('screenshot').disabled = false;
+      control?.classList.toggle('busy',false);
+      await refresh();
+      if (failure) status(failure);
+    }
   });
   refresh(); setInterval(refresh, 1500);
 })();

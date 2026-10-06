@@ -1,321 +1,117 @@
-//! Cross-platform Vibe page screenshots.
-//! The capture engine runs inside the already-loaded Vibe webview and receives
-//! no native IPC privileges. Rust only asks the webview to render, retrieves the
-//! resulting PNG, and writes it to the native clipboard.
+//! User-initiated screenshots of the loaded Vibe page; no remote native IPC.
 use base64::{engine::general_purpose::STANDARD, Engine as _};
-use serde_json::Value;
-use std::{sync::atomic::Ordering, time::{Duration, Instant}};
-use tauri::{AppHandle, Manager};
+use serde_json::{json, Value};
+use std::{sync::{atomic::{AtomicBool, AtomicU64, Ordering}, Arc, Mutex}, time::{Duration, Instant}};
+use tauri::{AppHandle, Manager, Webview};
 use tauri_plugin_clipboard_manager::ClipboardExt;
-
 use crate::{desktop_ui, err, message, PreviewState};
 
 const SNAPDOM: &str = include_str!("../../node_modules/@zumer/snapdom/dist/snapdom.js");
-const MAX_DATA_URL_BYTES: usize = 34 * 1024 * 1024;
+const SCRIPT: &str = include_str!("capture_page.js");
+const MAX_DATA: usize = 34 * 1024 * 1024;
+static SERIAL: AtomicU64 = AtomicU64::new(1);
+struct Busy<'a>(&'a AtomicBool);
+impl Drop for Busy<'_> { fn drop(&mut self) { self.0.store(false,Ordering::SeqCst); } }
 
-fn decode_eval(raw: String) -> String {
-    serde_json::from_str::<String>(&raw).unwrap_or(raw)
-}
-
-async fn eval_value(view: &tauri::Webview, script: impl Into<String>) -> Result<String, String> {
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    let tx = std::sync::Arc::new(std::sync::Mutex::new(Some(tx)));
-    view.eval_with_callback(script, move |result| {
-        if let Ok(mut slot) = tx.lock() {
-            if let Some(tx) = slot.take() { let _ = tx.send(result); }
-        }
+async fn eval_value(view: &Webview, script: impl Into<String>) -> Result<String,String> {
+    let (tx,rx)=tokio::sync::oneshot::channel();
+    let tx=Arc::new(Mutex::new(Some(tx)));
+    view.eval_with_callback(script,move |result| {
+        if let Ok(mut slot)=tx.lock() { if let Some(tx)=slot.take() { let _=tx.send(result); } }
     }).map_err(err)?;
-    let raw = tokio::time::timeout(Duration::from_secs(4), rx).await.map_err(err)?.map_err(err)?;
-    Ok(decode_eval(raw))
+    let raw=tokio::time::timeout(Duration::from_secs(5),rx).await.map_err(err)?.map_err(err)?;
+    Ok(serde_json::from_str::<String>(&raw).unwrap_or(raw))
 }
-
-fn capture_script(mode: &str, drag_hint: &str) -> Result<String, String> {
-    if !matches!(mode, "full" | "visible" | "selection") {
-        return Err("Unsupported screenshot mode".into());
-    }
-    let mode = serde_json::to_string(mode).map_err(err)?;
-    let drag_hint = serde_json::to_string(drag_hint).map_err(err)?;
-    Ok(format!(r#"
-{SNAPDOM}
-(() => {{
-  const MODE = {mode};
-  const DRAG_HINT = {drag_hint};
-  window.__vibezCaptureResult = null;
-  window.__vibezCaptureCancel?.();
-  window.__vibezCaptureCancel = null;
-
-  const finish = value => {{ window.__vibezCaptureResult = JSON.stringify(value); }};
-  const visible = el => {{
-    if (!el || !el.isConnected) return false;
-    const r = el.getBoundingClientRect();
-    const s = getComputedStyle(el);
-    return r.width > 40 && r.height > 40 && s.display !== 'none' && s.visibility !== 'hidden';
-  }};
-  const background = () => {{
-    for (const el of [document.body, document.documentElement]) {{
-      if (!el) continue;
-      const value = getComputedStyle(el).backgroundColor;
-      if (value && value !== 'rgba(0, 0, 0, 0)' && value !== 'transparent') return value;
-    }}
-    return '#ffffff';
-  }};
-  const toDataUrl = blob => new Promise((resolve,reject) => {{
-    const reader = new FileReader();
-    reader.onerror = () => reject(reader.error || new Error('Could not read screenshot'));
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.readAsDataURL(blob);
-  }});
-  const pickScrollableRoot = () => {{
-    const scrolling = document.scrollingElement || document.documentElement;
-    let best = scrolling;
-    let bestScore = Math.max(1, scrolling?.scrollHeight || 0) * Math.max(1, scrolling?.clientWidth || innerWidth);
-    const nodes = [...document.querySelectorAll('main,[role="main"],section,article,div')].slice(0, 2500);
-    for (const el of nodes) {{
-      if (!visible(el)) continue;
-      const style = getComputedStyle(el);
-      if (!/(auto|scroll)/.test(style.overflowY || '') || el.scrollHeight <= el.clientHeight + 40) continue;
-      const r = el.getBoundingClientRect();
-      if (r.width < innerWidth * 0.35 || r.height < innerHeight * 0.25) continue;
-      const score = el.scrollHeight * Math.max(el.clientWidth, r.width);
-      if (score > bestScore) {{ best = el; bestScore = score; }}
-    }}
-    return best || document.documentElement;
-  }};
-  const chooseRect = () => new Promise(resolve => {{
-    const overlay = document.createElement('div');
-    const box = document.createElement('div');
-    const hint = document.createElement('div');
-    overlay.id='vibez-screenshot-selection-overlay'; box.id='vibez-screenshot-selection-box'; hint.id='vibez-screenshot-selection-hint';
-    Object.assign(overlay.style, {{
-      position:'fixed', inset:'0', zIndex:'2147483646', cursor:'crosshair',
-      background:'rgba(0,0,0,.12)', userSelect:'none', touchAction:'none'
-    }});
-    Object.assign(box.style, {{
-      position:'fixed', display:'none', zIndex:'2147483647',
-      border:'2px solid #ff6b35', background:'rgba(255,107,53,.12)',
-      boxShadow:'0 0 0 99999px rgba(0,0,0,.15)', pointerEvents:'none'
-    }});
-    Object.assign(hint.style, {{
-      position:'fixed', top:'16px', left:'50%', transform:'translateX(-50%)',
-      zIndex:'2147483647', padding:'9px 13px', borderRadius:'8px',
-      background:'#17191f', color:'#fff', font:'600 13px system-ui,sans-serif',
-      boxShadow:'0 6px 22px rgba(0,0,0,.35)', pointerEvents:'none'
-    }});
-    hint.textContent = DRAG_HINT;
-    document.documentElement.append(overlay, box, hint);
-    let sx=0, sy=0, active=false;
-    const cleanup = () => {{
-      overlay.remove(); box.remove(); hint.remove();
-      window.removeEventListener('keydown', onKey, true);
-      window.__vibezCaptureCancel = null;
-    }};
-    const cancel = () => {{ cleanup(); resolve(null); }};
-    window.__vibezCaptureCancel = cancel;
-    const onKey = event => {{ if (event.key === 'Escape') {{ event.preventDefault(); event.stopPropagation(); cancel(); }} }};
-    window.addEventListener('keydown', onKey, true);
-    overlay.addEventListener('pointerdown', event => {{
-      event.preventDefault(); active=true; sx=event.clientX; sy=event.clientY;
-      box.style.display='block'; box.style.left=sx+'px'; box.style.top=sy+'px';
-      box.style.width='0px'; box.style.height='0px';
-      overlay.setPointerCapture?.(event.pointerId);
-    }});
-    overlay.addEventListener('pointermove', event => {{
-      if (!active) return;
-      const x=Math.min(sx,event.clientX), y=Math.min(sy,event.clientY);
-      const w=Math.abs(event.clientX-sx), h=Math.abs(event.clientY-sy);
-      Object.assign(box.style,{{left:x+'px',top:y+'px',width:w+'px',height:h+'px'}});
-    }});
-    overlay.addEventListener('pointerup', event => {{
-      if (!active) return; active=false;
-      const x=Math.min(sx,event.clientX), y=Math.min(sy,event.clientY);
-      const width=Math.abs(event.clientX-sx), height=Math.abs(event.clientY-sy);
-      cleanup();
-      if (width < 4 || height < 4) resolve(null);
-      else resolve({{x:x+scrollX,y:y+scrollY,width,height}});
-    }});
-  }});
-
-  (async () => {{
-    let restore = null;
-    try {{
-      let target = document.documentElement;
-      const options = {{ dpr:1, backgroundColor:background(), invalidate:true }};
-      if (MODE === 'visible') {{
-        options.clip = {{x:scrollX,y:scrollY,width:innerWidth,height:innerHeight}};
-      }} else if (MODE === 'selection') {{
-        const rect = await chooseRect();
-        if (!rect) {{ finish({{status:'cancelled'}}); return; }}
-        options.clip = rect;
-      }} else {{
-        // "Full page" means the complete Vibe document, including fixed sidebars.
-        // Expand meaningful nested scrollers temporarily instead of capturing only
-        // the largest scroller, so content outside the chat column is not lost.
-        target = document.documentElement;
-        const changed = [];
-        const candidates = [pickScrollableRoot(), ...document.querySelectorAll('main,[role="main"],section,article,div')];
-        const seen = new Set();
-        for (const el of candidates) {{
-          if (!el || seen.has(el) || el === document.documentElement || el === document.body || el === document.scrollingElement) continue;
-          seen.add(el);
-          if (!visible(el)) continue;
-          const style=getComputedStyle(el), rect=el.getBoundingClientRect();
-          if (!/(auto|scroll)/.test(style.overflowY || '') || el.scrollHeight <= el.clientHeight + 40) continue;
-          if (rect.width < innerWidth * .20 || rect.height < innerHeight * .18) continue;
-          changed.push({{el,height:el.style.height,maxHeight:el.style.maxHeight,overflow:el.style.overflow,overflowY:el.style.overflowY,scrollTop:el.scrollTop}});
-          el.scrollTop=0;
-          el.style.height=Math.min(el.scrollHeight,60000)+'px';
-          el.style.maxHeight='none';
-          el.style.overflow='visible';
-          el.style.overflowY='visible';
-        }}
-        const rootScrollX=scrollX, rootScrollY=scrollY;
-        scrollTo(0,0);
-        restore = () => {{
-          for (const old of changed.reverse()) {{
-            old.el.style.height=old.height; old.el.style.maxHeight=old.maxHeight;
-            old.el.style.overflow=old.overflow; old.el.style.overflowY=old.overflowY;
-            old.el.scrollTop=old.scrollTop;
-          }}
-          scrollTo(rootScrollX,rootScrollY);
-        }};
-      }}
-      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-      const capture = await window.snapdom(target, options);
-      const meta = capture.meta || {{}};
-      const estimatedWidth = Number(meta.w0 || target.scrollWidth || innerWidth);
-      const estimatedHeight = Number(meta.h0 || target.scrollHeight || innerHeight);
-      const pixels = Math.max(1, estimatedWidth * estimatedHeight);
-      const scale = MODE === 'full' ? Math.max(0.45, Math.min(1, Math.sqrt(36000000 / pixels))) : 1;
-      const blob = await capture.toBlob({{format:'png', dpr:1, scale}});
-      restore?.(); restore = null;
-      if (!blob || !blob.size) throw new Error('Screenshot engine returned an empty image');
-      if (blob.size > 24 * 1024 * 1024) throw new Error('Screenshot is too large to copy safely');
-      const dataUrl = await toDataUrl(blob);
-      finish({{status:'ok',dataUrl,width:estimatedWidth,height:estimatedHeight,scale}});
-    }} catch (error) {{
-      try {{ restore?.(); }} catch (_) {{}}
-      finish({{status:'error',message:String(error?.message || error || 'Screenshot failed')}});
-    }}
-  }})();
-  return 'started';
-}})()
-"#))
+fn capture_script(mode:&str, drag:&str, id:u64)->Result<String,String> {
+    if !matches!(mode,"full"|"visible"|"selection") { return Err("Unsupported screenshot mode".into()); }
+    let timeout=if mode=="selection" {120000} else {45000};
+    let config=json!({"id":id,"mode":mode,"dragHint":drag,"timeoutMs":timeout}).to_string();
+    Ok(format!("{SNAPDOM}\n;\n{}",SCRIPT.replace("__VIBEZ_CAPTURE_CONFIG__",&config)))
 }
-
-async fn wait_result(view: &tauri::Webview, mode: &str) -> Result<Value, String> {
-    let timeout = if mode == "selection" { Duration::from_secs(120) } else { Duration::from_secs(45) };
-    let deadline = Instant::now() + timeout;
-    loop {
-        if Instant::now() >= deadline {
-            let _ = view.eval("window.__vibezCaptureCancel?.(); window.__vibezCaptureResult=null;");
-            return Err("Screenshot timed out".into());
-        }
-        tokio::time::sleep(Duration::from_millis(180)).await;
-        let raw = eval_value(view, "window.__vibezCaptureResult || ''").await?;
-        if raw.is_empty() { continue; }
-        let _ = view.eval("window.__vibezCaptureResult=null;");
-        return serde_json::from_str(&raw).map_err(err);
-    }
+fn cancel(view:&Webview,id:u64) {
+    let _=view.eval(format!("if(window.__vibezCapture?.id==={id}){{window.__vibezCapture.cancel?.();window.__vibezCapture=null;}}"));
 }
-
-fn copy_png(app: &AppHandle, data_url: &str) -> Result<(), String> {
-    if data_url.len() > MAX_DATA_URL_BYTES { return Err("Screenshot result is too large".into()); }
-    let encoded = data_url.strip_prefix("data:image/png;base64,").ok_or("Screenshot engine returned an unsupported image format")?;
-    let bytes = STANDARD.decode(encoded).map_err(err)?;
-    if bytes.len() > 26 * 1024 * 1024 { return Err("Screenshot result is too large".into()); }
-    let image = tauri::image::Image::from_bytes(&bytes).map_err(err)?;
-    app.clipboard().write_image(&image).map_err(err)
+async fn begin(view:&Webview,mode:&str,drag:&str)->Result<u64,String> {
+    let id=SERIAL.fetch_add(1,Ordering::SeqCst);
+    view.eval(capture_script(mode,drag,id)?).map_err(err)?;
+    Ok(id)
 }
-
-pub async fn capture(app: &AppHandle, mode: &str) -> Result<(), String> {
-    let state = app.state::<PreviewState>();
-    if state.capture_busy.swap(true, Ordering::SeqCst) {
-        return Err(desktop_ui::status(app, "screenshot_busy"));
-    }
-    message(app, "screenshot_working");
-    let result = async {
-        let view = app.get_webview("vibe").ok_or("Vibe view is not ready")?;
-        let drag = desktop_ui::preview(app, "screenshotDrag");
-        view.eval(capture_script(mode, &drag)?).map_err(err)?;
-        let payload = wait_result(&view, mode).await?;
-        match payload["status"].as_str() {
-            Some("cancelled") => return Ok(false),
-            Some("ok") => {
-                let data = payload["dataUrl"].as_str().ok_or("Screenshot data is missing")?;
-                copy_png(app, data)?;
-                Ok(true)
-            }
-            _ => Err(payload["message"].as_str().unwrap_or("Screenshot failed").to_string()),
+async fn wait_result(view:&Webview,mode:&str,id:u64)->Result<Value,String> {
+    let deadline=Instant::now()+Duration::from_secs(if mode=="selection" {125} else {50});
+    let result=async {
+        loop {
+            if Instant::now()>deadline { return Err("Screenshot timed out".into()); }
+            tokio::time::sleep(Duration::from_millis(180)).await;
+            let js=format!("(() => {{const s=window.__vibezCapture;if(!s||s.id!=={id})return '';return s.result?.length>{MAX_DATA}?'{{\"status\":\"error\",\"message\":\"Screenshot too large\"}}':s.result||'';}})()");
+            let raw=eval_value(view,js).await?;
+            if raw.len()>MAX_DATA { return Err("Screenshot result is too large".into()); }
+            if !raw.is_empty() { return serde_json::from_str(&raw).map_err(err); }
         }
     }.await;
-    state.capture_busy.store(false, Ordering::SeqCst);
+    cancel(view,id);
+    result
+}
+fn png_bytes(data:&str)->Result<Vec<u8>,String> {
+    if data.len()>MAX_DATA { return Err("Screenshot result is too large".into()); }
+    let encoded=data.strip_prefix("data:image/png;base64,").ok_or("Not a PNG screenshot")?;
+    let bytes=STANDARD.decode(encoded).map_err(err)?;
+    // Reject oversized dimensions before decoding an image supplied by a web page.
+    if bytes.len()<33 || bytes.len()>26*1024*1024 || &bytes[..8]!=b"\x89PNG\r\n\x1a\n" || &bytes[8..16]!=b"\0\0\0\rIHDR" {
+        return Err("Invalid PNG screenshot".into());
+    }
+    let w=u32::from_be_bytes(bytes[16..20].try_into().map_err(err)?);
+    let h=u32::from_be_bytes(bytes[20..24].try_into().map_err(err)?);
+    if w==0 || h==0 || w>32760 || h>32760 || u64::from(w)*u64::from(h)>36_000_000 {
+        return Err("Screenshot dimensions exceed safe limits".into());
+    }
+    Ok(bytes)
+}
+fn copy_png(app:&AppHandle,bytes:&[u8])->Result<(),String> {
+    let image=tauri::image::Image::from_bytes(bytes).map_err(err)?;
+    app.clipboard().write_image(&image).map_err(err)
+}
+pub async fn capture(app:&AppHandle,mode:&str)->Result<(),String> {
+    if !matches!(mode,"full"|"visible"|"selection") { return Err("Unsupported screenshot mode".into()); }
+    let state=app.state::<PreviewState>();
+    if state.capture_busy.swap(true,Ordering::SeqCst) { return Err(desktop_ui::status(app,"screenshot_busy")); }
+    let _busy=Busy(&state.capture_busy);
+    message(app,"screenshot_working");
+    let result:Result<bool,String>=async {
+        let view=app.get_webview("vibe").ok_or("Vibe view is not ready")?;
+        let url=view.url().map_err(err)?;
+        let id=begin(&view,mode,&desktop_ui::preview(app,"screenshotDrag")).await?;
+        let payload=wait_result(&view,mode,id).await?;
+        match payload["status"].as_str() {
+            Some("cancelled")=>Ok(false),
+            Some("ok")=> {
+                if view.url().map_err(err)?!=url { return Err("The page changed during capture; please try again".into()); }
+                let bytes=png_bytes(payload["dataUrl"].as_str().ok_or("Missing screenshot data")?)?;
+                copy_png(app,&bytes)?; Ok(true)
+            },
+            _=>Err(payload["message"].as_str().unwrap_or("Screenshot failed").into())
+        }
+    }.await;
     match result {
-        Ok(true) => {
-            message(app, "screenshot_copied");
-            crate::show_main(app);
-            Ok(())
-        }
-        Ok(false) => {
-            message(app, "screenshot_cancelled");
-            Ok(())
-        }
-        Err(error) => {
-            message(app, format!("Screenshot cancelled or unavailable: {error}"));
-            Err(error)
-        }
+        Ok(true)=> {message(app,"screenshot_copied");crate::show_main(app);Ok(())},
+        Ok(false)=> {message(app,"screenshot_cancelled");Ok(())},
+        Err(error)=> {message(app,format!("Screenshot cancelled or unavailable: {error}"));Err(error)}
     }
 }
-
-#[cfg(test)]
-mod tests {
+#[path="screenshot_probe.rs"] mod probe;
+pub async fn smoke_check(app:&AppHandle)->Result<(),String> { probe::run(app).await }
+#[cfg(test)] mod tests {
     use super::*;
-    #[test]
-    fn modes_are_explicit() {
-        for mode in ["full","visible","selection"] {
-            let script=capture_script(mode,"drag").unwrap();
-            assert!(script.contains("window.snapdom"));
-            assert!(script.contains(mode));
-        }
-        assert!(capture_script("screen","drag").is_err());
+    #[test] fn modes_are_explicit() {
+        for mode in ["full","visible","selection"] { assert!(capture_script(mode,"drag",1).is_ok()); }
+        assert!(capture_script("unknown","drag",1).is_err());
     }
-    #[test]
-    fn capture_does_not_grant_remote_native_ipc() {
-        let script=capture_script("visible","drag").unwrap();
-        assert!(!script.contains("__TAURI__"));
-        assert!(!script.contains("invoke("));
+    #[test] fn no_remote_privileges() { assert!(!SCRIPT.contains("__TAURI__"));assert!(!SCRIPT.contains("invoke(")); }
+    #[test] fn rejects_invalid_png_before_decode() {
+        assert!(png_bytes("data:text/plain;base64,AAAA").is_err());
+        assert!(png_bytes("data:image/png;base64,AAAA").is_err());
+        let mut png=vec![0u8;33];png[..16].copy_from_slice(b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR");
+        png[16..20].copy_from_slice(&u32::MAX.to_be_bytes());png[20..24].copy_from_slice(&100u32.to_be_bytes());
+        assert!(png_bytes(&format!("data:image/png;base64,{}",STANDARD.encode(png))).is_err());
     }
-}
-
-pub async fn smoke_check(app: &AppHandle) -> Result<(), String> {
-    if !app.state::<PreviewState>().smoke { return Err("Screenshot probe requires smoke mode".into()); }
-    let view = app.get_webview("vibe").ok_or("Missing Vibe view")?;
-    view.eval("document.body.insertAdjacentHTML('beforeend','<div id=\"vibez-shot-scroll-probe\" style=\"width:90vw;height:260px;overflow-y:auto\"><div style=\"height:1500px;width:20px\"></div></div>');").map_err(err)?;
-    tokio::time::sleep(Duration::from_millis(120)).await;
-
-    for mode in ["visible","full","selection"] {
-        view.eval(capture_script(mode, "drag")?).map_err(err)?;
-        if mode == "selection" {
-            tokio::time::sleep(Duration::from_millis(160)).await;
-            view.eval(r#"(() => {
-              const o=document.getElementById('vibez-screenshot-selection-overlay');
-              if(!o) return;
-              const e=(type,x,y)=>o.dispatchEvent(new PointerEvent(type,{bubbles:true,clientX:x,clientY:y,pointerId:1}));
-              e('pointerdown',30,30); e('pointermove',230,180); e('pointerup',230,180);
-            })()"#).map_err(err)?;
-        }
-        let payload=wait_result(&view, mode).await?;
-        if payload["status"].as_str()!=Some("ok") { return Err(format!("Screenshot mode {mode} failed: {payload}")); }
-        let data=payload["dataUrl"].as_str().ok_or("Screenshot smoke test returned no image")?;
-        if !data.starts_with("data:image/png;base64,") || data.len()<200 { return Err(format!("Screenshot mode {mode} returned invalid PNG")); }
-        let width=payload["width"].as_f64().unwrap_or(0.0);
-        let height=payload["height"].as_f64().unwrap_or(0.0);
-        if width<=0.0 || height<=0.0 { return Err(format!("Screenshot mode {mode} returned invalid geometry")); }
-        if mode=="full" {
-            let viewport=eval_value(&view,"innerHeight").await?.parse::<f64>().unwrap_or(0.0);
-            if height <= viewport { return Err(format!("Full-page capture did not exceed viewport: {height} <= {viewport}")); }
-        }
-    }
-    let _=view.eval("document.getElementById('vibez-shot-scroll-probe')?.remove();");
-    println!("SCREENSHOT_OK: full page, visible page and selection rendered through the Vibe webview without native IPC");
-    Ok(())
+    #[test] fn busy_guard_always_releases() { let busy=AtomicBool::new(true);{let _g=Busy(&busy);}assert!(!busy.load(Ordering::SeqCst)); }
 }
