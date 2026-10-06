@@ -32,7 +32,6 @@ features = ["Win32_Globalization", "Win32_System_Com"]
 [target.'cfg(target_os = "linux")'.dependencies]
 webkit2gtk = "2"
 gtk = "0.18"
-ashpd = { version = "=0.13.13", default-features = false, features = ["tokio", "screenshot"] }
 
 [profile.release]
 opt-level = "s"
