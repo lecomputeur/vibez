@@ -53,7 +53,7 @@ async fn save(app:&AppHandle,bytes:Vec<u8>)->Result<Value,String> {
             Some(if dutch {"Screenshot opslaan"} else {"Save screenshot"}),parent.as_ref(),gtk::FileChooserAction::Save,
             Some(if dutch {"Opslaan"} else {"Save"}),Some(if dutch {"Annuleren"} else {"Cancel"}));
         dialog.set_current_name("VibeZ-screenshot.png");dialog.set_do_overwrite_confirmation(true);
-        let filter=gtk::FileFilter::new();filter.set_name(Some("PNG image"));filter.add_pattern("*.png");dialog.add_filter(&filter);
+        let filter=gtk::FileFilter::new();filter.set_name(Some("PNG image"));filter.add_pattern("*.png");dialog.add_filter(filter);
         let sender=std::cell::RefCell::new(Some(tx));
         let keeper=std::rc::Rc::new(std::cell::RefCell::new(Some(dialog.clone())));
         dialog.connect_response(move |dialog,response| {
