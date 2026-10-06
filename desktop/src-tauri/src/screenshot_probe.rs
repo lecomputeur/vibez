@@ -11,12 +11,26 @@ pub async fn run(app:&AppHandle)->Result<(),String> {
         std::fs::create_dir_all(&dir).map_err(err)?;
         std::fs::write(std::path::Path::new(&dir).join("capture-engine.js"),SNAPDOM).map_err(err)?;
     }
-    eval_value(&view,r#"(() => {
+    let setup=eval_value(&view,r#"(() => {
       window.__shotOriginal={html:document.body.innerHTML,style:document.body.getAttribute('style')};
       document.body.style.margin='0';
-      document.body.innerHTML='<div id="shot-host" style="position:fixed;inset:0;display:flex;overflow:hidden"><aside style="width:80px;flex-shrink:0;background:rgb(0,200,180)">Sidebar</aside><main id="shot-scroll" style="height:100%;flex:1;overflow-y:auto;padding:0;max-width:none"><div style="height:1500px;position:relative;background:white"><div style="position:absolute;left:24px;top:24px;width:120px;height:100px;background:rgb(230,30,40)"></div><p style="position:absolute;top:250px">Screenshot fixture</p><div style="position:absolute;left:24px;top:1200px;width:120px;height:100px;background:rgb(30,60,230)"></div></div></main></div>';
-      return true;
+      document.body.innerHTML='<div id="shot-host" data-shot-style="position:fixed;inset:0;display:flex;overflow:hidden"><aside data-shot-style="width:80px;flex-shrink:0;background:rgb(0,200,180)">Sidebar</aside><main id="shot-scroll" data-shot-style="height:100%;flex:1;overflow-y:auto;padding:0;max-width:none"><div data-shot-style="height:1500px;position:relative;background:white"><div data-shot-style="position:absolute;left:24px;top:24px;width:120px;height:100px;background:rgb(230,30,40)"></div><p data-shot-style="position:absolute;top:250px">Screenshot fixture</p><div data-shot-style="position:absolute;left:24px;top:1200px;width:120px;height:100px;background:rgb(30,60,230)"></div></div></main></div>';
+      // Keep the strict page CSP intact. CSSOM assignments, unlike parsed
+      // inline style attributes, are permitted in the trusted offline probe.
+      for(const el of document.querySelectorAll('[data-shot-style]')) {
+        el.style.cssText=el.getAttribute('data-shot-style'); el.removeAttribute('data-shot-style');
+      }
+      const host=document.getElementById('shot-host'), scroller=document.getElementById('shot-scroll');
+      return JSON.stringify({viewportWidth:innerWidth,viewportHeight:innerHeight,width:host.getBoundingClientRect().width,height:host.getBoundingClientRect().height,client:scroller.clientHeight,scroll:scroller.scrollHeight});
     })()"#).await?;
+    let setup:Value=serde_json::from_str(&setup).map_err(err)?;
+    if (setup["width"].as_f64().unwrap_or(0.)-setup["viewportWidth"].as_f64().unwrap_or(-999.)).abs()>2.
+        || (setup["height"].as_f64().unwrap_or(0.)-setup["viewportHeight"].as_f64().unwrap_or(-999.)).abs()>2.
+        || setup["scroll"].as_u64().unwrap_or(0)<1500
+        || setup["client"].as_u64().unwrap_or(u64::MAX)>=setup["scroll"].as_u64().unwrap_or(0) {
+        return Err(format!("Screenshot fixture did not create a real scrollable viewport: {setup}"));
+    }
+    println!("SCREENSHOT_FIXTURE_OK: strict CSP retained; {setup}");
     tokio::time::sleep(Duration::from_millis(150)).await;
     let before=eval_value(&view,"JSON.stringify([document.getElementById('shot-host').style.cssText,document.getElementById('shot-scroll').style.cssText,document.getElementById('shot-scroll').scrollTop])").await?;
     let size:Value=serde_json::from_str(&eval_value(&view,"JSON.stringify([innerWidth,innerHeight])").await?).map_err(err)?;
@@ -64,6 +78,6 @@ pub async fn run(app:&AppHandle)->Result<(),String> {
         println!("SCREENSHOT_OK: all page capture modes, real PNG pixels, clipboard and Escape cancellation verified");
         Ok(())
     }.await;
-    let _=view.eval("if(window.__shotOriginal){document.body.innerHTML=window.__shotOriginal.html;const s=window.__shotOriginal.style;if(s===null)document.body.removeAttribute('style');else document.body.setAttribute('style',s);delete window.__shotOriginal;}");
+    let _=view.eval("if(window.__shotOriginal){document.body.innerHTML=window.__shotOriginal.html;const s=window.__shotOriginal.style;if(s===null)document.body.removeAttribute('style');else document.body.style.cssText=s;delete window.__shotOriginal;}");
     result
 }
