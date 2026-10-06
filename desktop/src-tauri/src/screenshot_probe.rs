@@ -6,18 +6,16 @@ fn contains_colour(image:&tauri::image::Image<'_>, colour:[u8;3])->usize {
 pub async fn run(app:&AppHandle)->Result<(),String> {
     if !app.state::<PreviewState>().smoke { return Err("Screenshot probe requires smoke mode".into()); }
     let view=app.get_webview("vibe").ok_or("Missing Vibe view")?;
-    // Synthetic content only. These artifacts contain no account data.
-    if let Ok(dir)=std::env::var("VIBEZ_SCREENSHOT_ARTIFACT_DIR") {
-        std::fs::create_dir_all(&dir).map_err(err)?;
-        std::fs::write(std::path::Path::new(&dir).join("capture-engine.js"),SNAPDOM).map_err(err)?;
-    }
     eval_value(&view,r#"(() => {
       window.__shotOriginal={html:document.body.innerHTML,style:document.body.getAttribute('style')};
       document.body.style.margin='0';
-      document.body.innerHTML='<div id="shot-host" style="position:fixed;inset:0;display:flex;overflow:hidden"><aside style="width:80px;flex-shrink:0;background:rgb(0,200,180)">Sidebar</aside><main id="shot-scroll" style="height:100%;flex:1;overflow-y:auto;padding:0;max-width:none"><div style="height:1500px;position:relative;background:white"><div style="position:absolute;left:24px;top:24px;width:120px;height:100px;background:rgb(230,30,40)"></div><p style="position:absolute;top:250px">Screenshot fixture</p><div style="position:absolute;left:24px;top:1200px;width:120px;height:100px;background:rgb(30,60,230)"></div></div></main></div>';
+      document.body.innerHTML='<div id="shot-host" style="position:fixed;inset:0;display:flex;overflow:hidden"><aside style="width:80px;flex-shrink:0;background:rgb(0,200,180)">Sidebar</aside><main id="shot-scroll" style="height:100%;flex:1;overflow-y:auto;padding:0;max-width:none"><div style="height:1500px;position:relative;background:white"><div id="shot-red" style="position:absolute;left:24px;top:24px;width:120px;height:100px;background:rgb(230,30,40)"></div><p style="position:absolute;top:250px">Screenshot fixture</p><div style="position:absolute;left:24px;top:1200px;width:120px;height:100px;background:rgb(30,60,230)"></div></div></main></div>';
+      for(const el of document.body.querySelectorAll('[style]')){const style=el.getAttribute('style');el.removeAttribute('style');el.style.cssText=style;}
       return true;
     })()"#).await?;
-    tokio::time::sleep(Duration::from_millis(150)).await;
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    let fixture=eval_value(&view,"getComputedStyle(document.getElementById('shot-red')).backgroundColor").await?;
+    if fixture!="rgb(230, 30, 40)" {return Err(format!("Screenshot fixture styles not applied: {fixture}"));}
     let before=eval_value(&view,"JSON.stringify([document.getElementById('shot-host').style.cssText,document.getElementById('shot-scroll').style.cssText,document.getElementById('shot-scroll').scrollTop])").await?;
     let size:Value=serde_json::from_str(&eval_value(&view,"JSON.stringify([innerWidth,innerHeight])").await?).map_err(err)?;
     let result:Result<(),String>=async {
@@ -64,6 +62,6 @@ pub async fn run(app:&AppHandle)->Result<(),String> {
         println!("SCREENSHOT_OK: all page capture modes, real PNG pixels, clipboard and Escape cancellation verified");
         Ok(())
     }.await;
-    let _=view.eval("if(window.__shotOriginal){document.body.innerHTML=window.__shotOriginal.html;const s=window.__shotOriginal.style;if(s===null)document.body.removeAttribute('style');else document.body.setAttribute('style',s);delete window.__shotOriginal;}");
+    let _=view.eval("if(window.__shotOriginal){document.body.innerHTML=window.__shotOriginal.html;const s=window.__shotOriginal.style;if(s===null)document.body.removeAttribute('style');else document.body.style.cssText=s;delete window.__shotOriginal;}");
     result
 }

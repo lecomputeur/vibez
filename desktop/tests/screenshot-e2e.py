@@ -1,4 +1,4 @@
-"""Real mouse/keyboard -> Tauri ACL -> WebKit screenshot -> clipboard/save tests."""
+"""Real mouse/keyboard -> Tauri ACL -> WebKit/desktop screenshot -> clipboard/save."""
 import os,time,subprocess,json
 from pathlib import Path
 import gi
@@ -54,7 +54,7 @@ try:
         for _ in range(tabs):key('Tab')
         key('Return')
         if mode=='selection':
-            sleep(.8);xd('mousemove','--window',main,224*S,178*S);xd('mousedown',1)
+            window('^VibeZ screen selection$');sleep(.5);xd('mousemove','--window',main,224*S,178*S);xd('mousedown',1)
             xd('mousemove','--sync','--window',main,104*S,78*S);xd('mouseup',1)
         im=await_png(mode+'.png');dialog=window('VibeZ · .*test 3');sleep(.6);shot('preview-'+mode+'.png')
         assert count(im,(230,30,40))>5000,(mode,'red marker missing',im.size)
@@ -65,7 +65,6 @@ try:
         if mode=='visible':
             g=geom(main);assert abs(im.width-g['WIDTH']/S)<=2 and abs(im.height-(g['HEIGHT']/S-54))<=2,im.size
             assert count(im,(160,40,190))>5000,'Native canvas pixels missing with restrictive CSP'
-            # Result focuses Copy. Tab reaches the real Save action and native chooser.
             key('Tab');key('Return');window('Screenshot opslaan|Save screenshot');sleep(.4)
             key('ctrl+l');xd('type','--clearmodifiers','--delay',1,str(OUT/'saved.png'));key('Return');sleep(.5)
             if not (OUT/'saved.png').exists():key('Return')
@@ -75,9 +74,24 @@ try:
             saved=Image.open(OUT/'saved.png').convert('RGB');assert saved.size==im.size and saved.tobytes()==im.tobytes(),'Saved PNG differs from clipboard'
         key('Escape');sleep(.4)
         print('E2E_MODE_OK:',mode,im.size,'scale',S,flush=True)
-    dialog=open_chooser(main);clear_clip();key('Tab');key('Tab');key('Return');sleep(.8);key('Escape')
+    # A real second GTK window outside VibeZ proves this is desktop capture.
+    external=Gtk.Window();external.set_title('Outside VibeZ fixture');external.set_decorated(False)
+    external.set_default_size(140,100);external.move(20,30)
+    area=Gtk.DrawingArea()
+    def draw_external(widget,cr):cr.set_source_rgb(10/255,150/255,240/255);cr.paint();return True
+    area.connect('draw',draw_external);external.add(area);external.show_all();sleep(.5)
+    ext=window('^Outside VibeZ fixture$');eg=geom(ext)
+    dialog=open_chooser(main);clear_clip();key('Tab');key('Tab');key('Return')
+    window('^VibeZ screen selection$');sleep(.5)
+    xd('mousemove',eg['X']+130*S,eg['Y']+90*S);xd('mousedown',1)
+    xd('mousemove','--sync',eg['X']+10*S,eg['Y']+10*S);xd('mouseup',1)
+    im=await_png('other-application.png');assert im.size==(120,80),im.size
+    assert count(im,(10,150,240))>8000,'Screenshot outside VibeZ is not the real desktop'
+    window('VibeZ · .*test 3');sleep(.5);key('Escape');external.hide();sleep(.4)
+    print('DESKTOP_CAPTURE_OK: selected real pixels from another application',flush=True)
+    dialog=open_chooser(main);clear_clip();key('Tab');key('Tab');key('Return');window('^VibeZ screen selection$');sleep(.4);key('Escape')
     window('VibeZ · .*test 3');sleep(.5);assert clipboard.wait_for_image() is None,'Escape copied an unexpected screenshot'
     key('Return');im=await_png('after-cancel.png');assert im.width>120,'Chooser not reusable after Escape'
-    print('SCREENSHOT_E2E_OK: real toolbar, 3 cards, 3 captures, restrictive CSP, canvas, native Save, Escape and retry; scale',S,flush=True)
+    print('SCREENSHOT_E2E_OK: real toolbar, 3 cards, 3 captures, desktop outside VibeZ, restrictive CSP, canvas, native Save, Escape and retry; scale',S,flush=True)
 except Exception:
     shot('failure.png');raise

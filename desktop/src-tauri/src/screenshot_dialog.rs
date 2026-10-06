@@ -3,6 +3,8 @@ use crate::{desktop_ui,err,policy,screenshots,PreviewState};
 use serde_json::{json,Value};
 use std::sync::{Mutex,atomic::Ordering};
 use tauri::{AppHandle,Manager,WebviewUrl,WebviewWindowBuilder};
+#[cfg(target_os="linux")]
+#[path="screenshot_screen_linux.rs"] mod screen_linux;
 static LAST:Mutex<Option<Vec<u8>>>=Mutex::new(None);
 pub fn clear() {if let Ok(mut last)=LAST.lock(){*last=None;}}
 pub fn remember(bytes:Vec<u8>)->Result<(),String>{*LAST.lock().map_err(err)?=Some(bytes);Ok(())}
@@ -26,17 +28,36 @@ pub async fn capture(app:&AppHandle,mode:&str)->Result<Value,String> {
     if app.state::<PreviewState>().capture_busy.load(Ordering::SeqCst) {return Err(desktop_ui::status(app,"screenshot_busy"));}
     if let Some(window)=app.get_webview_window("screenshot") {window.hide().map_err(err)?;}
     crate::show_main(app);
+    #[cfg(target_os="linux")]
+    let result=if mode=="selection" {capture_desktop(app).await} else {screenshots::capture_preview(app,mode).await};
+    #[cfg(not(target_os="linux"))]
     let result=screenshots::capture_preview(app,mode).await;
     // Restore the chooser even after Escape, timeout, clipboard failure or errors.
     if let Some(window)=app.get_webview_window("screenshot") {let _=window.show();let _=window.set_focus();}
     result
+}
+#[cfg(target_os="linux")]
+async fn capture_desktop(app:&AppHandle)->Result<Value,String> {
+    use base64::{engine::general_purpose::STANDARD,Engine as _};
+    let state=app.state::<PreviewState>();
+    if state.capture_busy.swap(true,Ordering::SeqCst){return Err(desktop_ui::status(app,"screenshot_busy"));}
+    struct Busy<'a>(&'a std::sync::atomic::AtomicBool);
+    impl Drop for Busy<'_>{fn drop(&mut self){self.0.store(false,Ordering::SeqCst);}}
+    let _busy=Busy(&state.capture_busy);clear();
+    let Some(bytes)=screen_linux::capture(app,desktop_ui::language(app)=="nl").await? else{return Ok(json!({"cancelled":true}));};
+    let image=tauri::image::Image::from_bytes(&bytes).map_err(err)?;
+    let copied=screenshots::copy_last(app,&bytes).is_ok();
+    let result=json!({"cancelled":false,"dataUrl":format!("data:image/png;base64,{}",STANDARD.encode(&bytes)),"width":image.width(),"height":image.height(),"copied":copied});
+    remember(bytes)?;Ok(result)
 }
 pub async fn action(app:&AppHandle,action:&str)->Result<Value,String> {
     match action {
         "copy"=>{screenshots::copy_last(app,&last()?)?;Ok(json!({"copied":true}))},
         "save"=>save(app,last()?).await,
         "new"=>{clear();Ok(json!({}))},
-        "close"=>{screenshots::cancel_active(app);clear();if let Some(w)=app.get_webview_window("screenshot"){w.close().map_err(err)?;}crate::show_main(app);Ok(json!({}))},
+        "close"=>{
+            #[cfg(target_os="linux")] screen_linux::cancel(app);
+            screenshots::cancel_active(app);clear();if let Some(w)=app.get_webview_window("screenshot"){w.close().map_err(err)?;}crate::show_main(app);Ok(json!({}))},
         _=>Err("Unsupported screenshot action".into())
     }
 }
