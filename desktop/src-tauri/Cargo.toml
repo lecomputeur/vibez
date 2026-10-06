@@ -23,6 +23,8 @@ tokio = { version = "1", features = ["sync", "time"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 semver = "1"
 sys-locale = "0.3"
+base64 = "0.22"
+image = { version = "0.25", default-features = false, features = ["png", "tiff"] }
 
 [target.'cfg(target_os = "windows")'.dependencies.windows]
 version = "0.62"
@@ -32,6 +34,7 @@ features = ["Win32_Globalization", "Win32_System_Com"]
 webkit2gtk = "2"
 gtk = "0.18"
 ashpd = { version = "=0.13.13", default-features = false, features = ["tokio", "screenshot"] }
+cairo-rs = { version = "0.18", features = ["png"] }
 
 [profile.release]
 opt-level = "s"
@@ -49,3 +52,5 @@ webview2-com = "=0.39.1"
 objc2 = "=0.6.4"
 objc2-foundation = "=0.3.2"
 objc2-web-kit = "=0.3.2"
+objc2-app-kit = "=0.3.2"
+block2 = "=0.6.2"
