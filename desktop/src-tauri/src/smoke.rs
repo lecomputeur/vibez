@@ -109,6 +109,7 @@ fn checks(app: &AppHandle) -> Result<(), String> {
     if !app.state::<PreviewState>().shell_ready.load(Ordering::Relaxed) { return Err("Bundled toolbar did not complete native IPC handshake".into()); }
     crate::desktop_ui::smoke_check(app)?;
     tauri::async_runtime::block_on(crate::site_language::smoke_check(app))?;
+    tauri::async_runtime::block_on(crate::screenshots::smoke_check(app))?;
     check_layout(app)?;
     let window = app.get_window("main").ok_or("Missing main window")?;
     let view = app.get_webview("vibe").ok_or("Missing Vibe webview")?;
@@ -143,7 +144,7 @@ fn checks(app: &AppHandle) -> Result<(), String> {
 }
 pub fn start(app: AppHandle) {
     thread::spawn(move || match checks(&app) {
-        Ok(()) => { println!("SMOKE_OK: translated tray, related popup callbacks, denied remote IPC, exact shrink/grow/maximize/restore sizes and hidden-state preservation"); app.exit(0); },
+        Ok(()) => { println!("SMOKE_OK: translated tray, three screenshot modes, related popup callbacks, denied remote IPC, exact shrink/grow/maximize/restore sizes and hidden-state preservation"); app.exit(0); },
         Err(error) => { eprintln!("SMOKE_FAILED: {error}\n{}", crate::auth::diagnostics()); app.exit(1); },
     });
 }
