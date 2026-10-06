@@ -80,6 +80,7 @@ fn capture_script(mode: &str, drag_hint: &str) -> Result<String, String> {
     const overlay = document.createElement('div');
     const box = document.createElement('div');
     const hint = document.createElement('div');
+    overlay.id='vibez-screenshot-selection-overlay'; box.id='vibez-screenshot-selection-box'; hint.id='vibez-screenshot-selection-hint';
     Object.assign(overlay.style, {{
       position:'fixed', inset:'0', zIndex:'2147483646', cursor:'crosshair',
       background:'rgba(0,0,0,.12)', userSelect:'none', touchAction:'none'
@@ -266,4 +267,38 @@ mod tests {
         assert!(!script.contains("__TAURI__"));
         assert!(!script.contains("invoke("));
     }
+}
+
+pub async fn smoke_check(app: &AppHandle) -> Result<(), String> {
+    if !app.state::<PreviewState>().smoke { return Err("Screenshot probe requires smoke mode".into()); }
+    let view = app.get_webview("vibe").ok_or("Missing Vibe view")?;
+    view.eval("document.body.insertAdjacentHTML('beforeend','<div id=\"vibez-shot-tall-probe\" style=\"height:1400px;width:10px\"></div>');").map_err(err)?;
+    tokio::time::sleep(Duration::from_millis(120)).await;
+
+    for mode in ["visible","full","selection"] {
+        view.eval(capture_script(mode, "drag")?).map_err(err)?;
+        if mode == "selection" {
+            tokio::time::sleep(Duration::from_millis(160)).await;
+            view.eval(r#"(() => {
+              const o=document.getElementById('vibez-screenshot-selection-overlay');
+              if(!o) return;
+              const e=(type,x,y)=>o.dispatchEvent(new PointerEvent(type,{bubbles:true,clientX:x,clientY:y,pointerId:1}));
+              e('pointerdown',30,30); e('pointermove',230,180); e('pointerup',230,180);
+            })()"#).map_err(err)?;
+        }
+        let payload=wait_result(&view, mode).await?;
+        if payload["status"].as_str()!=Some("ok") { return Err(format!("Screenshot mode {mode} failed: {payload}")); }
+        let data=payload["dataUrl"].as_str().ok_or("Screenshot smoke test returned no image")?;
+        if !data.starts_with("data:image/png;base64,") || data.len()<200 { return Err(format!("Screenshot mode {mode} returned invalid PNG")); }
+        let width=payload["width"].as_f64().unwrap_or(0.0);
+        let height=payload["height"].as_f64().unwrap_or(0.0);
+        if width<=0.0 || height<=0.0 { return Err(format!("Screenshot mode {mode} returned invalid geometry")); }
+        if mode=="full" {
+            let viewport=eval_value(&view,"innerHeight").await?.parse::<f64>().unwrap_or(0.0);
+            if height <= viewport { return Err(format!("Full-page capture did not exceed viewport: {height} <= {viewport}")); }
+        }
+    }
+    let _=view.eval("document.getElementById('vibez-shot-tall-probe')?.remove();");
+    println!("SCREENSHOT_OK: full page, visible page and selection rendered through the Vibe webview without native IPC");
+    Ok(())
 }
