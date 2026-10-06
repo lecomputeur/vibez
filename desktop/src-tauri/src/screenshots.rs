@@ -272,7 +272,7 @@ mod tests {
 pub async fn smoke_check(app: &AppHandle) -> Result<(), String> {
     if !app.state::<PreviewState>().smoke { return Err("Screenshot probe requires smoke mode".into()); }
     let view = app.get_webview("vibe").ok_or("Missing Vibe view")?;
-    view.eval("document.body.insertAdjacentHTML('beforeend','<div id=\"vibez-shot-tall-probe\" style=\"height:1400px;width:10px\"></div>');").map_err(err)?;
+    view.eval("document.body.insertAdjacentHTML('beforeend','<div id=\"vibez-shot-scroll-probe\" style=\"width:90vw;height:260px;overflow-y:auto\"><div style=\"height:1500px;width:20px\"></div></div>');").map_err(err)?;
     tokio::time::sleep(Duration::from_millis(120)).await;
 
     for mode in ["visible","full","selection"] {
@@ -298,7 +298,7 @@ pub async fn smoke_check(app: &AppHandle) -> Result<(), String> {
             if height <= viewport { return Err(format!("Full-page capture did not exceed viewport: {height} <= {viewport}")); }
         }
     }
-    let _=view.eval("document.getElementById('vibez-shot-tall-probe')?.remove();");
+    let _=view.eval("document.getElementById('vibez-shot-scroll-probe')?.remove();");
     println!("SCREENSHOT_OK: full page, visible page and selection rendered through the Vibe webview without native IPC");
     Ok(())
 }
