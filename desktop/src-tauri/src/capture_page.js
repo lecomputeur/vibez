@@ -6,6 +6,7 @@
   const state = { id: config.id, result: '', cancel: null };
   window.__vibezCapture = state;
   let settled = false, cleanupSelection = () => {}, restorePage = () => {};
+  let fullGeometry = null;
   const finish = payload => {
     if (settled) return;
     settled = true;
@@ -34,9 +35,11 @@
       const hint = document.createElement('div');
       hint.textContent = config.dragHint;
       Object.assign(hint.style, {position:'absolute',top:'12px',left:'12px',padding:'10px',background:'#17191f',color:'#fff',font:'13px system-ui',pointerEvents:'none'});
-      overlay.append(box,hint); document.documentElement.appendChild(overlay);
+      overlay.tabIndex=0; overlay.append(box,hint); document.documentElement.appendChild(overlay);
+      const previousFocus=document.activeElement; overlay.focus({preventScroll:true});
       let start = null, done = false;
-      const end = rect => { if (done) return; done=true; overlay.remove(); window.removeEventListener('keydown',onKey,true); resolve(rect); };
+      const end = rect => { if (done) return; done=true; overlay.remove(); window.removeEventListener('keydown',onKey,true);
+        if (previousFocus?.isConnected) previousFocus.focus({preventScroll:true}); resolve(rect); };
       const onKey = event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); end(null); } };
       cleanupSelection = () => end(null);
       window.addEventListener('keydown',onKey,true);
@@ -60,14 +63,22 @@
   function expandLoadedPage() {
     const initialX=scrollX, initialY=scrollY, changes=new Map();
     const set = (el,key,value) => {
-      if (!changes.has(el)) changes.set(el,{values:new Map(),top:el.scrollTop,left:el.scrollLeft});
+      if (!changes.has(el)) {
+        const original=document.createElement('div'); original.style.cssText=el.style.cssText;
+        changes.set(el,{values:new Map(),top:el.scrollTop,left:el.scrollLeft,originalStyle:el.getAttribute('style'),original:original.style,appliedStyle:el.style.cssText});
+      }
       const old=changes.get(el).values;
-      if (!old.has(key)) old.set(key,{value:el.style.getPropertyValue(key),priority:el.style.getPropertyPriority(key),written:value});
+      if (!old.has(key)) old.set(key,{value:changes.get(el).original.getPropertyValue(key),priority:changes.get(el).original.getPropertyPriority(key),written:value});
       old.get(key).written=value;
       el.style.setProperty(key,value,'important');
+      changes.get(el).appliedStyle=el.style.cssText;
     };
     restorePage = () => {
       for (const [el,old] of [...changes].reverse()) {
+        if (el.style.cssText===old.appliedStyle) {
+          if (old.originalStyle===null) el.removeAttribute('style'); else el.setAttribute('style',old.originalStyle);
+          continue;
+        }
         for (const [key,v] of old.values) {
           if (el.style.getPropertyValue(key)!==v.written) continue;
           if (v.value) el.style.setProperty(key,v.value,v.priority); else el.style.removeProperty(key);
@@ -85,8 +96,12 @@
     for (const {el,height,width} of scrollers) {
       limit(width,height);
       for (let p=el;p;p=p.parentElement) {
-        const style=getComputedStyle(p);
-        if (style.position==='fixed') { set(p,'position','relative'); set(p,'inset','auto'); }
+        const style=getComputedStyle(p), box=p.getBoundingClientRect();
+        if (style.position==='fixed') {
+          set(p,'position','absolute'); set(p,'inset','auto');
+          set(p,'left',(box.left+initialX)+'px'); set(p,'top',(box.top+initialY)+'px');
+          set(p,'box-sizing','border-box'); set(p,'width',box.width+'px');
+        }
         set(p,'max-height','none'); set(p,'height','auto'); set(p,'overflow-y','visible'); set(p,'overflow-x','visible');
         set(p,'min-height',height+'px'); set(p,'flex-shrink','0');
       }
@@ -97,6 +112,14 @@
       set(root,'scroll-behavior','auto');
     }
     scrollTo(0,0);
+    // Explicit document clipping is essential: engines may otherwise size HTML
+    // captures to the viewport even after nested scroll containers are expanded.
+    let width=Math.max(innerWidth,document.documentElement.scrollWidth);
+    let height=Math.max(innerHeight,document.documentElement.scrollHeight,document.body.scrollHeight);
+    for(const {el} of scrollers) { const r=el.getBoundingClientRect();height=Math.max(height,r.bottom+scrollY);width=Math.max(width,r.right+scrollX); }
+    width=Math.ceil(width);height=Math.ceil(height);limit(width,height);
+    set(document.documentElement,'min-height',height+'px');set(document.body,'min-height',height+'px');
+    fullGeometry={x:0,y:0,width,height};
   }
   (async () => {
     try {
@@ -105,7 +128,7 @@
         const r=await chooseRect(); if (settled) return;
         if (!r) { finish({status:'cancelled'}); return; } options.clip=r;
       } else if (config.mode==='visible') options.clip='viewport';
-      else if (config.mode==='full') expandLoadedPage();
+      else if (config.mode==='full') { expandLoadedPage(); options.clip=fullGeometry; }
       else throw new Error('Unsupported screenshot mode');
       await frame(); await frame(); if (settled) return;
       if (config.mode==='full') {
@@ -124,7 +147,7 @@
       const dataUrl=await new Promise((resolve,reject)=> {
         const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=()=>reject(new Error('Cannot read screenshot')); r.readAsDataURL(blob);
       });
-      finish({status:'ok',dataUrl,width:canvas.width,height:canvas.height});
+      finish({status:'ok',dataUrl,width:canvas.width,height:canvas.height,geometry:fullGeometry,meta:capture.meta});
     } catch (error) { finish({status:'error',message:String(error?.message||error).slice(0,300)}); }
   })();
   return 'started';

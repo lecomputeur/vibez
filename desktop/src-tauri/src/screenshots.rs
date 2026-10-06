@@ -33,6 +33,7 @@ fn cancel(view:&Webview,id:u64) {
 }
 async fn begin(view:&Webview,mode:&str,drag:&str)->Result<u64,String> {
     let id=SERIAL.fetch_add(1,Ordering::SeqCst);
+    if mode=="selection" { view.set_focus().map_err(err)?; }
     view.eval(capture_script(mode,drag,id)?).map_err(err)?;
     Ok(id)
 }
