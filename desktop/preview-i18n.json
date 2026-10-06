@@ -35,7 +35,11 @@
       "windowsCaptureOpened": "Windows screen capture opened — select an area, then paste it into Vibe with Ctrl+V.",
       "updateManualHelp": "A newer tested preview is available. Open the download, unpack it and install the package manually. Your regular VibeZ stays untouched.",
       "noDownloadHelp": "No downloadable tested preview was found. This does not prove that your preview is up to date.",
-      "serviceErrorHelp": "The preview update service could not be reached. Check your connection and try again later."
+      "serviceErrorHelp": "The preview update service could not be reached. Check your connection and try again later.",
+      "screenshotMenu": "Screenshot options",
+      "screenshotFullPage": "Full page",
+      "screenshotVisible": "Visible page",
+      "screenshotSelection": "Selection"
     },
     "nl": {
       "previewTitle": "VibeZ 3",
@@ -72,7 +76,11 @@
       "windowsCaptureOpened": "Windows-schermopname geopend — selecteer een gebied en plak het daarna in Vibe met Ctrl+V.",
       "updateManualHelp": "Er is een nieuwere geteste proefversie. Open de download, pak deze uit en installeer het pakket handmatig. Je gewone VibeZ blijft ongemoeid.",
       "noDownloadHelp": "Er is geen downloadbare geteste proefversie gevonden. Dit bewijst niet dat jouw proefversie bijgewerkt is.",
-      "serviceErrorHelp": "De updatedienst voor de proefversie kon niet worden bereikt. Controleer je verbinding en probeer het later opnieuw."
+      "serviceErrorHelp": "De updatedienst voor de proefversie kon niet worden bereikt. Controleer je verbinding en probeer het later opnieuw.",
+      "screenshotMenu": "Screenshot-opties",
+      "screenshotFullPage": "Hele pagina",
+      "screenshotVisible": "Zichtbare pagina",
+      "screenshotSelection": "Selectie"
     },
     "de": {
       "previewTitle": "VibeZ 3",
