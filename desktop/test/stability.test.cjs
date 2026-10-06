@@ -19,6 +19,7 @@ function environment(b, opts = {}) {
     return elements.get(id);
   };
   const modeButtons = ['full','visible','selection'].map(mode => { const el=make(); el.dataset.screenshotMode=mode; return el; });
+  get('screenshot-panel').hidden = true;
   get('screenshot-panel').querySelector = () => modeButtons[0];
   get('screenshot-panel').querySelectorAll = () => modeButtons;
   let held;
