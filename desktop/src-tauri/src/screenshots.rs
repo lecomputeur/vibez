@@ -38,6 +38,21 @@ async fn cancel(view:&Webview,id:u64)->Result<(),String> {
 async fn begin(view:&Webview,mode:&str,drag:&str)->Result<u64,String> {
     let id=SERIAL.fetch_add(1,Ordering::SeqCst);
     if mode=="selection" { view.set_focus().map_err(err)?; }
+    // Opening/closing a native transient window can briefly leave WebKit at
+    // its 1x1 minimum allocation. Wait for a stable, usable viewport instead
+    // of returning a formally valid but empty 1x1 PNG.
+    let mut previous = String::new();
+    let mut ready = false;
+    for _ in 0..40 {
+        let measured=eval_value(view,"JSON.stringify([innerWidth,innerHeight])").await?;
+        let size:Value=serde_json::from_str(&measured).map_err(err)?;
+        if size[0].as_f64().unwrap_or(0.)>=64. && size[1].as_f64().unwrap_or(0.)>=64. && measured==previous {
+            ready=true;break;
+        }
+        previous=measured;
+        tokio::time::sleep(Duration::from_millis(75)).await;
+    }
+    if !ready {return Err("The page is still resizing. Wait a moment and try again.".into());}
     view.eval(capture_script(mode,drag,id)?).map_err(err)?;
     Ok(id)
 }

@@ -27,7 +27,14 @@ pub async fn capture(app:&AppHandle,mode:&str)->Result<Value,String> {
     if !matches!(mode,"full"|"visible"|"selection") {return Err("Unsupported screenshot mode".into());}
     if app.state::<PreviewState>().capture_busy.load(Ordering::SeqCst) {return Err(desktop_ui::status(app,"screenshot_busy"));}
     if let Some(window)=app.get_webview_window("screenshot") {window.hide().map_err(err)?;}
-    crate::show_main(app);
+    // Do not run the layout repair on an already visible window here: GTK
+    // reallocates its webviews asynchronously and can expose a transient 1x1.
+    if let Some(main)=app.get_window("main") {
+        if main.is_minimized().unwrap_or(false) {let _=main.unminimize();}
+        if !main.is_visible().unwrap_or(true) {let _=main.show();}
+        let _=main.set_focus();
+    }
+    tokio::time::sleep(std::time::Duration::from_millis(150)).await;
     #[cfg(target_os="linux")]
     let result=if mode=="selection" {capture_desktop(app).await} else {screenshots::capture_preview(app,mode).await};
     #[cfg(not(target_os="linux"))]
