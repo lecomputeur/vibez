@@ -69,12 +69,47 @@
     }
   });
   $('settings').addEventListener('click', () => preview.invoke('show_settings').catch(e => status(preview.errorText(e))));
-  $('screenshot').addEventListener('click', async () => {
+
+  function closeScreenshotPanel() {
+    const panel = $('screenshot-panel');
+    panel.hidden = true;
+    $('screenshot').setAttribute('aria-expanded', 'false');
+  }
+  $('screenshot').addEventListener('click', () => {
     if (captureBusy) return;
-    captureBusy = true; $('screenshot').disabled = true;
-    try { await preview.invoke('capture_screenshot'); }
-    catch (error) { status(preview.errorText(error)); }
-    finally { captureBusy = false; $('screenshot').disabled = false; await refresh(); }
+    const panel = $('screenshot-panel');
+    panel.hidden = !panel.hidden;
+    $('screenshot').setAttribute('aria-expanded', String(!panel.hidden));
+    if (!panel.hidden) panel.querySelector('button')?.focus();
   });
+  for (const item of document.querySelectorAll('[data-screenshot-mode]')) {
+    item.addEventListener('click', async () => {
+      if (captureBusy) return;
+      const mode = item.dataset.screenshotMode;
+      closeScreenshotPanel();
+      captureBusy = true;
+      $('screenshot').disabled = true;
+      for (const button of document.querySelectorAll('[data-screenshot-mode]')) button.disabled = true;
+      try { await preview.invoke('capture_screenshot', { mode }); }
+      catch (error) { status(preview.errorText(error)); }
+      finally {
+        captureBusy = false;
+        $('screenshot').disabled = false;
+        for (const button of document.querySelectorAll('[data-screenshot-mode]')) button.disabled = false;
+        await refresh();
+      }
+    });
+  }
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && !$('screenshot-panel').hidden) {
+      closeScreenshotPanel();
+      $('screenshot').focus();
+    }
+  });
+  document.addEventListener('pointerdown', event => {
+    const control = document.querySelector('.screenshot-control');
+    if (control && !control.contains(event.target)) closeScreenshotPanel();
+  });
+
   refresh(); setInterval(refresh, 1500);
 })();
