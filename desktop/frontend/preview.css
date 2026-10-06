@@ -28,3 +28,13 @@ button:focus-visible, select:focus-visible, textarea:focus-visible, input:focus-
 .language-panel[hidden] { display: none; }
 .language-panel select { width: 100%; height: 32px; background: #252933; color: #f7f8fa; border: 1px solid #4b5260; border-radius: 6px; padding: 4px 8px; }
 [dir="rtl"] .language-panel { right: auto; left: 0; }
+
+.screenshot-control { position: relative; display: flex; align-items: center; }
+.screenshot-button .chevron { width: 13px; height: 13px; margin-left: 2px; }
+.screenshot-panel { position: absolute; z-index: 60; top: 44px; right: 0; min-width: 190px; padding: 6px; background: #1b1e25; border: 1px solid #454a55; border-radius: 9px; box-shadow: 0 10px 28px rgba(0,0,0,.38); }
+.screenshot-panel[hidden] { display: none; }
+.screenshot-panel button { display: block; width: 100%; padding: 9px 11px; border: 0; border-radius: 6px; background: transparent; color: #f7f8fa; text-align: left; font: inherit; cursor: pointer; }
+.screenshot-panel button:hover, .screenshot-panel button:focus-visible { background: #2b303a; }
+.screenshot-panel button:disabled { opacity: .55; cursor: wait; }
+[dir="rtl"] .screenshot-panel { right: auto; left: 0; }
+[dir="rtl"] .screenshot-panel button { text-align: right; }
