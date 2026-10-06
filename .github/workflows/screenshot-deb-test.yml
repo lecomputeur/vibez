@@ -4,7 +4,7 @@ on:
     branches: ['vibe/screenshot-dialog-fix-a61c92']
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 concurrency:
   group: screenshot-repair-${{ github.ref }}
   cancel-in-progress: true
@@ -19,8 +19,18 @@ jobs:
       APPIMAGE_EXTRACT_AND_RUN: '1'
     steps:
       - uses: actions/checkout@v5
-        with:
-          persist-credentials: false
+      - name: Apply and record isolated screenshot source
+        shell: bash
+        run: |
+          test "$GITHUB_REF" = refs/heads/vibe/screenshot-dialog-fix-a61c92
+          python3 .github/apply-screenshot-test3.py
+          if ! git diff --quiet || test -n "$(git ls-files --others --exclude-standard desktop .github/screenshot-test3-source-applied)"; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add -- desktop .github/screenshot-test3-source-applied
+            git commit -m 'Implement native Linux screenshots and dedicated chooser'
+            git push origin HEAD:refs/heads/vibe/screenshot-dialog-fix-a61c92
+          fi
       - name: Record exact source for review
         run: git archive --format=tar.gz HEAD > /tmp/screenshot-source.tar.gz
       - uses: actions/upload-artifact@v5
@@ -28,22 +38,18 @@ jobs:
           name: screenshot-repair-source
           path: /tmp/screenshot-source.tar.gz
       - uses: actions/setup-node@v5
-        if: hashFiles('desktop/SCREENSHOT-TEST3.md') != ''
         with:
           node-version: 22
       - name: Native dependencies
-        if: hashFiles('desktop/SCREENSHOT-TEST3.md') != ''
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev xvfb openbox dbus-x11 imagemagick desktop-file-utils python3-gi gir1.2-gtk-3.0 gstreamer1.0-tools gstreamer1.0-plugins-good gstreamer1.0-plugins-base gstreamer1.0-plugins-bad libgdk-pixbuf2.0-bin xdg-utils python3-pil python3-xlib xdotool
           rustup toolchain install '1.99.0' --profile minimal
       - uses: Swatinem/rust-cache@v2
-        if: hashFiles('desktop/SCREENSHOT-TEST3.md') != ''
         with:
           workspaces: desktop/src-tauri -> target
           key: vibez-302-screenshot-linux
       - name: Test and build exact DEB source
-        if: hashFiles('desktop/SCREENSHOT-TEST3.md') != ''
         working-directory: desktop
         run: |
           npm ci --ignore-scripts
@@ -51,26 +57,23 @@ jobs:
           cargo test --release --locked --manifest-path src-tauri/Cargo.toml
           npm run build -- --bundles deb -- --locked
       - name: Native regression and real screenshot probes
-        if: hashFiles('desktop/SCREENSHOT-TEST3.md') != ''
         run: bash tools/release-v3/linux-smoke.sh
       - name: End-to-end chooser, capture, and saved pixels
-        if: hashFiles('desktop/tests/screenshot-e2e.sh') != ''
         run: bash desktop/tests/screenshot-e2e.sh
       - name: Collect test package and provenance
-        if: hashFiles('desktop/SCREENSHOT-TEST3.md') != ''
         run: |
           mkdir -p test-delivery
           cp desktop/src-tauri/target/release/bundle/deb/*.deb test-delivery/
           git rev-parse HEAD > test-delivery/source-commit.txt
           cd test-delivery && sha256sum *.deb > SHA256SUMS
       - uses: actions/upload-artifact@v5
-        if: success() && hashFiles('desktop/SCREENSHOT-TEST3.md') != ''
+        if: success()
         with:
           name: vibez-3.0.2-test3-linux-deb
           path: test-delivery/
           if-no-files-found: error
       - uses: actions/upload-artifact@v5
-        if: always() && hashFiles('desktop/SCREENSHOT-TEST3.md') != ''
+        if: always()
         with:
           name: screenshot-repair-evidence
           path: desktop/artifacts/
