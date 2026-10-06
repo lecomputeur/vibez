@@ -48,8 +48,10 @@ fn status_inner(app: &AppHandle, raw: &str) -> String {
         "Choose a screenshot in the desktop dialog…" => Some("screenshotChoose"),
         "Opening Windows screen capture…" => Some("windowsCaptureOpening"),
         "Windows screen capture opened — select an area, then paste it into Vibe with Ctrl+V." => Some("windowsCaptureOpened"),
-        "Screenshot copied — paste it into Vibe with Ctrl+V." => Some("screenshotCopied"),
-        "A screenshot is already in progress" => Some("screenshotBusy"),
+        "Screenshot copied — paste it into Vibe with Ctrl+V." | "screenshot_copied" => Some("screenshotCopied"),
+        "A screenshot is already in progress" | "screenshot_busy" => Some("screenshotBusy"),
+        "screenshot_working" => Some("screenshotWorking"),
+        "screenshot_cancelled" => Some("screenshotCancelled"),
         "Returning to Vibe. Your preview profile has not been cleared." => Some("returningVibe"),
         "Could not open the external link in your browser." => Some("externalLinkFailed"),
         "Page could not load. Use Home to retry; details are in Settings." => Some("pageLoadFailed"),
@@ -148,7 +150,7 @@ pub fn smoke_check(app: &AppHandle) -> Result<(), String> {
                 assert!(!strings[key].as_str().unwrap_or_default().is_empty(), "{code}/{key}");
             }
             let extras = preview.get(code).expect("matching preview language");
-            for key in ["intro", "limits", "saved", "languageButton", "chooseLanguage", "updateManualHelp", "settingsConflict", "settingsRecovered", "siteLanguageFailed", "trayUnavailable"] {
+            for key in ["intro", "limits", "saved", "languageButton", "chooseLanguage", "updateManualHelp", "settingsConflict", "settingsRecovered", "siteLanguageFailed", "trayUnavailable", "screenshotFull", "screenshotVisible", "screenshotSelection", "screenshotDrag", "screenshotWorking", "screenshotCancelled", "screenshotHint"] {
                 assert!(!extras[key].as_str().unwrap_or_default().is_empty(), "{code}/{key}");
             }
         }
