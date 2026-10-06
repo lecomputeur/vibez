@@ -19,7 +19,12 @@ fn decode_eval(raw: String) -> String {
 
 async fn eval_value(view: &tauri::Webview, script: impl Into<String>) -> Result<String, String> {
     let (tx, rx) = tokio::sync::oneshot::channel();
-    view.eval_with_callback(script, move |result| { let _ = tx.send(result); }).map_err(err)?;
+    let tx = std::sync::Arc::new(std::sync::Mutex::new(Some(tx)));
+    view.eval_with_callback(script, move |result| {
+        if let Ok(mut slot) = tx.lock() {
+            if let Some(tx) = slot.take() { let _ = tx.send(result); }
+        }
+    }).map_err(err)?;
     let raw = tokio::time::timeout(Duration::from_secs(4), rx).await.map_err(err)?.map_err(err)?;
     Ok(decode_eval(raw))
 }
