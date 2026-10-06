@@ -9,8 +9,9 @@ window.preview = (() => {
     return data.translations[candidate] ? candidate : 'en';
   }
   function extra(key) {
-    const strings = previewData?.translations?.[language] || previewData?.translations?.en || {};
-    return strings[key] || key;
+    const strings = previewData?.translations?.[language] || {};
+    const fallback = previewData?.translations?.en || {};
+    return strings[key] || fallback[key] || key;
   }
   function localize(state) {
     language = resolve(state.settings.language, state.os_locale);
