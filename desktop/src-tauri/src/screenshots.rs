@@ -7,6 +7,8 @@ use tauri_plugin_clipboard_manager::ClipboardExt;
 use crate::{desktop_ui, err, message, PreviewState};
 
 const SNAPDOM: &str = include_str!("../../node_modules/@zumer/snapdom/dist/snapdom.js");
+#[cfg(target_os = "linux")]
+#[path="screenshot_native_linux.rs"] mod native_linux;
 const SCRIPT: &str = include_str!("capture_page.js");
 const MAX_DATA: usize = 34 * 1024 * 1024;
 static SERIAL: AtomicU64 = AtomicU64::new(1);
@@ -25,8 +27,9 @@ async fn eval_value(view: &Webview, script: impl Into<String>) -> Result<String,
 fn capture_script(mode:&str, drag:&str, id:u64)->Result<String,String> {
     if !matches!(mode,"full"|"visible"|"selection") { return Err("Unsupported screenshot mode".into()); }
     let timeout=if mode=="selection" {120000} else {45000};
-    let config=json!({"id":id,"mode":mode,"dragHint":drag,"timeoutMs":timeout}).to_string();
-    Ok(format!("{SNAPDOM}\n;\n{}",SCRIPT.replace("__VIBEZ_CAPTURE_CONFIG__",&config)))
+    let config=json!({"id":id,"mode":mode,"dragHint":drag,"timeoutMs":timeout,"native":cfg!(target_os="linux")}).to_string();
+    let library=if cfg!(target_os="linux") { "" } else { SNAPDOM };
+    Ok(format!("{library}\n;\n{}",SCRIPT.replace("__VIBEZ_CAPTURE_CONFIG__",&config)))
 }
 fn cancel(view:&Webview,id:u64) {
     let _=view.eval(format!("if(window.__vibezCapture?.id==={id}){{window.__vibezCapture.cancel?.();window.__vibezCapture=null;}}"));
@@ -46,7 +49,17 @@ async fn wait_result(view:&Webview,mode:&str,id:u64)->Result<Value,String> {
             let js=format!("(() => {{const s=window.__vibezCapture;if(!s||s.id!=={id})return '';return s.result?.length>{MAX_DATA}?'{{\"status\":\"error\",\"message\":\"Screenshot too large\"}}':s.result||'';}})()");
             let raw=eval_value(view,js).await?;
             if raw.len()>MAX_DATA { return Err("Screenshot result is too large".into()); }
-            if !raw.is_empty() { return serde_json::from_str(&raw).map_err(err); }
+            if !raw.is_empty() {
+                let payload:Value=serde_json::from_str(&raw).map_err(err)?;
+                #[cfg(target_os="linux")]
+                if payload["status"]=="ready" {
+                    let bytes=native_linux::snapshot(view,mode,&payload).await?;
+                    let image=tauri::image::Image::from_bytes(&bytes).map_err(err)?;
+                    return Ok(json!({"status":"ok","dataUrl":format!("data:image/png;base64,{}",STANDARD.encode(&bytes)),
+                        "width":image.width(),"height":image.height(),"geometry":payload["geometry"],"meta":{"engine":"WebKitGTK native snapshot"}}));
+                }
+                return Ok(payload);
+            }
         }
     }.await;
     cancel(view,id);
@@ -71,33 +84,43 @@ fn copy_png(app:&AppHandle,bytes:&[u8])->Result<(),String> {
     let image=tauri::image::Image::from_bytes(bytes).map_err(err)?;
     app.clipboard().write_image(&image).map_err(err)
 }
-pub async fn capture(app:&AppHandle,mode:&str)->Result<(),String> {
+pub async fn capture_preview(app:&AppHandle,mode:&str)->Result<Value,String> {
     if !matches!(mode,"full"|"visible"|"selection") { return Err("Unsupported screenshot mode".into()); }
     let state=app.state::<PreviewState>();
     if state.capture_busy.swap(true,Ordering::SeqCst) { return Err(desktop_ui::status(app,"screenshot_busy")); }
     let _busy=Busy(&state.capture_busy);
+    crate::screenshot_dialog::clear();
     message(app,"screenshot_working");
-    let result:Result<bool,String>=async {
+    let result:Result<Value,String>=async {
         let view=app.get_webview("vibe").ok_or("Vibe view is not ready")?;
         let url=view.url().map_err(err)?;
         let id=begin(&view,mode,&desktop_ui::preview(app,"screenshotDrag")).await?;
         let payload=wait_result(&view,mode,id).await?;
         match payload["status"].as_str() {
-            Some("cancelled")=>Ok(false),
+            Some("cancelled")=>Ok(json!({"cancelled":true})),
             Some("ok")=> {
                 if view.url().map_err(err)?!=url { return Err("The page changed during capture; please try again".into()); }
                 let bytes=png_bytes(payload["dataUrl"].as_str().ok_or("Missing screenshot data")?)?;
-                copy_png(app,&bytes)?; Ok(true)
+                let copy_error=copy_png(app,&bytes).err();
+                crate::screenshot_dialog::remember(bytes)?;
+                Ok(json!({"cancelled":false,"dataUrl":payload["dataUrl"],"width":payload["width"],"height":payload["height"],
+                    "copied":copy_error.is_none(),"copyError":copy_error}))
             },
             _=>Err(payload["message"].as_str().unwrap_or("Screenshot failed").into())
         }
     }.await;
-    match result {
-        Ok(true)=> {message(app,"screenshot_copied");crate::show_main(app);Ok(())},
-        Ok(false)=> {message(app,"screenshot_cancelled");Ok(())},
-        Err(error)=> {message(app,format!("Screenshot cancelled or unavailable: {error}"));Err(error)}
+    match &result {
+        Ok(value) if value["cancelled"]==true=>message(app,"screenshot_cancelled"),
+        Ok(value) if value["copied"]==true=>message(app,"screenshot_copied"),
+        Ok(_)=>message(app,"Screenshot ready — see preview"),
+        Err(error)=>message(app,format!("Screenshot failed: {error}")),
     }
+    result
 }
+pub fn cancel_active(app:&AppHandle) {
+    if let Some(view)=app.get_webview("vibe") { let _=view.eval("window.__vibezCapture?.cancel?.();"); }
+}
+pub fn copy_last(app:&AppHandle,bytes:&[u8])->Result<(),String> { copy_png(app,bytes) }
 #[path="screenshot_probe.rs"] mod probe;
 pub async fn smoke_check(app:&AppHandle)->Result<(),String> { probe::run(app).await }
 #[cfg(test)] mod tests {

@@ -12,7 +12,7 @@ pub fn local_url(url: &Url) -> bool {
 }
 
 pub fn trusted_caller(label: &str, url: &Url) -> bool {
-    matches!(label, "shell" | "settings") && local_url(url)
+    matches!(label, "shell" | "settings" | "screenshot") && local_url(url)
 }
 
 fn safe_https(url: &Url) -> bool {

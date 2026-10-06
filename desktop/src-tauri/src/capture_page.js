@@ -135,6 +135,18 @@
         const root=document.documentElement;
         limit(Math.max(root.scrollWidth,innerWidth),Math.max(root.scrollHeight,document.body.scrollHeight,innerHeight));
       }
+      if (config.native) {
+        // Keep expanded scroll containers intact until Rust has taken the snapshot.
+        // No pixel data, canvas, external fetches or native privileges in this page.
+        const rect = config.mode === 'full' ? fullGeometry : config.mode === 'selection'
+          ? { ...options.clip, x: options.clip.x - scrollX, y: options.clip.y - scrollY }
+          : { x:0, y:0, width:innerWidth, height:innerHeight };
+        const viewport = { width:innerWidth, height:innerHeight };
+        const source = config.mode === 'full' ? fullGeometry : viewport;
+        limit(source.width * devicePixelRatio, source.height * devicePixelRatio);
+        state.result = JSON.stringify({status:'ready',rect,viewport,geometry:fullGeometry});
+        return;
+      }
       const capture=await window.snapdom(document.documentElement,options);
       if (settled) return;
       limit(capture.meta.w0,capture.meta.h0);

@@ -28,7 +28,7 @@ function environment(b, opts = {}) {
       invoke: async (command, args) => {
         if (command === 'get_state') { if (held) { const h = held; held = null; return h.promise; } return snapshot(b); }
         if (command === 'get_diagnostics') { if (opts.diagnosticsError) throw Error('diagnostics offline'); return 'diagnostics'; }
-        if (command === 'capture_screenshot') { captureCalls.push(structuredClone(args)); if(opts.captureError)throw Error('capture failed'); return true; }
+        if (command === 'show_screenshot' || command === 'capture_screenshot') { captureCalls.push(structuredClone(args)); if(opts.captureError)throw Error('capture failed'); return true; }
         if (command === 'save_settings') {
           calls.push(structuredClone(args)); assert.equal(args.settings, undefined, 'must send patches, never a whole stale form');
           for (const [key, value] of Object.entries(args.patch)) {
@@ -94,19 +94,16 @@ test('automatic update preference is editable and Check now invokes the native c
   await panel.get('check-updates').listeners.click();
   assert.equal(panel.get('result').textContent, 'Updatecontrole gestart.');
 });
-test('native screenshot chooser sends all modes and supports repeated captures', async () => {
+test('toolbar opens a dedicated chooser, never a hidden native select', async () => {
   const bar=environment(backend());bar.run(toolbar);await flush();
-  for(const mode of ['full','visible','selection','selection']) {
-    bar.get('screenshot').value=mode;await bar.get('screenshot').listeners.change();
-    assert.equal(bar.get('screenshot').value,'');assert.equal(bar.get('screenshot').disabled,false);
-  }
-  assert.deepEqual(bar.captureCalls.map(c=>c.mode),['full','visible','selection','selection']);
-  assert.match(read('frontend/index.html'),/<select id="screenshot"/);
-  assert.doesNotMatch(read('frontend/index.html'),/id="screenshot-panel"/);
+  for(let i=0;i<3;i++){await bar.get('screenshot').listeners.click();assert.equal(bar.get('screenshot').disabled,false);}
+  assert.equal(bar.captureCalls.length,3);
+  assert.match(read('frontend/index.html'),/aria-haspopup="dialog"/);
+  assert.doesNotMatch(read('frontend/index.html'),/<select id="screenshot"|id="screenshot-panel"/);
 });
-test('screenshot error reenables control and remains readable',async()=>{
+test('failure opening screenshot window reenables the toolbar button',async()=>{
   const bar=environment(backend(),{captureError:true});bar.run(toolbar);await flush();
-  bar.get('screenshot').value='visible';await bar.get('screenshot').listeners.change();
+  await bar.get('screenshot').listeners.click();
   assert.equal(bar.get('screenshot').disabled,false);assert.match(bar.get('status').textContent,/capture failed/);
 });
 test('new page capture script parses and cannot invoke native IPC',()=>{

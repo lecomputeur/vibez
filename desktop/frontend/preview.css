@@ -27,11 +27,5 @@ button:focus-visible, select:focus-visible, textarea:focus-visible, input:focus-
 .language-panel[hidden] { display: none; }
 .language-panel select { width: 100%; height: 32px; background: #252933; color: #f7f8fa; border: 1px solid #4b5260; border-radius: 6px; padding: 4px 8px; }
 [dir="rtl"] .language-panel { right: auto; left: 0; }
-.screenshot-control { position: relative; display: flex; align-items: center; }
+.screenshot-control { display: flex; align-items: center; }
 .screenshot-control[hidden] { display: none; }
-.screenshot-control .screenshot-button { pointer-events: none; }
-.screenshot-button .menu-chevron { width: 14px; height: 14px; }
-.screenshot-control > select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
-.screenshot-control > select:disabled { cursor: wait; }
-.screenshot-control:focus-within { outline: 2px solid #ff8954; outline-offset: 2px; border-radius: 9px; }
-.screenshot-control.busy { opacity: .55; }

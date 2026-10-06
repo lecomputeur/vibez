@@ -3,9 +3,18 @@
   "identifier": "local-shell",
   "description": "Only bundled shell/settings webviews can invoke preview controls. The remote Vibe webview and authentication pages get no native capabilities.",
   "local": true,
-  "webviews": ["shell", "settings"],
+  "webviews": [
+    "shell",
+    "settings"
+  ],
   "permissions": [
-    "allow-get-state", "allow-navigate", "allow-show-settings", "allow-save-settings",
-    "allow-close-settings", "allow-capture-screenshot", "allow-get-diagnostics"
+    "allow-get-state",
+    "allow-navigate",
+    "allow-show-settings",
+    "allow-save-settings",
+    "allow-close-settings",
+    "allow-capture-screenshot",
+    "allow-get-diagnostics",
+    "allow-show-screenshot"
   ]
 }

@@ -1,7 +1,7 @@
 'use strict';
 (() => {
   const $ = id => document.getElementById(id);
-  let polling = false, epoch = 0, captureBusy = false, languageBusy = false, state = null, languagesReady = false;
+  let polling = false, epoch = 0, languageBusy = false, state = null, languagesReady = false;
   function status(text) { $('status').textContent = text; $('status').title = text; }
   function prepareLanguages() {
     if (languagesReady) return;
@@ -24,7 +24,7 @@
     try {
       const incoming = await preview.invoke('get_state');
       if (started !== epoch || languageBusy || (state && incoming.revision < state.revision)) return;
-      state = incoming; preview.localize(state); $('version').textContent = state.version;
+      state = incoming; preview.localize(state); $('version').textContent = state.version + (state.build_label ? ' · ' + state.build_label : '');
       $('back').disabled = !state.can_go_back; $('forward').disabled = !state.can_go_forward;
       $('loading').classList.toggle('active', state.loading);
       const shotControl = document.querySelector('.screenshot-control');
@@ -71,23 +71,11 @@
     }
   });
   $('settings').addEventListener('click', () => preview.invoke('show_settings').catch(e => status(preview.errorText(e))));
-  // The OS/browser owns this popup, so it can extend beyond the toolbar webview.
-  $('screenshot').addEventListener('change', async () => {
-    const mode = $('screenshot').value;
-    $('screenshot').value = '';
-    if (captureBusy || !['full','visible','selection'].includes(mode)) return;
-    captureBusy = true; $('screenshot').disabled = true;
-    const control = document.querySelector('.screenshot-control');
-    control?.classList.toggle('busy',true);
-    let failure = '';
-    try { await preview.invoke('capture_screenshot', { mode }); }
-    catch (error) { failure = preview.errorText(error); }
-    finally {
-      captureBusy = false; $('screenshot').disabled = false;
-      control?.classList.toggle('busy',false);
-      await refresh();
-      if (failure) status(failure);
-    }
+  $('screenshot').addEventListener('click', async () => {
+    $('screenshot').disabled = true;
+    try { await preview.invoke('show_screenshot'); }
+    catch (error) { status(preview.errorText(error)); }
+    finally { $('screenshot').disabled = false; }
   });
   refresh(); setInterval(refresh, 1500);
 })();
