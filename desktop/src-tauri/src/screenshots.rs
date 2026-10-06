@@ -147,25 +147,37 @@ fn capture_script(mode: &str, drag_hint: &str) -> Result<String, String> {
         if (!rect) {{ finish({{status:'cancelled'}}); return; }}
         options.clip = rect;
       }} else {{
-        target = pickScrollableRoot();
-        if (target !== document.documentElement && target !== document.body && target !== document.scrollingElement) {{
-          const previous = {{
-            height:target.style.height, maxHeight:target.style.maxHeight,
-            overflow:target.style.overflow, overflowY:target.style.overflowY,
-            scrollTop:target.scrollTop
-          }};
-          const fullHeight = Math.min(target.scrollHeight, 60000);
-          target.scrollTop = 0;
-          target.style.height = fullHeight + 'px';
-          target.style.maxHeight = 'none';
-          target.style.overflow = 'visible';
-          target.style.overflowY = 'visible';
-          restore = () => {{
-            target.style.height=previous.height; target.style.maxHeight=previous.maxHeight;
-            target.style.overflow=previous.overflow; target.style.overflowY=previous.overflowY;
-            target.scrollTop=previous.scrollTop;
-          }};
+        // "Full page" means the complete Vibe document, including fixed sidebars.
+        // Expand meaningful nested scrollers temporarily instead of capturing only
+        // the largest scroller, so content outside the chat column is not lost.
+        target = document.documentElement;
+        const changed = [];
+        const candidates = [pickScrollableRoot(), ...document.querySelectorAll('main,[role="main"],section,article,div')];
+        const seen = new Set();
+        for (const el of candidates) {{
+          if (!el || seen.has(el) || el === document.documentElement || el === document.body || el === document.scrollingElement) continue;
+          seen.add(el);
+          if (!visible(el)) continue;
+          const style=getComputedStyle(el), rect=el.getBoundingClientRect();
+          if (!/(auto|scroll)/.test(style.overflowY || '') || el.scrollHeight <= el.clientHeight + 40) continue;
+          if (rect.width < innerWidth * .20 || rect.height < innerHeight * .18) continue;
+          changed.push({{el,height:el.style.height,maxHeight:el.style.maxHeight,overflow:el.style.overflow,overflowY:el.style.overflowY,scrollTop:el.scrollTop}});
+          el.scrollTop=0;
+          el.style.height=Math.min(el.scrollHeight,60000)+'px';
+          el.style.maxHeight='none';
+          el.style.overflow='visible';
+          el.style.overflowY='visible';
         }}
+        const rootScrollX=scrollX, rootScrollY=scrollY;
+        scrollTo(0,0);
+        restore = () => {{
+          for (const old of changed.reverse()) {{
+            old.el.style.height=old.height; old.el.style.maxHeight=old.maxHeight;
+            old.el.style.overflow=old.overflow; old.el.style.overflowY=old.overflowY;
+            old.el.scrollTop=old.scrollTop;
+          }}
+          scrollTo(rootScrollX,rootScrollY);
+        }};
       }}
       await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
       const capture = await window.snapdom(target, options);
