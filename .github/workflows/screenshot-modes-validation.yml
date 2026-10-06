@@ -1,0 +1,85 @@
+name: VibeZ screenshot modes validation
+
+on:
+  push:
+    branches: ['feature/screenshot-modes-v302']
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Linux screenshot engine
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+          rustup toolchain install '1.99.0' --profile minimal
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+          key: vibez-screenshot-linux
+      - name: Tests and native build
+        working-directory: desktop
+        run: |
+          npm ci --ignore-scripts
+          npm test
+          cargo test --release --locked --manifest-path src-tauri/Cargo.toml
+          npm run build -- --bundles deb -- --locked
+
+  windows:
+    name: Windows screenshot engine
+    runs-on: windows-2025
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: rustup toolchain install '1.99.0' --profile minimal
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+          key: vibez-screenshot-windows
+      - name: Tests and native build
+        working-directory: desktop
+        run: |
+          npm ci --ignore-scripts
+          npm test
+          cargo test --release --locked --manifest-path src-tauri/Cargo.toml
+          npm run build -- --bundles nsis -- --locked
+
+  macos:
+    name: macOS screenshot engine
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: rustup toolchain install '1.99.0' --profile minimal
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+          key: vibez-screenshot-macos
+      - name: Tests and native build
+        working-directory: desktop
+        run: |
+          npm ci --ignore-scripts
+          npm test
+          cargo test --release --locked --manifest-path src-tauri/Cargo.toml
+          npm run build -- --bundles app --no-sign -- --locked
