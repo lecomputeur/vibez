@@ -31,8 +31,9 @@ fn capture_script(mode:&str, drag:&str, id:u64)->Result<String,String> {
     let library=if cfg!(target_os="linux") { "" } else { SNAPDOM };
     Ok(format!("{library}\n;\n{}",SCRIPT.replace("__VIBEZ_CAPTURE_CONFIG__",&config)))
 }
-fn cancel(view:&Webview,id:u64) {
-    let _=view.eval(format!("if(window.__vibezCapture?.id==={id}){{window.__vibezCapture.cancel?.();window.__vibezCapture=null;}}"));
+async fn cancel(view:&Webview,id:u64)->Result<(),String> {
+    eval_value(view,format!("(() => {{if(window.__vibezCapture?.id==={id}){{window.__vibezCapture.cancel?.();window.__vibezCapture=null;}}return true;}})()")).await?;
+    Ok(())
 }
 async fn begin(view:&Webview,mode:&str,drag:&str)->Result<u64,String> {
     let id=SERIAL.fetch_add(1,Ordering::SeqCst);
@@ -62,8 +63,14 @@ async fn wait_result(view:&Webview,mode:&str,id:u64)->Result<Value,String> {
             }
         }
     }.await;
-    cancel(view,id);
-    result
+    // Do not reopen the chooser or release the capture lock until the page
+    // has acknowledged cleanup, including restoring full-page scroll containers.
+    let cleanup=cancel(view,id).await;
+    match (result,cleanup) {
+        (Ok(value),Ok(()))=>Ok(value),
+        (Err(error),_)=>Err(error),
+        (_,Err(error))=>Err(format!("Cannot restore screenshot page: {error}")),
+    }
 }
 fn png_bytes(data:&str)->Result<Vec<u8>,String> {
     if data.len()>MAX_DATA { return Err("Screenshot result is too large".into()); }

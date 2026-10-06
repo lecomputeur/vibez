@@ -45,6 +45,7 @@ jobs:
           key: vibez-302-screenshot-linux
           cache-on-failure: true
       - name: Test and build exact DEB source
+        id: build
         working-directory: desktop
         shell: bash
         run: |
@@ -59,6 +60,7 @@ jobs:
           set -o pipefail
           bash tools/release-v3/linux-smoke.sh 2>&1 | tee desktop/artifacts/native-tests.log
       - name: End-to-end chooser, capture, and saved pixels
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         shell: bash
         run: |
           set -o pipefail

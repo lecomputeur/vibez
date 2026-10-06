@@ -76,7 +76,12 @@
     restorePage = () => {
       for (const [el,old] of [...changes].reverse()) {
         if (el.style.cssText===old.appliedStyle) {
-          if (old.originalStyle===null) el.removeAttribute('style'); else el.setAttribute('style',old.originalStyle);
+          // Restore through CSSOM: setting a style attribute is blocked by
+          // strict page CSP and can discard the original layout entirely.
+          for (const key of [...el.style]) el.style.removeProperty(key);
+          for (const key of [...old.original])
+            el.style.setProperty(key,old.original.getPropertyValue(key),old.original.getPropertyPriority(key));
+          if (old.originalStyle===null && !el.style.cssText) el.removeAttribute('style');
           continue;
         }
         for (const [key,v] of old.values) {
