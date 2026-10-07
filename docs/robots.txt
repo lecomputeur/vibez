@@ -2,4 +2,3 @@ User-agent: *
 Allow: /
 
 Sitemap: https://lecomputeur.github.io/vibez/sitemap.xml
-Sitemap: https://lecomputeur.github.io/vibez/sitemap.txt
