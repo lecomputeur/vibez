@@ -19,15 +19,46 @@ pub async fn open(app:&AppHandle)->Result<(),String> {
     if let Some(window)=app.get_webview_window("screenshot") {window.show().map_err(err)?;return window.set_focus().map_err(err);}
     #[cfg(target_os="linux")] install_clipboard_bridge(app)?;
     let builder=WebviewWindowBuilder::new(app,"screenshot",WebviewUrl::App("screenshot.html".into()))
-        .title(format!("VibeZ · {} · test 5",desktop_ui::text(app,"screenshot")))
-        .inner_size(280.,184.).min_inner_size(280.,184.).center().resizable(false).maximizable(false)
+        .title(format!("VibeZ · {} · test 6",desktop_ui::text(app,"screenshot")))
+        .inner_size(280.,184.).min_inner_size(280.,184.).resizable(false).maximizable(false)
         .data_directory(app.path().app_data_dir().map_err(err)?.join("controls"))
         .data_store_identifier([118,105,98,101,122,51,0,0,0,0,0,0,0,0,0,1])
         .on_navigation(policy::local_url).on_new_window(|_,_|tauri::webview::NewWindowResponse::Deny);
     #[cfg(target_os="linux")]
     let builder=if let Some(main)=app.get_window("main") {builder.transient_for_raw(&main.gtk_window().map_err(err)?)} else {builder};
+    // Linux must not use the generic .center(): it ignores the transient
+    // parent's monitor. Configure parent-relative placement before first map.
+    #[cfg(target_os="linux")]
+    let builder=builder.visible(false);
+    #[cfg(not(target_os="linux"))]
+    let builder=builder.center();
     let window=builder.build().map_err(err)?;
+    #[cfg(target_os="linux")]
+    show_on_parent(app,&window).await?;
     window.set_focus().map_err(err)
+}
+
+#[cfg(target_os="linux")]
+async fn show_on_parent(app:&AppHandle,window:&tauri::WebviewWindow)->Result<(),String> {
+    let parent=app.get_window("main").ok_or("VibeZ window is not available")?;
+    let window=window.clone();
+    let (tx,rx)=tokio::sync::oneshot::channel();
+    app.run_on_main_thread(move || {
+        use gtk::prelude::*;
+        let result:Result<(),String>=(|| {
+            let child=window.gtk_window().map_err(err)?;
+            let parent=parent.gtk_window().map_err(err)?;
+            child.set_transient_for(Some(&parent));
+            // GTK uses the parent's current monitor/work area and its own
+            // coordinate units, rather than mixing physical and logical pixels.
+            child.set_position(gtk::WindowPosition::CenterOnParent);
+            child.show();
+            child.present();
+            Ok(())
+        })();
+        let _=tx.send(result);
+    }).map_err(err)?;
+    rx.await.map_err(err)?
 }
 pub async fn capture(app:&AppHandle,mode:&str,auto_paste:bool)->Result<Value,String> {
     if !matches!(mode,"full"|"visible"|"selection") {return Err("Unsupported screenshot mode".into());}
