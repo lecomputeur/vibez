@@ -8,17 +8,20 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Fetch live sitemap and robots
+      - name: Check all live pages and SEO endpoints
         shell: bash
         run: |
           set -euxo pipefail
-          for name in sitemap.xml robots.txt
+          for path in "" windows.html linux.html macos.html sitemap.xml robots.txt
           do
-            url="https://lecomputeur.github.io/vibez/$name"
-            echo "=== $url ==="
-            curl -fsSIL "$url"
-            curl -fsSL "$url" -o "$RUNNER_TEMP/$name"
-            echo "--- body ---"
-            cat "$RUNNER_TEMP/$name"
-            echo
+            url="https://lecomputeur.github.io/vibez/$path"
+            code="$(curl -L -sS -o "$RUNNER_TEMP/out" -w '%{http_code}' "$url")"
+            test "$code" = 200
+            echo "LIVE_OK $code $url"
           done
+          grep -q 'VibeZ 3' <(curl -fsSL https://lecomputeur.github.io/vibez/)
+          grep -q 'VibeZ 3.*Windows\|VibeZ 3' <(curl -fsSL https://lecomputeur.github.io/vibez/windows.html)
+          grep -q 'VibeZ 3' <(curl -fsSL https://lecomputeur.github.io/vibez/linux.html)
+          grep -q 'VibeZ 3' <(curl -fsSL https://lecomputeur.github.io/vibez/macos.html)
+          grep -q 'lecomputeur.github.io/vibez/linux.html' <(curl -fsSL https://lecomputeur.github.io/vibez/sitemap.xml)
+          echo LIVE_SITE_302_OK
