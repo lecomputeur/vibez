@@ -1,0 +1,22 @@
+name: Check live sitemap
+on:
+  push:
+    branches: ['vibe/check-live-sitemap-7c1f']
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch live sitemap and robots
+        shell: bash
+        run: |
+          set -euxo pipefail
+          for url in             https://lecomputeur.github.io/vibez/             https://lecomputeur.github.io/vibez/sitemap.xml             https://lecomputeur.github.io/vibez/robots.txt
+          do
+            echo "=== $url ==="
+            curl -fsSIL "$url"
+            echo "--- body ---"
+            curl -fsSL "$url" | head -c 2000
+            echo
+          done
