@@ -6,7 +6,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: vibez-303-${{ github.sha }}
+  group: vibez-303-${{ github.ref }}
   cancel-in-progress: true
 defaults:
   run:
@@ -14,28 +14,18 @@ defaults:
 jobs:
   source:
     runs-on: ubuntu-24.04
-    permissions:
-      contents: write
     outputs:
       sha: ${{ steps.source.outputs.sha }}
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: ${{ github.ref_name }}
-          fetch-depth: 0
-      - name: Commit exact candidate before compiling
+          persist-credentials: false
+      - name: Record committed candidate — no source mutation or publication
         id: source
         run: |
           test "$GITHUB_REF" = refs/heads/vibe/windows-real-paste-303-91c4
-          python3 .github/integrate-303.py
-          python3 .github/probe-context-303.py
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add desktop tools/release-v3
-          if ! git diff --cached --quiet; then
-            git commit -m 'Freeze candidate with complete download-button and attachment checks'
-            git push origin HEAD:refs/heads/vibe/windows-real-paste-303-91c4
-          fi
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          python3 -c 'import json; assert json.load(open("desktop/package.json"))["version"] == "3.0.3"'
           git diff --exit-code
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           git archive --format=tar.gz HEAD > /tmp/candidate-source.tar.gz

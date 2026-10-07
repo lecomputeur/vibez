@@ -10,6 +10,7 @@ pub async fn run(app:&AppHandle)->Result<(),String>{
     let old=screenshots::eval_value(&view,"JSON.stringify({html:document.body.innerHTML,style:document.body.style.cssText})").await?;
     let result:Result<(),String>=async{
         view.eval(include_str!("screenshot_fixture.js")).map_err(err)?;tokio::time::sleep(Duration::from_millis(300)).await;
+        let mut clipboard_png:Option<Vec<u8>>=None;
         for(index,mode)in ["visible","full"].iter().enumerate(){
             super::open(app).await?;tokio::time::sleep(Duration::from_millis(500)).await;
             let value=super::capture(app,mode,true).await?;
@@ -30,10 +31,14 @@ pub async fn run(app:&AppHandle)->Result<(),String>{
             if let Ok(dir)=std::env::var("VIBEZ_SCREENSHOT_ARTIFACT_DIR"){
                 std::fs::create_dir_all(&dir).map_err(err)?;std::fs::write(std::path::Path::new(&dir).join(format!("pasted-{mode}.png")),&data).map_err(err)?;
             }
+            // Closing intentionally clears the dialog's retained screenshot, not
+            // the native clipboard. Retain test-owned bytes for the next probe.
+            clipboard_png=Some(expected);
             super::action(app,"close").await?;println!("RELEASE_PASTE_OK: {mode}; visible attachment, pixels identical, draft preserved, no message sent");
         }
+        view.set_focus().map_err(err)?;
         view.eval("document.getElementById('shot-composer').focus();").map_err(err)?;
-        super::paste_composer::paste(app,&super::last()?,true).await?;
+        super::paste_composer::paste(app,clipboard_png.as_deref().ok_or("Missing clipboard probe fixture")?,true).await?;
         println!("NATIVE_CLIPBOARD_ATTACHMENT_OK: focused native paste produced a visible attachment");
         for behaviour in ["ignore","reject","delay"]{
             view.eval(format!("window.__shotPasteMode='{behaviour}';document.querySelectorAll('[role=alert]').forEach(e=>e.remove());")).map_err(err)?;
