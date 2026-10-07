@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const source=fs.readFileSync(path.join(__dirname,'../src-tauri/src/screenshot_dialog.rs'),'utf8');
 test('Linux positions the hidden screenshot chooser on its transient parent before mapping',()=>{
  assert.match(source,/#\[cfg\(target_os="linux"\)\]\s*let builder=builder\.visible\(false\)/);
- assert.match(source,/#\[cfg\(not\(target_os="linux"\)\)\]\s*let builder=builder\.center\(\)/);
+ assert.match(source,/#\[cfg\(not\(target_os="linux"\)\)\]\s*let builder=builder\.visible\(false\)/);
  const body=source.slice(source.indexOf('async fn show_on_parent'));
  assert.ok(body.indexOf('child.set_transient_for(Some(&parent))')<body.indexOf('child.set_position(gtk::WindowPosition::CenterOnParent)'));
  assert.ok(body.indexOf('child.set_position(gtk::WindowPosition::CenterOnParent)')<body.indexOf('child.show_all()'));

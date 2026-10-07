@@ -22,7 +22,7 @@
       $('image').alt=baseStrings.screenshot;document.title=baseStrings.screenshot;
       if(lastFeedback){const {key,kind}=lastFeedback;status(key,kind);}
     }
-    $('save').hidden=state.platform!=='linux';
+    $('save').hidden=false;
   }
   async function refresh(initial=false){
     if(refreshing||closed||(!initial&&busy))return;

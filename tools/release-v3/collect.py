@@ -3,7 +3,7 @@
 from pathlib import Path
 import json, shutil, sys, hashlib, subprocess
 ROOT=Path(__file__).resolve().parents[2]; DESK=ROOT/'desktop'; OUT=ROOT/'release-assets';OUT.mkdir(exist_ok=True)
-v=json.loads((DESK/'package.json').read_text())['version']; assert v=='3.0.1'
+v=json.loads((DESK/'package.json').read_text())['version']; assert v=='3.0.2'
 platform=sys.argv[1]
 patterns={'linux': [('deb','deb'),('rpm','rpm'),('appimage','AppImage')], 'windows':[('nsis','exe'),('msi','msi')]}
 for folder,ext in patterns.get(platform,[]):
@@ -29,6 +29,6 @@ if platform=='all':
     for suffix in required:
         f=OUT/f'VibeZ-{v}-{suffix}'
         if not f.is_file() or f.stat().st_size<1024: raise SystemExit(f'Missing/empty required release asset: {f.name}')
-    files=sorted(p for p in OUT.iterdir() if p.is_file() and p.name!='SHA256SUMS')
+    files=sorted([OUT/f'VibeZ-{v}-{suffix}' for suffix in required]+[OUT/'source-commit.txt'])
     (OUT/'SHA256SUMS').write_text(''.join(f'{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}\n' for p in files))
     print(f'ALL_FORMATS_OK: {len(required)} required v{v} installer/archive assets present')

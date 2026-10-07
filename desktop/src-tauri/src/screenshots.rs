@@ -11,6 +11,8 @@ const SNAPDOM: &str = include_str!("../../node_modules/@zumer/snapdom/dist/snapd
 #[path="screenshot_native_linux.rs"] mod native_linux;
 #[cfg(target_os="linux")]
 #[path="screenshot_clipboard.rs"] mod native_clipboard;
+#[cfg(not(target_os="linux"))]
+#[path="screenshot_native_other.rs"] pub(super) mod native_other;
 const SCRIPT: &str = include_str!("capture_page.js");
 const MAX_DATA: usize = 34 * 1024 * 1024;
 static SERIAL: AtomicU64 = AtomicU64::new(1);
@@ -29,8 +31,8 @@ pub(super) async fn eval_value(view: &Webview, script: impl Into<String>) -> Res
 fn capture_script(mode:&str, drag:&str, id:u64)->Result<String,String> {
     if !matches!(mode,"full"|"visible"|"selection") { return Err("Unsupported screenshot mode".into()); }
     let timeout=if mode=="selection" {120000} else {45000};
-    let config=json!({"id":id,"mode":mode,"dragHint":drag,"timeoutMs":timeout,"native":cfg!(target_os="linux")}).to_string();
-    let library=if cfg!(target_os="linux") { "" } else { SNAPDOM };
+    let config=json!({"id":id,"mode":mode,"dragHint":drag,"timeoutMs":timeout,"native":true}).to_string();
+    let library="";
     Ok(format!("{library}\n;\n{}",SCRIPT.replace("__VIBEZ_CAPTURE_CONFIG__",&config)))
 }
 async fn cancel(view:&Webview,id:u64)->Result<(),String> {
@@ -69,12 +71,14 @@ async fn wait_result(view:&Webview,mode:&str,id:u64)->Result<Value,String> {
             if raw.len()>MAX_DATA { return Err("Screenshot result is too large".into()); }
             if !raw.is_empty() {
                 let payload:Value=serde_json::from_str(&raw).map_err(err)?;
-                #[cfg(target_os="linux")]
                 if payload["status"]=="ready" {
+                    #[cfg(target_os="linux")]
                     let bytes=native_linux::snapshot(view,mode,&payload).await?;
+                    #[cfg(not(target_os="linux"))]
+                    let bytes=native_other::snapshot(view,mode,&payload).await?;
                     let image=tauri::image::Image::from_bytes(&bytes).map_err(err)?;
                     return Ok(json!({"status":"ok","dataUrl":format!("data:image/png;base64,{}",STANDARD.encode(&bytes)),
-                        "width":image.width(),"height":image.height(),"geometry":payload["geometry"],"meta":{"engine":"WebKitGTK native snapshot"}}));
+                        "width":image.width(),"height":image.height(),"geometry":payload["geometry"],"meta":{"engine":if cfg!(target_os="linux"){"WebKitGTK native snapshot"}else if cfg!(target_os="windows"){"WebView2 native snapshot"}else{"WKWebView native snapshot"}}}));
                 }
                 return Ok(payload);
             }

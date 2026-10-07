@@ -149,7 +149,7 @@
         const viewport = { width:innerWidth, height:innerHeight };
         const source = config.mode === 'full' ? fullGeometry : viewport;
         limit(source.width * devicePixelRatio, source.height * devicePixelRatio);
-        state.result = JSON.stringify({status:'ready',rect,viewport,geometry:fullGeometry});
+        state.result = JSON.stringify({status:'ready',rect,viewport,geometry:fullGeometry,scroll:{x:scrollX,y:scrollY}});
         return;
       }
       const capture=await window.snapdom(document.documentElement,options);

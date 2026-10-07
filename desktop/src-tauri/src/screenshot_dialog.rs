@@ -6,6 +6,14 @@ use tauri::{AppHandle,Manager,WebviewUrl,WebviewWindowBuilder};
 #[cfg(target_os="linux")]
 #[path="screenshot_screen_linux.rs"] mod screen_linux;
 #[path="screenshot_paste.rs"] mod paste_composer;
+#[cfg(not(target_os="linux"))]
+#[path="screenshot_save_other.rs"] mod save_other;
+#[cfg(not(target_os="linux"))]
+#[path="screenshot_screen_other.rs"] mod screen_other;
+#[cfg(not(target_os="linux"))]
+#[path="screenshot_release_probe.rs"] mod release_probe;
+#[cfg(not(target_os="linux"))]
+pub async fn release_smoke_check(app:&AppHandle)->Result<(),String>{release_probe::run(app).await}
 static OPERATION:std::sync::atomic::AtomicBool=std::sync::atomic::AtomicBool::new(false);
 struct Operation;
 impl Operation {fn start()->Result<Self,String>{if OPERATION.swap(true,Ordering::SeqCst){Err("Screenshot busy".into())}else{Ok(Self)}}}
@@ -19,7 +27,7 @@ pub async fn open(app:&AppHandle)->Result<(),String> {
     if let Some(window)=app.get_webview_window("screenshot") {window.show().map_err(err)?;return window.set_focus().map_err(err);}
     #[cfg(target_os="linux")] install_clipboard_bridge(app)?;
     let builder=WebviewWindowBuilder::new(app,"screenshot",WebviewUrl::App("screenshot.html".into()))
-        .title(format!("VibeZ · {} · test 6",desktop_ui::text(app,"screenshot")))
+        .title(format!("VibeZ · {}",desktop_ui::text(app,"screenshot")))
         .inner_size(280.,184.).min_inner_size(280.,184.).resizable(false).maximizable(false)
         .data_directory(app.path().app_data_dir().map_err(err)?.join("controls"))
         .data_store_identifier([118,105,98,101,122,51,0,0,0,0,0,0,0,0,0,1])
@@ -31,10 +39,12 @@ pub async fn open(app:&AppHandle)->Result<(),String> {
     #[cfg(target_os="linux")]
     let builder=builder.visible(false);
     #[cfg(not(target_os="linux"))]
-    let builder=builder.center();
+    let builder=builder.visible(false);
     let window=builder.build().map_err(err)?;
     #[cfg(target_os="linux")]
     show_on_parent(app,&window).await?;
+    #[cfg(not(target_os="linux"))]
+    show_on_parent_other(app,&window)?;
     window.set_focus().map_err(err)
 }
 
@@ -60,6 +70,22 @@ async fn show_on_parent(app:&AppHandle,window:&tauri::WebviewWindow)->Result<(),
     }).map_err(err)?;
     rx.await.map_err(err)?
 }
+#[cfg(not(target_os="linux"))]
+fn show_on_parent_other(app:&AppHandle,child:&tauri::WebviewWindow)->Result<(),String>{
+    let parent=app.get_window("main").ok_or("VibeZ window unavailable")?;
+    let origin=parent.outer_position().map_err(err)?;let size=parent.outer_size().map_err(err)?;
+    let child_size=child.outer_size().map_err(err)?;
+    let mut x=i64::from(origin.x)+(i64::from(size.width)-i64::from(child_size.width))/2;
+    let mut y=i64::from(origin.y)+(i64::from(size.height)-i64::from(child_size.height))/2;
+    if let Some(monitor)=parent.current_monitor().map_err(err)?{
+        let left=i64::from(monitor.position().x);let top=i64::from(monitor.position().y);
+        let right=left+i64::from(monitor.size().width);let bottom=top+i64::from(monitor.size().height);
+        x=x.clamp(left,(right-i64::from(child_size.width)).max(left));
+        y=y.clamp(top,(bottom-i64::from(child_size.height)).max(top));
+    }
+    child.set_position(tauri::PhysicalPosition::new(x as i32,y as i32)).map_err(err)?;
+    child.show().map_err(err)
+}
 pub async fn capture(app:&AppHandle,mode:&str,auto_paste:bool)->Result<Value,String> {
     if !matches!(mode,"full"|"visible"|"selection") {return Err("Unsupported screenshot mode".into());}
     if app.state::<PreviewState>().capture_busy.load(Ordering::SeqCst) {return Err(desktop_ui::status(app,"screenshot_busy"));}
@@ -74,10 +100,7 @@ pub async fn capture(app:&AppHandle,mode:&str,auto_paste:bool)->Result<Value,Str
         let _=main.set_focus();
     }
     tokio::time::sleep(std::time::Duration::from_millis(150)).await;
-    #[cfg(target_os="linux")]
     let mut result=if mode=="selection" {capture_desktop(app).await} else {screenshots::capture_preview(app,mode).await};
-    #[cfg(not(target_os="linux"))]
-    let mut result=screenshots::capture_preview(app,mode).await;
     if let Ok(value)=&mut result {
         if auto_paste && value["cancelled"]!=true && value["copied"]==true {
             let current=app.get_webview("vibe").and_then(|v|v.url().ok());
@@ -91,7 +114,6 @@ pub async fn capture(app:&AppHandle,mode:&str,auto_paste:bool)->Result<Value,Str
     if let Some(window)=app.get_webview_window("screenshot") {let _=window.show();let _=window.set_focus();}
     result
 }
-#[cfg(target_os="linux")]
 async fn capture_desktop(app:&AppHandle)->Result<Value,String> {
     use base64::{engine::general_purpose::STANDARD,Engine as _};
     let state=app.state::<PreviewState>();
@@ -99,7 +121,11 @@ async fn capture_desktop(app:&AppHandle)->Result<Value,String> {
     struct Busy<'a>(&'a std::sync::atomic::AtomicBool);
     impl Drop for Busy<'_>{fn drop(&mut self){self.0.store(false,Ordering::SeqCst);}}
     let _busy=Busy(&state.capture_busy);clear();
-    let Some(bytes)=screen_linux::capture(app,desktop_ui::language(app)=="nl").await? else{return Ok(json!({"cancelled":true}));};
+    #[cfg(target_os="linux")]
+    let captured=screen_linux::capture(app,desktop_ui::language(app)=="nl").await?;
+    #[cfg(not(target_os="linux"))]
+    let captured=screen_other::capture().await?;
+    let Some(bytes)=captured else{return Ok(json!({"cancelled":true}));};
     let image=tauri::image::Image::from_bytes(&bytes).map_err(err)?;
     let copied=screenshots::copy_last(app,&bytes).await.is_ok();
     let result=json!({"cancelled":false,"dataUrl":format!("data:image/png;base64,{}",STANDARD.encode(&bytes)),"width":image.width(),"height":image.height(),"copied":copied});
@@ -164,7 +190,7 @@ async fn save(app:&AppHandle,bytes:Vec<u8>)->Result<Value,String> {
     }).await.map_err(err)?
 }
 #[cfg(not(target_os="linux"))]
-async fn save(_app:&AppHandle,_bytes:Vec<u8>)->Result<Value,String>{Err("Save is not enabled in this Linux test candidate. Use Copy.".into())}
+async fn save(app:&AppHandle,bytes:Vec<u8>)->Result<Value,String>{save_other::save(app,bytes).await}
 
 fn focus_main(app:&AppHandle) {
     if let Some(w)=app.get_window("main"){if w.is_minimized().unwrap_or(false){let _=w.unminimize();}if !w.is_visible().unwrap_or(true){let _=w.show();}let _=w.set_focus();}

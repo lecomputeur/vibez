@@ -5,7 +5,7 @@
   // Apply via CSSOM, not inline attributes blocked by the real local CSP.
   for(const el of document.body.querySelectorAll('[style]')){const style=el.getAttribute('style');el.removeAttribute('style');el.style.cssText=style;}
   const canvas=document.getElementById('shot-canvas'),c=canvas.getContext('2d');c.fillStyle='rgb(160,40,190)';c.fillRect(0,0,100,80);
-  const meta=document.createElement('meta');meta.httpEquiv='Content-Security-Policy';meta.content="default-src 'none'; style-src 'self'; img-src 'self'; script-src 'self'";document.head.append(meta);
+  const meta=document.createElement('meta');meta.setAttribute('data-vibez-test-csp','');meta.httpEquiv='Content-Security-Policy';meta.content="default-src 'none'; style-src 'self'; img-src 'self'; script-src 'self'";document.head.append(meta);
 })();
 
 // Offline consumer of actual native or clearly identified compatibility image events.

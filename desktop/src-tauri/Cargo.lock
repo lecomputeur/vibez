@@ -4667,8 +4667,11 @@ name = "vibez3"
 version = "3.0.2"
 dependencies = [
  "base64 0.22.1",
+ "block2",
  "gtk",
+ "image",
  "objc2",
+ "objc2-app-kit",
  "objc2-foundation",
  "objc2-web-kit",
  "reqwest 0.12.28",

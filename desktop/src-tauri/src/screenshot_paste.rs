@@ -31,8 +31,24 @@ pub async fn paste(app: &AppHandle, png: &[u8], only_focused: bool) -> Result<&'
             }).map_err(err)?;
             tokio::time::timeout(Duration::from_secs(3),rx).await.map_err(err)?.map_err(err)?;
         }
-        #[cfg(not(target_os="linux"))]
-        {return Err("Direct paste is enabled only in this Linux test. Use Copy.".into());}
+        #[cfg(target_os="windows")]
+        {
+            for kind in ["rawKeyDown","keyUp"] {
+                screenshots::native_other::devtools(&view,"Input.dispatchKeyEvent",serde_json::json!({
+                    "type":kind,"modifiers":2,"key":"v","code":"KeyV","windowsVirtualKeyCode":86,"nativeVirtualKeyCode":86
+                })).await?;
+            }
+        }
+        #[cfg(target_os="macos")]
+        {
+            let(tx,rx)=tokio::sync::oneshot::channel();
+            view.with_webview(move |platform|unsafe {
+                let native=&*platform.inner().cast::<objc2_web_kit::WKWebView>();
+                let _:()=objc2::msg_send![native,paste:std::ptr::null::<objc2::runtime::AnyObject>()];
+                let _=tx.send(());
+            }).map_err(err)?;
+            tokio::time::timeout(Duration::from_secs(3),rx).await.map_err(err)?.map_err(err)?;
+        }
         for _ in 0..30 {
             tokio::time::sleep(Duration::from_millis(80)).await;
             let raw=screenshots::eval_value(&view,"JSON.stringify(window.__vibezPasteReceipt ? {received:window.__vibezPasteReceipt.received,images:window.__vibezPasteReceipt.images,trusted:window.__vibezPasteReceipt.trusted} : {})").await?;
