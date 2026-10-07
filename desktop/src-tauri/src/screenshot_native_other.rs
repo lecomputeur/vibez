@@ -56,7 +56,13 @@ pub async fn snapshot(view:&Webview,_mode:&str,payload:&Value)->Result<Vec<u8>,S
     normalize(&STANDARD.decode(encoded).map_err(err)?,w,h)
 }
 #[cfg(target_os="macos")]
-pub async fn snapshot(view:&Webview,_mode:&str,payload:&Value)->Result<Vec<u8>,String>{
+#[path="screenshot_macos_tiles.rs"] mod mac_tiles;
+#[cfg(target_os="macos")]
+pub async fn snapshot(view:&Webview,mode:&str,payload:&Value)->Result<Vec<u8>,String>{
+    if mode=="full" {mac_tiles::capture(view,payload).await} else {snapshot_region(view,mode,payload).await}
+}
+#[cfg(target_os="macos")]
+async fn snapshot_region(view:&Webview,_mode:&str,payload:&Value)->Result<Vec<u8>,String>{
     use objc2::AnyThread;
     use objc2_app_kit::{NSImage,NSBitmapImageRep,NSBitmapImageFileType};
     use objc2_foundation::{NSError,NSDictionary,NSNumber,NSRect,NSPoint,NSSize};
