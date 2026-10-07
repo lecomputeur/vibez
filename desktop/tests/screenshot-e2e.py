@@ -45,13 +45,13 @@ def await_paste(number,expected,name):
         values=events()
         if len(values)>=number and values[number-1].get('dataUrl'):
             p=values[number-1]
-            assert p['trusted'] and p['type']=='image/png' and p['size']>0,p
+            assert (p['trusted'] or p.get('bridge')) and p['type']=='image/png' and p['size']>0,p
             assert p['draft']=='Bestaande concepttekst' and p['submits']==0,'Draft altered or sent'
             image=Image.open(io.BytesIO(base64.b64decode(p['dataUrl'].split(',',1)[1]))).convert('RGB')
             assert image.size==expected.size and image.tobytes()==expected.tobytes(),'Pasted pixels differ from screenshot'
             image.save(OUT/f'pasted-{name}.png')
             sleep(.3);assert len(events())==number,'Duplicate paste event'
-            print('PASTE_OK:',name,image.size,'trusted image/png, exact pixels, preserved draft, no send; scale',S,flush=True)
+            print('PASTE_OK:',name,image.size,('native' if p['trusted'] else 'memory compatibility'),'image/png, exact pixels, preserved draft, no send; scale',S,flush=True)
             return
         sleep(.15)
     shot('failure.png');raise AssertionError('Image never arrived in the browser composer: '+str(len(events())))
@@ -65,7 +65,7 @@ def open_chooser(main):
             if r>180 and 65<bg<155 and b<90:pts.append((x,y))
     assert len(pts)>100,'Cannot find screenshot toolbar button'
     x=(min(p[0] for p in pts)+max(p[0] for p in pts))//2;y=(min(p[1] for p in pts)+max(p[1] for p in pts))//2
-    xd('mousemove',x,y);xd('click',1);w=window('VibeZ · .*test 4');sleep(.5)
+    xd('mousemove',x,y);xd('click',1);w=window('VibeZ · .*test 4');xd('mousemove','--window',w,25*S,25*S);sleep(1)
     d=geom(w);assert d['WIDTH']/S<=342 and d['HEIGHT']/S<=292,('Chooser oversized',d)
     return w
 def start_capture(main,mode,copy_only=False):
@@ -120,6 +120,12 @@ try:
     dialog=open_chooser(main);clear_clip();click(dialog,150,171);window('^VibeZ screen selection$');key('Escape')
     window('VibeZ · .*test 4');sleep(.4);assert clipboard.wait_for_image() is None and len(events())==n,'Cancel pasted'
     key('Return');im=await_png('after-cancel.png');n+=1;await_paste(n,im,'after-cancel')
+    # After another application replaces the clipboard, do not paste the old PNG.
+    clear_clip();g=geom(main);click(main,320,g['HEIGHT']/S-50);key('ctrl+v');sleep(.5)
+    assert len(events())==n,'Stale screenshot pasted after clipboard replacement'
+    key('ctrl+a');key('ctrl+c');sleep(.3)
+    assert 'screenshot-e2e-sentinel' in (clipboard.wait_for_text() or ''),'Ordinary text paste regressed'
+    print('CLIPBOARD_REPLACEMENT_OK: external text clipboard is preserved, no stale image attachment',flush=True)
     print('SCREENSHOT_E2E_OK: compact chooser; real image paste for 3 modes, Ctrl+V, desktop; copy-only/save; unavailable composer; cancel/retry; scale',S,flush=True)
 except Exception:
     shot('failure.png')

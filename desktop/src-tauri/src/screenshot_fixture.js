@@ -8,7 +8,7 @@
   const meta=document.createElement('meta');meta.httpEquiv='Content-Security-Policy';meta.content="default-src 'none'; style-src 'self'; img-src 'self'; script-src 'self'";document.head.append(meta);
 })();
 
-// Offline consumer of the real trusted clipboard event, not a synthetic paste.
+// Offline consumer of actual native or clearly identified compatibility image events.
 (() => {
   window.__shotPasteEvents=[];
   const form=document.createElement('form');
@@ -18,11 +18,11 @@
   let submits=0;
   form.addEventListener('submit',e=>{e.preventDefault();submits++;});
   editor.addEventListener('paste',e=>{
-    const files=[...(e.clipboardData?.files||[])];
+    const files=Array.from(e.clipboardData?.files||[]);
+    if(!files.length) return;
     e.preventDefault();
-    if(!files.length) window.__shotPasteEvents.push({diagnostic:true,trusted:e.isTrusted,types:[...(e.clipboardData?.types||[])],items:[...(e.clipboardData?.items||[])].map(i=>({kind:i.kind,type:i.type})),uri:e.clipboardData?.getData('text/uri-list'),text:e.clipboardData?.getData('text/plain')});
     for(const f of files) {
-      const record={trusted:e.isTrusted,type:f.type,size:f.size,draft:editor.value,submits,dataUrl:null};
+      const record={trusted:e.isTrusted,bridge:e.vibezScreenshotBridge===true,type:f.type,size:f.size,draft:editor.value,submits,dataUrl:null};
       window.__shotPasteEvents.push(record);
       const reader=new FileReader();reader.onload=()=>{record.dataUrl=reader.result;};reader.readAsDataURL(f);
     }

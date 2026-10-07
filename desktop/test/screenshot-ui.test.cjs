@@ -49,3 +49,13 @@ test('chooser remains compact and native paste never sends a message',()=>{
  const focus=read('src-tauri/src/paste_composer.js');new vm.Script(focus);
  assert.doesNotMatch(focus,/dispatchEvent|execCommand|\.submit\(|requestSubmit|__TAURI__|invoke\(/);
 });
+
+test('PNG compatibility bridge is memory-only and never submits or reads arbitrary files',()=>{
+ const bridge=read('src-tauri/src/paste_png_bridge.js');new vm.Script(bridge);
+ assert.match(bridge,/new File\(/);assert.match(bridge,/new DataTransfer\(/);
+ assert.match(bridge,/receipt\.images!==0/);assert.match(bridge,/editor\.dispatchEvent/);
+ assert.doesNotMatch(bridge,/\.submit\(|requestSubmit|fetch\(|__TAURI__|invoke\(|file:\/\//);
+ const clipboard=read('src-tauri/src/screenshot_clipboard.rs');
+ assert.doesNotMatch(clipboard,/text\/uri-list|create_new|OpenOptions/);
+ assert.match(clipboard,/impl Drop for Payload/);
+});

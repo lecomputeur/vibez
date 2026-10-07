@@ -147,6 +147,8 @@ pub fn cancel_active(app:&AppHandle) {
     if let Some(view)=app.get_webview("vibe") { let _=view.eval("window.__vibezCapture?.cancel?.();"); }
 }
 pub async fn copy_last(app:&AppHandle,bytes:&[u8])->Result<(),String> { copy_png(app,bytes).await }
+#[cfg(target_os="linux")]
+pub fn owned_clipboard_png()->Option<Arc<Vec<u8>>> { native_clipboard::current_png() }
 #[path="screenshot_probe.rs"] mod probe;
 pub async fn smoke_check(app:&AppHandle)->Result<(),String> { probe::run(app).await }
 #[cfg(test)] mod tests {

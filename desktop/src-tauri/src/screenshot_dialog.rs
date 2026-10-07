@@ -1,4 +1,4 @@
-//! Trusted local chooser + result preview. No screenshot file writes until Save.
+//! Trusted local chooser + result preview. Screenshots stay in memory until Save.
 use crate::{desktop_ui,err,policy,screenshots,PreviewState};
 use serde_json::{json,Value};
 use std::sync::{Mutex,atomic::Ordering};
@@ -17,6 +17,7 @@ fn last()->Result<Vec<u8>,String>{LAST.lock().map_err(err)?.clone().ok_or("Make 
 pub async fn open(app:&AppHandle)->Result<(),String> {
     if OPERATION.load(Ordering::SeqCst) || app.state::<PreviewState>().capture_busy.load(Ordering::SeqCst) {return Err(desktop_ui::status(app,"screenshot_busy"));}
     if let Some(window)=app.get_webview_window("screenshot") {window.show().map_err(err)?;return window.set_focus().map_err(err);}
+    #[cfg(target_os="linux")] install_clipboard_bridge(app)?;
     let builder=WebviewWindowBuilder::new(app,"screenshot",WebviewUrl::App("screenshot.html".into()))
         .title(format!("VibeZ · {} · test 4",desktop_ui::text(app,"screenshot")))
         .inner_size(340.,290.).min_inner_size(340.,290.).center().resizable(false).maximizable(false)
@@ -49,9 +50,9 @@ pub async fn capture(app:&AppHandle,mode:&str,auto_paste:bool)->Result<Value,Str
     if let Ok(value)=&mut result {
         if auto_paste && value["cancelled"]!=true && value["copied"]==true {
             let current=app.get_webview("vibe").and_then(|v|v.url().ok());
-            let pasted=if original.is_some() && current==original {paste_composer::paste(app).await}
+            let pasted=if original.is_some() && current==original {paste_composer::paste(app,&last()?,false).await}
                 else {Err("De pagina is gewijzigd. De opname is niet geplakt.".into())};
-            match pasted {Ok(())=>{value["pasted"]=json!(true);},Err(error)=>{value["pasteError"]=json!(error);}}
+            match pasted {Ok(method)=>{value["pasted"]=json!(true);value["pasteMethod"]=json!(method);},Err(error)=>{value["pasteError"]=json!(error);}}
         }
         if value["pasted"]==true {return result;}
     }
@@ -81,9 +82,9 @@ pub async fn action(app:&AppHandle,action:&str)->Result<Value,String> {
             screenshots::copy_last(app,&last()?).await?;
             if let Some(w)=app.get_webview_window("screenshot"){w.hide().map_err(err)?;}
             focus_main(app);
-            let result=paste_composer::paste(app).await;
+            let result=paste_composer::paste(app,&last()?,false).await;
             if result.is_err(){if let Some(w)=app.get_webview_window("screenshot"){let _=w.show();let _=w.set_focus();}}
-            result?;Ok(json!({"pasted":true}))
+            let method=result?;Ok(json!({"pasted":true,"pasteMethod":method}))
         },
         "save"=>save(app,last()?).await,
         "new"=>{clear();Ok(json!({}))},
@@ -136,4 +137,40 @@ async fn save(_app:&AppHandle,_bytes:Vec<u8>)->Result<Value,String>{Err("Save is
 fn focus_main(app:&AppHandle) {
     if let Some(w)=app.get_window("main"){if w.is_minimized().unwrap_or(false){let _=w.unminimize();}if !w.is_visible().unwrap_or(true){let _=w.show();}let _=w.set_focus();}
     if let Some(view)=app.get_webview("vibe"){let _=view.set_focus();}
+}
+
+#[cfg(target_os="linux")]
+fn install_clipboard_bridge(app:&AppHandle)->Result<(),String> {
+    use gtk::{gdk,prelude::*};
+    use webkit2gtk::WebViewExt;
+    static INSTALLED:std::sync::atomic::AtomicBool=std::sync::atomic::AtomicBool::new(false);
+    if INSTALLED.swap(true,Ordering::SeqCst){return Ok(());}
+    let view=app.get_webview("vibe").ok_or("Vibe is not ready")?;
+    let handle=app.clone();
+    let result=view.with_webview(move |platform| {
+        platform.inner().connect_key_press_event(move |widget,event| {
+            let state=event.state();let key=event.keyval();
+            let control=state.contains(gdk::ModifierType::CONTROL_MASK);
+            let shift=state.contains(gdk::ModifierType::SHIFT_MASK);
+            let other=state.intersects(gdk::ModifierType::MOD1_MASK|gdk::ModifierType::SUPER_MASK);
+            let paste=!other&&((control&&!shift&&(key==gdk::keys::constants::v||key==gdk::keys::constants::V))
+                ||(!control&&shift&&key==gdk::keys::constants::Insert));
+            if !paste{return false.into();}
+            let allowed=widget.uri().and_then(|uri|uri.parse::<url::Url>().ok()).map(|url|
+                policy::auth_return_url(&url)||(handle.state::<PreviewState>().smoke&&policy::local_url(&url))).unwrap_or(false);
+            if !allowed{return false.into();}
+            let Some(bytes)=screenshots::owned_clipboard_png() else {return false.into();};
+            if OPERATION.load(Ordering::SeqCst){return true.into();}
+            let app=handle.clone();
+            // The real key event authorizes ONLY our currently owned PNG.
+            // Other clipboard contents retain normal browser paste behaviour.
+            tauri::async_runtime::spawn(async move {
+                let Ok(_operation)=Operation::start() else{return;};
+                if let Err(error)=paste_composer::paste(&app,&bytes,true).await {crate::message(&app,error);}
+            });
+            true.into()
+        });
+    }).map_err(err);
+    if result.is_err(){INSTALLED.store(false,Ordering::SeqCst);}
+    result
 }

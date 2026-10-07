@@ -1,6 +1,7 @@
 /* Focus and observe a normal native paste. No image bytes, file access or native IPC. */
 (() => {
   'use strict';
+  const requireFocused=__VIBEZ_PASTE_FOCUSED__;
   window.__vibezPasteReceipt?.cleanup?.();
   const visible = el => {
     if (!el?.isConnected || el.disabled || el.readOnly || el.getAttribute('aria-disabled') === 'true') return false;
@@ -28,11 +29,11 @@
     const active = el => el.getRootNode().activeElement === el ? 1 : 0;
     return active(b)-active(a) || b.getBoundingClientRect().bottom-a.getBoundingClientRect().bottom;
   });
-  const editor = candidates[0];
+  const editor = requireFocused ? candidates.find(el=>el.getRootNode().activeElement===el) : candidates[0];
   if (!editor) return JSON.stringify({ready:false,reason:'no-editor'});
   editor.focus({preventScroll:true});
   if (editor.getRootNode().activeElement !== editor) return JSON.stringify({ready:false,reason:'no-focus'});
-  const receipt = {received:false,images:0,trusted:false,cleanup:null};
+  const receipt = {received:false,images:0,trusted:false,bridge:false,editor,cleanup:null};
   const doc = editor.ownerDocument;
   const listener = event => {
     const path = event.composedPath();
@@ -40,7 +41,8 @@
     // Capture metadata only; do not intercept/defaultPrevent or read other clipboard data.
     receipt.received = true;
     receipt.trusted = event.isTrusted;
-    receipt.images = [...(event.clipboardData?.items || [])].filter(i => i.kind === 'file' && i.type.startsWith('image/')).length;
+    receipt.images = Array.from(event.clipboardData?.files || []).filter(f=>f.type.startsWith('image/')).length;
+    receipt.bridge = event.vibezScreenshotBridge===true;
   };
   receipt.cleanup = () => doc.removeEventListener('paste',listener,true);
   doc.addEventListener('paste',listener,true);
