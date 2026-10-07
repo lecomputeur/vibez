@@ -50,7 +50,9 @@ def await_paste(number,expected,name):
             image=Image.open(io.BytesIO(base64.b64decode(p['dataUrl'].split(',',1)[1]))).convert('RGB')
             assert image.size==expected.size and image.tobytes()==expected.tobytes(),'Pasted pixels differ from screenshot'
             image.save(OUT/f'pasted-{name}.png')
-            sleep(.3);assert len(events())==number,'Duplicate paste event'
+            # The application requires 700 ms of stable attachment UI after
+            # delivery. Do not launch the next action on mere FileReader receipt.
+            sleep(1.2);assert len(events())==number,'Duplicate paste event'
             print('PASTE_OK:',name,image.size,('native' if p['trusted'] else 'memory compatibility'),'image/png, exact pixels, preserved draft, no send; scale',S,flush=True)
             return
         sleep(.15)
