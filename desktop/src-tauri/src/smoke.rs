@@ -1,4 +1,4 @@
-//! Offline integration checks against real GTK/WebKit windows; no Mistral account or network required.
+//! Offline integration checks against real native webviews; no Mistral account required.
 use std::{sync::{mpsc, atomic::Ordering}, thread, time::{Duration, Instant}};
 use tauri::{AppHandle, Manager, LogicalSize};
 use crate::{PreviewState, policy::TOOLBAR_HEIGHT};
@@ -140,8 +140,12 @@ fn checks(app: &AppHandle) -> Result<(), String> {
     println!("HIDDEN_OK: layout preserves hidden state");
     window.show().map_err(crate::err)?;
     thread::sleep(Duration::from_millis(500)); check_layout(app)?;
-    tauri::async_runtime::block_on(crate::screenshot_dialog::release_smoke_check(app))?;
+    // Exercise permission rejection in the normal document first. The screenshot
+    // fixture intentionally adds a stricter CSP, which persists for that Document
+    // even after its meta element is removed. Do not weaken IPC checks or the CSP
+    // just to make a later, unrelated test resolve its transport promise.
     tauri::async_runtime::block_on(crate::preview_updates::smoke_check(app))?;
+    tauri::async_runtime::block_on(crate::screenshot_dialog::release_smoke_check(app))?;
     Ok(())
 }
 pub fn start(app: AppHandle) {
