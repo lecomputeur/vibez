@@ -1,0 +1,38 @@
+name: VibeZ 3.0.3 candidate — no publication
+on:
+  push:
+    branches: ['vibe/windows-real-paste-303-91c4']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  public-composer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Inspect public guest UI (no login or message submission)
+        shell: bash
+        run: |
+          mkdir -p probe && cd probe
+          npm init -y >/dev/null
+          npm install --ignore-scripts playwright@1.55.1 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+          cat > probe.cjs <<'JS'
+          const {chromium}=require('playwright'),fs=require('node:fs');
+          (async()=>{const browser=await chromium.launch({headless:true});const context=await browser.newContext({locale:'nl-NL'});const page=await context.newPage();
+          try {await page.goto('https://vibe.mistral.ai/',{waitUntil:'domcontentloaded',timeout:45000});await page.waitForTimeout(7000);
+            const result=await page.evaluate(()=>({url:location.origin+location.pathname,editors:[...document.querySelectorAll('textarea,[contenteditable="true"]')].map(e=>({tag:e.tagName,id:e.id,placeholder:e.getAttribute('placeholder'),html:e.closest('form')?.outerHTML.slice(0,16000)})),fileInputs:[...document.querySelectorAll('input[type="file"]')].map(e=>({accept:e.accept,disabled:e.disabled,insideForm:!!e.closest('form')})),buttons:[...document.querySelectorAll('button')].map(e=>({text:e.innerText.slice(0,70),label:e.getAttribute('aria-label'),disabled:e.disabled})).slice(0,60)}));
+            fs.writeFileSync('public-composer.json',JSON.stringify(result,null,2));await page.screenshot({path:'public-composer.png'});
+          }catch(e){fs.writeFileSync('probe-error.txt',String(e));}finally{await browser.close();}})();
+          JS
+          node probe.cjs
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: public-guest-composer
+          path: |
+            probe/public-composer.*
+            probe/probe-error.txt
