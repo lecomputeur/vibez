@@ -12,11 +12,13 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          for url in             https://lecomputeur.github.io/vibez/             https://lecomputeur.github.io/vibez/sitemap.xml             https://lecomputeur.github.io/vibez/robots.txt
+          for name in sitemap.xml robots.txt
           do
+            url="https://lecomputeur.github.io/vibez/$name"
             echo "=== $url ==="
             curl -fsSIL "$url"
+            curl -fsSL "$url" -o "$RUNNER_TEMP/$name"
             echo "--- body ---"
-            curl -fsSL "$url" | head -c 2000
+            cat "$RUNNER_TEMP/$name"
             echo
           done
