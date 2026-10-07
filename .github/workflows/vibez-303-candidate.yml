@@ -6,7 +6,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: vibez-303-candidate
+  group: vibez-303-${{ github.sha }}
   cancel-in-progress: true
 defaults:
   run:
@@ -23,18 +23,20 @@ jobs:
         with:
           ref: ${{ github.ref_name }}
           fetch-depth: 0
-      - name: Commit complete candidate source before compiling
+      - name: Commit exact candidate before compiling
         id: source
         run: |
           test "$GITHUB_REF" = refs/heads/vibe/windows-real-paste-303-91c4
           python3 .github/integrate-303.py
+          python3 .github/probe-context-303.py
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add desktop tools/release-v3/native-smoke.py tools/release-v3/sign-macos.sh
+          git add desktop tools/release-v3
           if ! git diff --cached --quiet; then
-            git commit -m 'Integrate 3.0.3 candidate permissions, locales and version before validation'
+            git commit -m 'Freeze candidate with complete download-button and attachment checks'
             git push origin HEAD:refs/heads/vibe/windows-real-paste-303-91c4
           fi
+          git diff --exit-code
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           git archive --format=tar.gz HEAD > /tmp/candidate-source.tar.gz
       - uses: actions/upload-artifact@v5
@@ -73,8 +75,8 @@ jobs:
       - name: Native Linux prerequisites
         if: matrix.kind == 'linux'
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev xvfb openbox dbus-x11 imagemagick desktop-file-utils python3-gi python3-gi-cairo python3-pil python3-xlib gir1.2-gtk-3.0 gstreamer1.0-tools gstreamer1.0-plugins-good gstreamer1.0-plugins-base gstreamer1.0-plugins-bad libgdk-pixbuf2.0-bin xdg-utils xdotool xserver-xorg-core xserver-xorg-video-dummy x11-xserver-utils > /tmp/dependencies.log 2>&1 || { tail -80 /tmp/dependencies.log; exit 1; }
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 update -qq
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 install -y --no-install-recommends libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev xvfb openbox dbus-x11 imagemagick desktop-file-utils python3-gi python3-gi-cairo python3-pil python3-xlib gir1.2-gtk-3.0 gstreamer1.0-tools gstreamer1.0-plugins-good gstreamer1.0-plugins-base gstreamer1.0-plugins-bad libgdk-pixbuf2.0-bin xdg-utils xdotool xserver-xorg-core xserver-xorg-video-dummy x11-xserver-utils > /tmp/dependencies.log 2>&1 || { tail -80 /tmp/dependencies.log; exit 1; }
       - run: rustup toolchain install '1.99.0' --profile minimal
       - uses: Swatinem/rust-cache@v2
         with:
@@ -110,7 +112,7 @@ jobs:
           bash tools/release-v3/linux-smoke.sh 2>&1 | tee desktop/artifacts/native.log
           bash desktop/tests/screenshot-e2e.sh 2>&1 | tee desktop/artifacts/screenshot-e2e.log
           bash desktop/tests/screenshot-monitors.sh 2>&1 | tee desktop/artifacts/monitors.log
-      - name: Apple signing and notarization for the private test candidate
+      - name: Apple signing and notarization for test candidate
         if: startsWith(matrix.kind, 'macos-')
         env:
           MAC_CERTIFICATE_P12_BASE64: ${{ secrets.MAC_CERTIFICATE_P12_BASE64 }}
@@ -120,7 +122,7 @@ jobs:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: bash tools/release-v3/sign-macos.sh '${{ matrix.kind == 'macos-arm64' && 'arm64' || 'x64' }}' 2>&1 | tee desktop/artifacts/signing.log
-      - name: Collect candidate and checksum only after platform tests pass
+      - name: Collect only after platform tests pass
         run: |
           mkdir -p candidate-delivery
           case '${{ matrix.kind }}' in
