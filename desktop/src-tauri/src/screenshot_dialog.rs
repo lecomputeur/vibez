@@ -52,7 +52,7 @@ async fn show_on_parent(app:&AppHandle,window:&tauri::WebviewWindow)->Result<(),
             // GTK uses the parent's current monitor/work area and its own
             // coordinate units, rather than mixing physical and logical pixels.
             child.set_position(gtk::WindowPosition::CenterOnParent);
-            child.show();
+            child.show_all();
             child.present();
             Ok(())
         })();

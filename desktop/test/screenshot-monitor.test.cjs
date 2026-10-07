@@ -6,7 +6,7 @@ test('Linux positions the hidden screenshot chooser on its transient parent befo
  assert.match(source,/#\[cfg\(not\(target_os="linux"\)\)\]\s*let builder=builder\.center\(\)/);
  const body=source.slice(source.indexOf('async fn show_on_parent'));
  assert.ok(body.indexOf('child.set_transient_for(Some(&parent))')<body.indexOf('child.set_position(gtk::WindowPosition::CenterOnParent)'));
- assert.ok(body.indexOf('child.set_position(gtk::WindowPosition::CenterOnParent)')<body.indexOf('child.show()'));
+ assert.ok(body.indexOf('child.set_position(gtk::WindowPosition::CenterOnParent)')<body.indexOf('child.show_all()'));
  assert.doesNotMatch(source,/CenterAlways|primary_monitor\(|connect_configure_event/);
 });
 test('an existing screenshot window is only shown/focused, not snapped back after manual movement',()=>{
