@@ -50,7 +50,7 @@ async fn choose(app:&AppHandle)->Result<Option<PathBuf>,String>{
         use objc2_foundation::{NSArray,NSString};
         let Some(mtm)=MainThreadMarker::new()else{let _=tx.send(Err("Save dialog requires main thread".into()));return;};
         let Ok(parent)=window.ns_window()else{let _=tx.send(Err("Screenshot window closed".into()));return;};
-        let panel=NSSavePanel::savePanel(mtm);panel.setTitle(&NSString::from_str(&title));
+        let panel=NSSavePanel::savePanel(mtm);panel.setTitle(Some(&NSString::from_str(&title)));
         panel.setNameFieldStringValue(&NSString::from_str("VibeZ-screenshot.png"));
         #[allow(deprecated)] panel.setAllowedFileTypes(Some(&NSArray::from_retained_slice(&[NSString::from_str("png")])));
         panel.setAllowsOtherFileTypes(false);panel.setCanCreateDirectories(true);

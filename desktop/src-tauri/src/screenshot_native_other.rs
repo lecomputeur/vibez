@@ -67,7 +67,11 @@ pub async fn snapshot(view:&Webview,_mode:&str,payload:&Value)->Result<Vec<u8>,S
     let(tx,rx)=tokio::sync::oneshot::channel();let tx=Arc::new(Mutex::new(Some(tx)));
     view.with_webview(move |p|unsafe{
         let v=&*p.inner().cast::<WKWebView>();let scale=v.bounds().size.width/viewport;
-        let config=WKSnapshotConfiguration::new();
+        let Some(mtm)=objc2::MainThreadMarker::new() else {
+            if let Ok(mut slot)=tx.lock(){if let Some(tx)=slot.take(){let _=tx.send(Err("Snapshot requires main thread".into()));}}
+            return;
+        };
+        let config=WKSnapshotConfiguration::new(mtm);
         config.setRect(NSRect::new(NSPoint::new(x*scale,y*scale),NSSize::new(f64::from(w)*scale,f64::from(h)*scale)));
         config.setSnapshotWidth(Some(&NSNumber::new_f64(f64::from(w))));
         config.setAfterScreenUpdates(false);

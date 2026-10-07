@@ -1,6 +1,6 @@
 # VibeZ 3
 
-Rust/Tauri 3.0.0 source for Linux AppImage/DEB/RPM/Arch/Flatpak, Windows EXE/MSI/MSIX and macOS Intel/Apple Silicon app/DMG/ZIP.
+Rust/Tauri 3.0.2 source for Linux AppImage/DEB/RPM/Arch/Flatpak, Windows EXE/MSI/MSIX and macOS Intel/Apple Silicon app/DMG/ZIP.
 
 App identity: `nl.lecomputeur.vibez3`. Existing Electron and preview profiles are not silently copied or deleted. See ../V3-RELEASE.md for compatibility and release gates.
 

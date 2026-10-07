@@ -62,7 +62,7 @@ public sealed class VibeZScreenSelection : Form {
         using (Pen border = new Pen(Color.FromArgb(255,107,53), 2)) e.Graphics.DrawRectangle(border,rect);
     }
     protected override void Dispose(bool disposing) { if (disposing) { expiry.Dispose(); } base.Dispose(disposing); }
-    public static string Select() {
+    public new static string Select() {
         // Use physical screen coordinates, including negative monitor origins.
         try { SetThreadDpiAwarenessContext(new IntPtr(-4)); } catch (EntryPointNotFoundException) { }
         Rectangle screen = SystemInformation.VirtualScreen;

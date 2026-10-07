@@ -1,11 +1,11 @@
-# VibeZ 3.0.2 screenshot candidate — not yet a public release
+# VibeZ 3.0.2 screenshots
 
-The Screenshot control offers Full page, Visible page and Selection. These three modes capture the page loaded **inside VibeZ**, not a page in another program. Full page captures loaded document content, including substantial nested scroll areas. It cannot fetch unloaded chat history or defeat protected/cross-origin media restrictions.
+Production source promoted from maintainer-approved Mint test 6.
 
-The chooser is a native select popup. A CSS dropdown below the toolbar would be clipped by its separate 54px webview; this implementation does not resize that webview or move the Vibe page.
+The compact chooser has three labels (Visible page, Full page, Selection) and the immediate-paste checkbox, translated in all 34 UI languages. It opens on VibeZ's monitor; manual repositioning remains possible.
 
-Capture uses the bundled, version-locked SnapDOM library, without a third-party screenshot service or CORS proxy. The produced PNG is checked for file and pixel limits before copying to the system clipboard. No automatic message sending or upload is performed. Escape cancels selection. Cancellation, errors and timeouts restore temporary page changes and leave the button reusable. Large pages produce a clear error rather than silent truncation.
+Native WebKitGTK, WebView2 and WKWebView snapshots capture rendered page pixels. Full page expands loaded scroll areas and restores the original layout; unloaded or virtualized history is not available. Desktop selection uses native OS capture; Linux currently requires X11 and macOS may request Screen Recording permission.
 
-Validation requires actual PNG pixel markers, viewport/crop dimensions, bottom-of-page and sidebar presence, page restoration, clipboard round-trips, and cancellation on WebKitGTK, WebView2 and WKWebView. Test artifacts contain synthetic offline content only. Passing these tests does not establish that every authenticated Mistral page, CSS feature, virtualized chat or desktop configuration works.
+Copy, Save PNG and immediate paste are separate user actions. Immediate paste preserves the draft and never presses Send. Attaching an image may cause the embedded Mistral service to upload it before a message is sent. Linux's own-PNG memory bridge repairs WebKitGTK image-paste limitations without giving remote pages native commands or arbitrary clipboard access.
 
-Do not describe this candidate as released or replace Store 3.0.1 until validation and a real-user screenshot test have succeeded.
+All formats are built from one committed source with locked dependencies. Native tests check actual pixels, received PNGs, draft preservation and cancellation. The maintainer has tested Mint; automated Windows/macOS tests are not a claim of manual testing on every computer.
