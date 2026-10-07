@@ -79,7 +79,7 @@ Native Linux packages and AppImage require **glibc 2.39 or newer**; DEB targets 
 
 The verified release workflow passed its dependency-security check, frontend/Rust tests, native browser/window probes, Linux icon tests, packaging checks and macOS signing/notarization gates. All twelve required deliverables were collected from the frozen source. See [validation and release notes](V3-RELEASE.md).
 
-Automated native probes are offline tests. They are not a claim that every live sign-in provider, Linux distribution, Wayland session, fractional scale or website feature has been tested. Microphone/camera access, global screenshot shortcuts and unattended installer execution are not enabled in this version. Direct-download updates remain user-confirmed; Microsoft Store updates are delivered by the Store. Screenshots use the operating system's interactive tools; updates are installed manually.
+Automated native probes are offline tests. They are not a claim that every live sign-in provider, Linux distribution, Wayland session, fractional scale or website feature has been tested. Microphone/camera access, global screenshot shortcuts and unattended installer execution are not enabled in this version. Direct-download updates remain user-confirmed; Microsoft Store updates are delivered by the Store. Screenshots offer native visible-page, full-loaded-page and desktop-area capture, with optional direct paste into a draft. Updates are installed manually.
 
 ## Build, contribute, make it better
 
