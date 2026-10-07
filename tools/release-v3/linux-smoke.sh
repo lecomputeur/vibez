@@ -10,7 +10,7 @@ for scale in 1 2; do
   mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_CACHE_HOME"
   timeout 120s dbus-run-session -- xvfb-run -a -s "-screen 0 $((1600*scale))x$((1000*scale))x24" bash -c '
     openbox --sm-disable > "$PREVIEW_ARTIFACTS/openbox-$GDK_SCALE.log" 2>&1 &
-    "$PREVIEW_BINARY" --smoke-test > "$PREVIEW_ARTIFACTS/native-$GDK_SCALE.log" 2>&1 &
+    "$PREVIEW_BINARY" --smoke-test --update-download-probe > "$PREVIEW_ARTIFACTS/native-$GDK_SCALE.log" 2>&1 &
     pid=$!; sleep 6; import -window root "$PREVIEW_ARTIFACTS/native-$GDK_SCALE.png" || true; wait "$pid"
   ' || { cat "artifacts/native-$scale.log"; exit 1; }
   cat "artifacts/native-$scale.log"

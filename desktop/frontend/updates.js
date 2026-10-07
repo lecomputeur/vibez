@@ -1,6 +1,6 @@
 'use strict';
 (()=>{
-  const $=id=>document.getElementById(id);let last=null,reading=false,actionBusy=false,closed=false,base={};
+  const $=id=>document.getElementById(id);let last=null,reading=false,actionBusy=false,closed=false,base={},actionError='';
   const baseKeys={checking:'checking',latest:'latest',idle:'checking',ready:'readyInstall',error:'updateFailed'};
   const extraKeys={available:'updateAvailable',downloading:'updateDownloading',store:'updateStoreManaged'};
   const text=s=>extraKeys[s.phase]?preview.extra(extraKeys[s.phase]):(base[baseKeys[s.phase]]||s.phase).replace('{version}',s.release?.version||'');
@@ -20,12 +20,12 @@
     if(s.phase==='error'&&!s.release)$('retry').hidden=false;
     $('progress').hidden=s.phase!=='downloading';$('progress').value=s.total?100*s.received/s.total:0;
     $('size').textContent=s.phase==='downloading'?`${(s.received/1e6).toFixed(1)} / ${(s.total/1e6).toFixed(1)} MB`:s.phase==='ready'?'SHA-256 ✓':'';
-    $('filename').textContent=s.fileName||'';$('error').textContent=s.error||'';$('error').hidden=!s.error;
+    $('filename').textContent=s.fileName||'';$('error').textContent=s.error||actionError;$('error').hidden=!(s.error||actionError);
     for(const id of ['download','open','reveal','store','retry'])$(id).disabled=actionBusy||s.busy;
     $('help').hidden=!['available','ready','downloading'].includes(s.phase);
   }
   async function refresh(){if(reading||closed||actionBusy)return;reading=true;try{base=preview.localize(await preview.invoke('get_state'));render(await preview.invoke('update_state'));}catch(e){$('error').hidden=false;$('error').textContent=preview.errorText(e);}finally{reading=false;}}
-  async function action(name){if(actionBusy)return;actionBusy=true;try{const result=await preview.invoke('update_action',{action:name,name:$('package').value||null});if(name==='close'){closed=true;return;}render(result);}catch(e){$('error').hidden=false;$('error').textContent=preview.errorText(e);}finally{actionBusy=false;await refresh();}}
+  async function action(name){if(actionBusy)return;actionError='';actionBusy=true;try{const result=await preview.invoke('update_action',{action:name,name:$('package').value||null});if(name==='close'){closed=true;return;}render(result);}catch(e){actionError=preview.errorText(e);$('error').hidden=false;$('error').textContent=actionError;}finally{actionBusy=false;await refresh();}}
   for(const id of ['download','open','reveal','store','cancel','close'])$(id).addEventListener('click',()=>action(id));
   $('retry').addEventListener('click',()=>action('check'));
   document.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();action('close');}});

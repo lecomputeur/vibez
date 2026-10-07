@@ -4,7 +4,7 @@
   const requireFocused=__VIBEZ_PASTE_FOCUSED__;
   window.__vibezPasteReceipt?.cleanup?.();
   const visible = el => {
-    if (!el?.isConnected || el.disabled || el.readOnly || el.getAttribute('aria-disabled') === 'true') return false;
+    if (!el?.isConnected || el.disabled || el.readOnly || el.matches(':disabled') || el.closest('[aria-disabled="true"],[inert]')) return false;
     const r=el.getBoundingClientRect(),s=el.ownerDocument.defaultView.getComputedStyle(el);
     return r.width>=80&&r.height>=12&&s.display!=='none'&&s.visibility!=='hidden';
   };
@@ -35,7 +35,8 @@
   }
   if(!scope)scope=editor;
   const receipt={received:false,images:0,trusted:false,bridge:false,editor,scope,cleanup:null,fileNames:[],upload:null};
-  const usableUpload=e=>e?.isConnected&&!e.disabled&&e.getAttribute('aria-disabled')!=='true'&&(!e.accept||/image\/|\.png|\*/i.test(e.accept))&&!e.files?.length;
+  const usableUpload=e=>e?.isConnected&&!e.matches(':disabled')&&!e.closest('[aria-disabled="true"],[inert]')&&
+    (!e.accept||e.accept.toLowerCase().split(',').some(t=>['image/*','image/png','.png','*','*/*'].includes(t.trim())))&&!e.files?.length;
   const inputs=[...scope.querySelectorAll('input[type="file"]')].filter(usableUpload);
   if(inputs.length===1)receipt.upload=inputs[0];
   const markers='img,[data-testid*="attachment"],[data-testid*="file-card"],[data-testid*="upload-preview"],[data-file-name],[title],[aria-label]';

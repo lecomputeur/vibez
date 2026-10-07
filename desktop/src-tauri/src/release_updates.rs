@@ -99,31 +99,46 @@ pub fn schedule(app:AppHandle){tauri::async_runtime::spawn(async move{
     tokio::time::sleep(Duration::from_secs(6)).await;
     if app.state::<crate::PreviewState>().settings.lock().map(|s|s.auto_updates).unwrap_or(false){check(app.clone(),false);}
 });}
-/// Explicit CI test downloads an existing package but NEVER opens or installs it.
+/// Explicit CI test exercises the real local button and downloads a published
+/// package. It never opens, installs or announces a fake public release.
 pub async fn smoke_check(app:&AppHandle)->Result<(),String>{
     if !app.state::<crate::PreviewState>().smoke{return Err("Update probe requires offline smoke mode".into());}
     show(app).await?;
     let window=app.get_webview("updates").ok_or("Update window missing")?;
     tokio::time::sleep(Duration::from_millis(400)).await;
-    let js="window.__updateAcl='pending';window.__TAURI__.core.invoke('update_state').then(()=>window.__updateAcl='allowed').catch(()=>window.__updateAcl='denied');true";
-    window.eval(js).map_err(err)?;
+    window.eval("window.__updateAcl='pending';window.__TAURI__.core.invoke('update_state').then(()=>window.__updateAcl='allowed').catch(()=>window.__updateAcl='denied');true").map_err(err)?;
     for _ in 0..40{tokio::time::sleep(Duration::from_millis(50)).await;if crate::screenshots::eval_value(&window,"window.__updateAcl").await?=="allowed"{break;}}
     if crate::screenshots::eval_value(&window,"window.__updateAcl").await?!="allowed"{return Err("Local update dialog ACL denied".into());}
     let remote=app.get_webview("vibe").ok_or("Missing webview")?;
-    remote.eval("window.__updateAcl='pending';window.__TAURI__.core.invoke('update_state').then(()=>window.__updateAcl='allowed').catch(()=>window.__updateAcl='denied');true").map_err(err)?;
+    remote.eval("(() => {window.__updateAcl='pending';if(typeof window.__TAURI__?.core?.invoke!=='function'){window.__updateAcl='no-bridge';return true;}window.__TAURI__.core.invoke('update_state').then(()=>window.__updateAcl='allowed').catch(()=>window.__updateAcl='denied');return true;})()").map_err(err)?;
     tokio::time::sleep(Duration::from_millis(300)).await;
-    if crate::screenshots::eval_value(&remote,"window.__updateAcl").await?!="denied"{return Err("Remote update command was not denied".into());}
-    action(app,"close",None).await?;
+    let remote_state=crate::screenshots::eval_value(&remote,"window.__updateAcl").await?;
+    if !matches!(remote_state.as_str(),"denied"|"no-bridge"){return Err(format!("Remote update isolation failed: {remote_state}"));}
     println!("UPDATE_ACL_OK: local dialog allowed, remote page denied");
     if std::env::args().any(|a|a=="--update-download-probe"){
         let release=update_download::discover().await?.ok_or("No published package for probe")?;
-        let asset=release.assets.first().ok_or("No download")?;
-        let root=app.path().app_cache_dir().map_err(err)?.join("probe-downloads");
-        let cancel=AtomicBool::new(false);
-        let path=update_download::download(&root,asset,&cancel,|_|{}).await?;
-        update_download::verify_file(&path,asset)?;
-        println!("UPDATE_DOWNLOAD_OK: {} bytes verified; {} (never executed)",asset.size,asset.name);
+        let asset=release.assets.first().ok_or("No download")?.clone();
+        {let mut s=state().lock().map_err(err)?;s.release=Some(release);s.phase="available";s.ready=None;s.error.clear();}
+        for _ in 0..50{
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            if crate::screenshots::eval_value(&window,"String(!document.getElementById('download').hidden && !document.getElementById('download').disabled && !!document.getElementById('package').value)").await?=="true"{break;}
+        }
+        window.eval("document.getElementById('download').click();").map_err(err)?;
+        let mut ready=None;
+        for _ in 0..600{
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            let s=snapshot()?;
+            if s["phase"]=="error"{return Err(format!("Update button download failed: {}",s["error"]));}
+            if s["phase"]=="ready"&&!BUSY.load(Ordering::SeqCst){ready=state().lock().map_err(err)?.ready.clone();break;}
+        }
+        let(path,downloaded)=ready.ok_or("Update button did not produce a verified download")?;
+        update_download::verify_file(&path,&downloaded)?;
+        if downloaded.name!=asset.name{return Err("Update button selected the wrong artifact".into());}
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        if crate::screenshots::eval_value(&window,"String(!document.getElementById('open').hidden && !document.getElementById('reveal').hidden)").await?!="true"{return Err("Verified download actions were not shown".into());}
+        println!("UPDATE_DOWNLOAD_OK: button -> native ACL -> HTTPS -> {} bytes -> SHA-256 -> explicit Open, {} (never executed)",asset.size,asset.name);
+        {let mut s=state().lock().map_err(err)?;s.ready=None;s.release=None;s.phase="latest";}
         let _=std::fs::remove_dir_all(path.parent().unwrap());
     }
-    Ok(())
+    action(app,"close",None).await?;Ok(())
 }
