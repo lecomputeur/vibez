@@ -48,8 +48,25 @@ fn client()->Result<reqwest::Client,String>{
             if attempt.previous().len()>=5||!allowed_download_url(attempt.url()){attempt.error("Untrusted update redirect")}else{attempt.follow()}
         })).user_agent(concat!("VibeZ/",env!("CARGO_PKG_VERSION"))).build().map_err(err)
 }
+fn ci_probe_auth_allowed(ci:bool,args:&[String])->bool{
+    ci&&args.iter().any(|a|a=="--smoke-test")&&args.iter().any(|a|a=="--update-download-probe")
+}
 pub async fn discover()->Result<Option<Release>,String>{
-    let mut r=client()?.get(API).send().await.map_err(err)?.error_for_status().map_err(err)?;
+    // Metadata has its own non-redirecting client. A temporary read-only runner
+    // token may be used ONLY by explicitly requested CI smoke tests, avoiding the
+    // shared macOS runner's exhausted anonymous API quota. Never compile it into
+    // the app, use it during normal startup, or forward it to artifact/CDN hosts.
+    let metadata_client=reqwest::Client::builder().https_only(true)
+        .connect_timeout(Duration::from_secs(15)).timeout(Duration::from_secs(25))
+        .redirect(reqwest::redirect::Policy::none())
+        .user_agent(concat!("VibeZ/",env!("CARGO_PKG_VERSION"))).build().map_err(err)?;
+    let mut request=metadata_client.get(API);
+    if ci_probe_auth_allowed(std::env::var("GITHUB_ACTIONS").as_deref()==Ok("true"),&std::env::args().collect::<Vec<_>>()){
+        if let Ok(token)=std::env::var("VIBEZ_CI_UPDATE_TOKEN"){
+            if !token.is_empty(){request=request.bearer_auth(token);}
+        }
+    }
+    let mut r=request.send().await.map_err(err)?.error_for_status().map_err(err)?;
     let mut bytes=vec![];
     while let Some(part)=r.chunk().await.map_err(err)?{
         if bytes.len()+part.len()>4*1024*1024{return Err("Release metadata too large".into());}bytes.extend(part);
@@ -118,6 +135,13 @@ pub async fn download<F:Fn(u64)>(root:&Path,asset:&Asset,cancel:&AtomicBool,prog
     #[test]fn hosts_are_strict(){
         for u in ["http://github.com/file","https://github.com.evil.test/file","https://user@github.com/file","https://github.com:444/file","file:///tmp/test","https://localhost/file"]{assert!(!allowed_download_url(&u.parse().unwrap()),"{u}");}
         assert!(allowed_download_url(&"https://release-assets.githubusercontent.com/download?sig=1".parse().unwrap()));
+    }
+    #[test]fn ci_credentials_are_never_used_by_normal_startup(){
+        let both=vec!["vibez3".into(),"--smoke-test".into(),"--update-download-probe".into()];
+        assert!(ci_probe_auth_allowed(true,&both));assert!(!ci_probe_auth_allowed(false,&both));
+        assert!(!ci_probe_auth_allowed(true,&[]));
+        assert!(!ci_probe_auth_allowed(true,&["--smoke-test".into()]));
+        assert!(!ci_probe_auth_allowed(true,&["--update-download-probe".into()]));
     }
     #[test]fn corrupted_truncated_and_modified_files_fail(){
         let mut a=candidate(&fixture(),"Windows-x64").unwrap().assets.remove(0);a.sha256=format!("{:x}",Sha256::digest(b"abc"));

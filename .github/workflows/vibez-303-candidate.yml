@@ -64,6 +64,7 @@ jobs:
           node-version: 22
       - name: Native Linux prerequisites
         if: matrix.kind == 'linux'
+        timeout-minutes: 10
         run: |
           sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 update -qq
           sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 install -y --no-install-recommends libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev xvfb openbox dbus-x11 imagemagick desktop-file-utils python3-gi python3-gi-cairo python3-pil python3-xlib gir1.2-gtk-3.0 gstreamer1.0-tools gstreamer1.0-plugins-good gstreamer1.0-plugins-base gstreamer1.0-plugins-bad libgdk-pixbuf2.0-bin xdg-utils xdotool xserver-xorg-core xserver-xorg-video-dummy x11-xserver-utils > /tmp/dependencies.log 2>&1 || { tail -80 /tmp/dependencies.log; exit 1; }
@@ -94,9 +95,13 @@ jobs:
           esac
       - name: Windows and macOS — real engines, attachments and verified download
         if: matrix.kind != 'linux'
+        env:
+          VIBEZ_CI_UPDATE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python tools/release-v3/native-smoke.py desktop/src-tauri/target/release/vibez3${{ matrix.kind == 'windows' && '.exe' || '' }} desktop/artifacts/native.log
       - name: Linux — native, installed icon, real input, HiDPI and dual monitor
         if: matrix.kind == 'linux'
+        env:
+          VIBEZ_CI_UPDATE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -o pipefail
           bash tools/release-v3/linux-smoke.sh 2>&1 | tee desktop/artifacts/native.log
