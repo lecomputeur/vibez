@@ -65,14 +65,14 @@ def open_chooser(main):
             if r>180 and 65<bg<155 and b<90:pts.append((x,y))
     assert len(pts)>100,'Cannot find screenshot toolbar button'
     x=(min(p[0] for p in pts)+max(p[0] for p in pts))//2;y=(min(p[1] for p in pts)+max(p[1] for p in pts))//2
-    xd('mousemove',x,y);xd('click',1);w=window('VibeZ · .*test 4');xd('mousemove','--window',w,25*S,25*S);sleep(1)
-    d=geom(w);assert d['WIDTH']/S<=342 and d['HEIGHT']/S<=292,('Chooser oversized',d)
+    xd('mousemove',x,y);xd('click',1);w=window('VibeZ · .*test 5');xd('mousemove','--window',w,25*S,25*S);sleep(1)
+    d=geom(w);assert d['WIDTH']/S<=282 and d['HEIGHT']/S<=186,('Chooser oversized',d)
     return w
 def start_capture(main,mode,copy_only=False):
     dialog=open_chooser(main);shot('chooser.png')
     if copy_only:
         key('Tab');key('Tab');key('Tab');key('space')
-    clear_clip();click(dialog,150,{'visible':69,'full':120,'selection':171}[mode])
+    clear_clip();click(dialog,150,{'visible':53,'full':88,'selection':123}[mode])
     if mode=='selection':
         window('^VibeZ screen selection$');sleep(.4);xd('mousemove','--window',main,224*S,178*S);xd('mousedown',1)
         xd('mousemove','--sync','--window',main,104*S,78*S);xd('mouseup',1)
@@ -93,13 +93,13 @@ try:
     g=geom(main);click(main,320,g['HEIGHT']/S-50);key('ctrl+v');n+=1;await_paste(n,im,'manual-ctrl-v')
     # Deliberately unavailable composer must not lose the PNG or fake success.
     click(main,770,g['HEIGHT']/S-45);start_capture(main,'visible');im=await_png('no-composer.png')
-    window('VibeZ · .*test 4');sleep(1);assert len(events())==n,'Pasted into read-only composer'
+    window('VibeZ · .*test 5');sleep(1);assert len(events())==n,'Pasted into read-only composer'
     shot('no-composer-fallback.png');key('Escape');click(main,770,g['HEIGHT']/S-45)
     # Opt-out yields a small preview, retains clipboard and allows Save.
-    start_capture(main,'visible',copy_only=True);im=await_png('copy-only.png');dialog=window('VibeZ · .*test 4');sleep(.5)
+    start_capture(main,'visible',copy_only=True);im=await_png('copy-only.png');dialog=window('VibeZ · .*test 5');sleep(.5)
     assert len(events())==n,'Copy-only unexpectedly pasted';shot('copy-only-preview.png')
     # Copy has focus, Tab -> Save. Replace entire GTK filename including extension.
-    key('Tab');key('Return');window('Screenshot opslaan|Save screenshot');sleep(.4)
+    key('Tab');key('Return');window('PNG opslaan|Save PNG');sleep(.4)
     key('ctrl+l');key('ctrl+a');xd('type','--clearmodifiers','--delay',1,str(OUT/'saved.png'));key('Return');sleep(.5)
     if not (OUT/'saved.png').exists():key('Return')
     end=time.monotonic()+6
@@ -111,14 +111,14 @@ try:
     external.set_default_size(140,100);external.move(20,30);area=Gtk.DrawingArea()
     def draw_external(widget,cr):cr.set_source_rgb(10/255,150/255,240/255);cr.paint();return True
     area.connect('draw',draw_external);external.add(area);external.show_all();sleep(.4)
-    eg=geom(window('^Outside VibeZ fixture$'));dialog=open_chooser(main);clear_clip();click(dialog,150,171)
+    eg=geom(window('^Outside VibeZ fixture$'));dialog=open_chooser(main);clear_clip();click(dialog,150,123)
     window('^VibeZ screen selection$');sleep(.4)
     xd('mousemove',eg['X']+130*S,eg['Y']+90*S);xd('mousedown',1)
     xd('mousemove','--sync',eg['X']+10*S,eg['Y']+10*S);xd('mouseup',1)
     im=await_png('other-application.png');n+=1;await_paste(n,im,'other-application')
     assert im.size==(120,80) and count(im,(10,150,240))>8000,'Wrong desktop pixels';external.hide()
-    dialog=open_chooser(main);clear_clip();click(dialog,150,171);window('^VibeZ screen selection$');key('Escape')
-    window('VibeZ · .*test 4');sleep(.4);assert clipboard.wait_for_image() is None and len(events())==n,'Cancel pasted'
+    dialog=open_chooser(main);clear_clip();click(dialog,150,123);window('^VibeZ screen selection$');key('Escape')
+    window('VibeZ · .*test 5');sleep(.4);assert clipboard.wait_for_image() is None and len(events())==n,'Cancel pasted'
     key('Return');im=await_png('after-cancel.png');n+=1;await_paste(n,im,'after-cancel')
     # After another application replaces the clipboard, do not paste the old PNG.
     clear_clip();g=geom(main);click(main,320,g['HEIGHT']/S-50);key('ctrl+v');sleep(.5)

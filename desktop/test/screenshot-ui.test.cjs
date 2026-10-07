@@ -2,23 +2,25 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const base=path.join(__dirname,'..'),read=p=>fs.readFileSync(path.join(base,p),'utf8');
 const flush=()=>new Promise(r=>setImmediate(r));
+const labels=require('../screenshot-i18n.json'),baseText=require('../../i18n.js').TRANSLATIONS.nl;
+const extraText={...require('../preview-i18n.json').translations.nl,screenshotCancelled:'Geannuleerd.',screenshotWorking:'Screenshot maken…',screenshotDrag:'Sleep een gebied.',...Object.fromEntries(['screenshotAutoPaste','screenshotPaste','screenshotSavePng','screenshotNew','screenshotCopyFailed','screenshotCancel'].map((key,i)=>[key,labels.nl[i]]))};
 function ui(result){
  const elements=new Map(),calls=[],modes=['visible','full','selection'].map(mode=>({dataset:{mode}}));
  function el(id){if(!elements.has(id))elements.set(id,{id,disabled:false,checked:true,hidden:false,dataset:{},textContent:'',listeners:{},focus(){},setAttribute(){},removeAttribute(name){delete this[name];},addEventListener(n,f){this.listeners[n]=f;}});return elements.get(id);}
  for(const m of modes)Object.assign(m,el(m.dataset.mode),{dataset:m.dataset});
  const buttons=[...modes,...['close','copy','save','paste','again','auto-paste'].map(el)];
  const doc={getElementById:el,querySelectorAll:q=>q==='button,input'?buttons:q==='[data-mode]'?modes:[],querySelector:()=>modes[0],addEventListener(){}};
- const preview={localize(){},currentLanguage:()=> 'nl',errorText:e=>e.message||String(e),invoke:async(c,a)=>{calls.push([c,a]);if(c==='get_state')return{platform:'linux'};if(c==='capture_screenshot'){if(result instanceof Error)throw result;return result;}return{copied:true};}};
- vm.runInNewContext(read('frontend/screenshot.js'),{document:doc,preview});return {el,modes,buttons,calls};
+ const preview={localize(){return baseText;},extra:key=>extraText[key]||key,resolve:()=> 'nl',currentLanguage:()=> 'nl',errorText:e=>e.message||String(e),invoke:async(c,a)=>{calls.push([c,a]);if(c==='get_state')return{platform:'linux',settings:{language:'nl'},os_locale:'nl_NL'};if(c==='capture_screenshot'){if(result instanceof Error)throw result;return result;}return{copied:true};}};
+ vm.runInNewContext(read('frontend/screenshot.js'),{document:doc,preview,window:{addEventListener(){}},setInterval(){},clearInterval(){}});return {el,modes,buttons,calls};
 }
 test('all three cards capture their named mode and show the real PNG',async()=>{
  for(const mode of ['visible','full','selection']){
  const u=ui({dataUrl:'data:image/png;base64,AAAA',width:120,height:100,copied:true});await flush();u.modes.find(m=>m.dataset.mode===mode).listeners.click();await flush();
- assert.deepEqual(u.calls.filter(c=>c[0]==='capture_screenshot').map(c=>c[1].mode),[mode]);assert.equal(u.el('result').hidden,false);assert.match(u.el('feedback').textContent,/Gekopieerd/);assert.equal(u.el('image').src,'data:image/png;base64,AAAA');assert.ok(u.buttons.every(b=>!b.disabled));}
+ assert.deepEqual(u.calls.filter(c=>c[0]==='capture_screenshot').map(c=>c[1].mode),[mode]);assert.equal(u.el('result').hidden,false);assert.match(u.el('feedback').textContent,/[Gg]ekopieerd/);assert.equal(u.el('image').src,'data:image/png;base64,AAAA');assert.ok(u.buttons.every(b=>!b.disabled));}
 });
 test('cancel and errors return to choices without stale image or false success',async()=>{
  for(const result of [{cancelled:true},new Error('native capture unavailable')]){
- const u=ui(result);await flush();u.modes[0].listeners.click();await flush();assert.equal(u.el('result').hidden,true);assert.equal(u.el('choose').hidden,false);assert.equal(u.el('image').src,undefined);assert.ok(u.buttons.every(b=>!b.disabled));assert.doesNotMatch(u.el('feedback').textContent,/Gekopieerd/);}
+ const u=ui(result);await flush();u.modes[0].listeners.click();await flush();assert.equal(u.el('result').hidden,true);assert.equal(u.el('choose').hidden,false);assert.equal(u.el('image').src,undefined);assert.ok(u.buttons.every(b=>!b.disabled));assert.doesNotMatch(u.el('feedback').textContent,/[Gg]ekopieerd/);}
 });
 test('clipboard failure preserves PNG preview and does not claim copied',async()=>{
  const u=ui({dataUrl:'data:image/png;base64,AAAA',width:120,height:100,copied:false});await flush();u.modes[0].listeners.click();await flush();assert.equal(u.el('result').hidden,false);assert.match(u.el('feedback').textContent,/Kopiëren mislukt/);
@@ -44,7 +46,7 @@ test('paste failure preserves the captured PNG and never claims it was pasted',a
  assert.equal(u.el('feedback').dataset.kind,'error');
 });
 test('chooser remains compact and native paste never sends a message',()=>{
- assert.match(read('src-tauri/src/screenshot_dialog.rs'),/inner_size\(340\.,290\.\)/);
+ assert.match(read('src-tauri/src/screenshot_dialog.rs'),/inner_size\(280\.,184\.\)/);
  assert.match(read('src-tauri/src/screenshot_paste.rs'),/execute_editing_command\("Paste"\)/);
  const focus=read('src-tauri/src/paste_composer.js');new vm.Script(focus);
  assert.doesNotMatch(focus,/dispatchEvent|execCommand|\.submit\(|requestSubmit|__TAURI__|invoke\(/);

@@ -19,8 +19,8 @@ pub async fn open(app:&AppHandle)->Result<(),String> {
     if let Some(window)=app.get_webview_window("screenshot") {window.show().map_err(err)?;return window.set_focus().map_err(err);}
     #[cfg(target_os="linux")] install_clipboard_bridge(app)?;
     let builder=WebviewWindowBuilder::new(app,"screenshot",WebviewUrl::App("screenshot.html".into()))
-        .title(format!("VibeZ · {} · test 4",desktop_ui::text(app,"screenshot")))
-        .inner_size(340.,290.).min_inner_size(340.,290.).center().resizable(false).maximizable(false)
+        .title(format!("VibeZ · {} · test 5",desktop_ui::text(app,"screenshot")))
+        .inner_size(280.,184.).min_inner_size(280.,184.).center().resizable(false).maximizable(false)
         .data_directory(app.path().app_data_dir().map_err(err)?.join("controls"))
         .data_store_identifier([118,105,98,101,122,51,0,0,0,0,0,0,0,0,0,1])
         .on_navigation(policy::local_url).on_new_window(|_,_|tauri::webview::NewWindowResponse::Deny);
@@ -102,12 +102,13 @@ async fn save(app:&AppHandle,bytes:Vec<u8>)->Result<Value,String> {
     let app2=app.clone();
     app.run_on_main_thread(move || {
         let parent=window.gtk_window().ok();
-        let dutch=desktop_ui::language(&app2)=="nl";
+        let save_label=desktop_ui::preview(&app2,"screenshotSavePng");
+        let cancel_label=desktop_ui::preview(&app2,"screenshotCancel");
         let dialog=gtk::FileChooserNative::new(
-            Some(if dutch {"Screenshot opslaan"} else {"Save screenshot"}),parent.as_ref(),gtk::FileChooserAction::Save,
-            Some(if dutch {"Opslaan"} else {"Save"}),Some(if dutch {"Annuleren"} else {"Cancel"}));
+            Some(&save_label),parent.as_ref(),gtk::FileChooserAction::Save,
+            Some(&save_label),Some(&cancel_label));
         dialog.set_current_name("VibeZ-screenshot.png");dialog.set_do_overwrite_confirmation(true);
-        let filter=gtk::FileFilter::new();filter.set_name(Some("PNG image"));filter.add_pattern("*.png");dialog.add_filter(filter);
+        let filter=gtk::FileFilter::new();filter.set_name(Some("PNG"));filter.add_pattern("*.png");dialog.add_filter(filter);
         let sender=std::cell::RefCell::new(Some(tx));
         let keeper=std::rc::Rc::new(std::cell::RefCell::new(Some(dialog.clone())));
         dialog.connect_response(move |dialog,response| {

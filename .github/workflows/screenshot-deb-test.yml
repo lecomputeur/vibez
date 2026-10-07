@@ -74,7 +74,7 @@ jobs:
       - uses: actions/upload-artifact@v5
         if: success()
         with:
-          name: vibez-3.0.2-test4-linux-deb
+          name: vibez-3.0.2-test5-linux-deb
           path: test-delivery/
           if-no-files-found: error
       - uses: actions/upload-artifact@v5

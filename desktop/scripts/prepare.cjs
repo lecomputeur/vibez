@@ -76,6 +76,14 @@ for (const [code, strings] of Object.entries(previewData.translations)) {
 }
 Object.assign(previewData.translations.en,{saved:'Saved.',limits:'Screenshots use your operating system tools. Updates are installed manually. Global shortcuts and microphone/camera access are not enabled.',trayHint:'Enable only when the system tray icon is available.',updateManualHelp:'Open the published VibeZ 3 release and install the package for your system.',bridgeError:'The application connection is unavailable',returningVibe:'Back to Vibe. Your profile is preserved.',noDownloadHelp:'No published VibeZ 3 download was found for this platform.'});
 Object.assign(previewData.translations.nl,{saved:'Opgeslagen.',limits:'Schermafbeeldingen gebruiken de hulpmiddelen van je besturingssysteem. Updates installeer je handmatig. Globale sneltoetsen en microfoon/camera zijn niet ingeschakeld.',trayHint:'Alleen inschakelen wanneer het systeemvakpictogram beschikbaar is.',updateManualHelp:'Open de gepubliceerde VibeZ 3-release en installeer het pakket voor je systeem.',bridgeError:'De verbinding met de toepassing is niet beschikbaar',returningVibe:'Terug naar Vibe. Je profiel blijft behouden.',noDownloadHelp:'Geen gepubliceerde VibeZ 3-download gevonden voor dit platform.'});
+const screenshotMenu = JSON.parse(fs.readFileSync(path.join(project, 'screenshot-i18n.json'), 'utf8'));
+const screenshotMenuKeys = ['screenshotAutoPaste','screenshotPaste','screenshotSavePng','screenshotNew','screenshotCopyFailed','screenshotCancel'];
+if (JSON.stringify(Object.keys(screenshotMenu).sort()) !== JSON.stringify(Object.keys(TRANSLATIONS).sort())) throw new Error('Screenshot menu language codes differ');
+for (const [code, strings] of Object.entries(previewData.translations)) {
+  const values = screenshotMenu[code];
+  if (!Array.isArray(values) || values.length !== screenshotMenuKeys.length || values.some(value => typeof value !== 'string' || !value.trim())) throw new Error(`Incomplete screenshot menu translation: ${code}`);
+  Object.assign(strings, Object.fromEntries(screenshotMenuKeys.map((key,i) => [key,values[i]])));
+}
 const baseLanguages = Object.keys(TRANSLATIONS).sort();
 if (JSON.stringify(baseLanguages) !== JSON.stringify(Object.keys(previewData.translations).sort())) throw new Error('Preview language codes differ');
 const keys = Object.keys(previewData.translations.en).sort();
