@@ -19,6 +19,7 @@ mod auth;
 mod desktop_ui;
 mod screenshots;
 mod screenshot_dialog;
+mod update_download;
 #[path = "release_updates.rs"]
 mod preview_updates;
 
@@ -47,7 +48,7 @@ struct PreviewState {
     auth_active: AtomicBool,
 }
 fn err(e: impl std::fmt::Display) -> String { e.to_string() }
-fn title() -> String { format!("{APP_NAME} v{}", env!("CARGO_PKG_VERSION")) }
+fn title() -> String { format!("{APP_NAME} v{} · test 1", env!("CARGO_PKG_VERSION")) }
 fn require_local(webview: &Webview) -> Result<(), String> {
     if policy::trusted_caller(webview.label(), &webview.url().map_err(err)?) { Ok(()) }
     else { Err("Native commands are restricted to the bundled preview controls".into()) }
@@ -99,7 +100,7 @@ async fn get_state(webview: Webview, app: AppHandle) -> Result<Value, String> {
     }
     let raw_status = state.status.lock().map_err(err)?.text().to_owned();
     let status = desktop_ui::status(&app, &raw_status);
-    Ok(json!({"settings": settings, "revision": revision, "version": env!("CARGO_PKG_VERSION"), "build_label": "", "os_locale": os_locale(), "platform": std::env::consts::OS,
+    Ok(json!({"settings": settings, "revision": revision, "version": env!("CARGO_PKG_VERSION"), "build_label": "test 1", "os_locale": os_locale(), "platform": std::env::consts::OS,
         "can_go_back": back, "can_go_forward": forward, "loading": loading,
         "tray_ready": state.tray_ready.load(Ordering::Relaxed), "status": status}))
 }
@@ -201,6 +202,18 @@ async fn check_for_updates(webview: Webview, app: AppHandle) -> Result<(), Strin
     Ok(())
 }
 #[tauri::command]
+async fn update_state(webview:Webview)->Result<Value,String>{
+    require_local(&webview)?;
+    if webview.label()!="updates"{return Err("Use the local update window".into());}
+    preview_updates::snapshot()
+}
+#[tauri::command]
+async fn update_action(webview:Webview,app:AppHandle,action:String,name:Option<String>)->Result<Value,String>{
+    require_local(&webview)?;
+    if webview.label()!="updates"{return Err("Use the local update window".into());}
+    preview_updates::action(&app,&action,name).await
+}
+#[tauri::command]
 async fn get_diagnostics(webview: Webview, app: AppHandle) -> Result<String, String> {
     require_local(&webview)?;
     let (engine, os_name, session, desktop, update_text) = if cfg!(target_os = "windows") {
@@ -216,7 +229,7 @@ async fn get_diagnostics(webview: Webview, app: AppHandle) -> Result<String, Str
     let auth_mode = auth::active(&app);
     let auto_updates = app.state::<PreviewState>().settings.lock().map(|s| s.auto_updates).unwrap_or(false);
     let site_language = site_language::inspect(&app).await;
-    Ok(format!("{}\nApplication ID: {}\nEngine: {}\nOS: {} {}\nSystem/UI locale: {}\nSession: {}\nDesktop: {}\nConfig: {}\nData: {}\n{}\nAutomatic update checks: {}; automatic installation: disabled\nMicrophone/camera: not enabled in this version\nGlobal shortcut: not registered (does not conflict with Electron)\nSign-in popups: related webview; provider restrictions still apply\nAuthentication routing mode: {}\nMistral site language: {}\nAutomatic JS link interception: disabled\nRecent navigation (origins only, no credentials or tokens):\n{}\nLink routing (current process, origins only):\n{}",
+    Ok(format!("{}\nApplication ID: {}\nEngine: {}\nOS: {} {}\nSystem/UI locale: {}\nSession: {}\nDesktop: {}\nConfig: {}\nData: {}\n{}\nAutomatic update checks: {}; downloads: in-app with SHA-256 verification; automatic installation: disabled\nMicrophone/camera: not enabled in this version\nGlobal shortcut: not registered (does not conflict with Electron)\nSign-in popups: related webview; provider restrictions still apply\nAuthentication routing mode: {}\nMistral site language: {}\nAutomatic JS link interception: disabled\nRecent navigation (origins only, no credentials or tokens):\n{}\nLink routing (current process, origins only):\n{}",
         title(), APP_ID, engine, os_name, std::env::consts::ARCH, os_locale(), session, desktop,
         app.path().app_config_dir().map_err(err)?.display(), app.path().app_data_dir().map_err(err)?.display(),
         update_text, if auto_updates { "enabled" } else { "disabled" }, if auth_mode { "active" } else { "inactive" }, site_language, auth::diagnostics(), link_trace::diagnostics()))
@@ -233,7 +246,7 @@ fn main() {
         .plugin(tauri_plugin_opener::Builder::new().open_js_links_on_click(false).build())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_autostart::Builder::new().app_name(APP_NAME).arg("--hidden").build())
-        .invoke_handler(tauri::generate_handler![get_state, navigate, show_settings, save_settings, close_settings, capture_screenshot, show_screenshot, screenshot_action, check_for_updates, get_diagnostics])
+        .invoke_handler(tauri::generate_handler![get_state, navigate, show_settings, save_settings, close_settings, capture_screenshot, show_screenshot, screenshot_action, check_for_updates, update_state, update_action, get_diagnostics])
         .setup(move |app| {
             #[cfg(target_os = "linux")]
             linux_identity::initialize().map_err(std::io::Error::other)?;

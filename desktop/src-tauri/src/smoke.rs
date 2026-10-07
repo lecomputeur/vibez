@@ -140,8 +140,8 @@ fn checks(app: &AppHandle) -> Result<(), String> {
     println!("HIDDEN_OK: layout preserves hidden state");
     window.show().map_err(crate::err)?;
     thread::sleep(Duration::from_millis(500)); check_layout(app)?;
-    #[cfg(not(target_os="linux"))]
     tauri::async_runtime::block_on(crate::screenshot_dialog::release_smoke_check(app))?;
+    tauri::async_runtime::block_on(crate::preview_updates::smoke_check(app))?;
     Ok(())
 }
 pub fn start(app: AppHandle) {

@@ -84,6 +84,13 @@ for (const [code, strings] of Object.entries(previewData.translations)) {
   if (!Array.isArray(values) || values.length !== screenshotMenuKeys.length || values.some(value => typeof value !== 'string' || !value.trim())) throw new Error(`Incomplete screenshot menu translation: ${code}`);
   Object.assign(strings, Object.fromEntries(screenshotMenuKeys.map((key,i) => [key,values[i]])));
 }
+const updateRows=JSON.parse(fs.readFileSync(path.join(project,'updates-i18n.json'),'utf8'));
+const updateKeys=['updateAvailable','updateDownload','updateDownloading','updateOpenFile','updateShowFile','updateConfirmInstall','updateStoreManaged','pasteConfirmed','pasteUnconfirmed'];
+if(JSON.stringify(Object.keys(updateRows).sort())!==JSON.stringify(Object.keys(TRANSLATIONS).sort()))throw new Error('Update locale codes differ');
+for(const [code,values] of Object.entries(updateRows)){
+  if(values.length!==updateKeys.length||values.some(v=>typeof v!=='string'||!v.trim()))throw new Error('Missing update translation: '+code);
+  Object.assign(previewData.translations[code],Object.fromEntries(updateKeys.map((key,i)=>[key,values[i]])));
+}
 const baseLanguages = Object.keys(TRANSLATIONS).sort();
 if (JSON.stringify(baseLanguages) !== JSON.stringify(Object.keys(previewData.translations).sort())) throw new Error('Preview language codes differ');
 const keys = Object.keys(previewData.translations.en).sort();

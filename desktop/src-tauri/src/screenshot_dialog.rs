@@ -10,9 +10,7 @@ use tauri::{AppHandle,Manager,WebviewUrl,WebviewWindowBuilder};
 #[path="screenshot_save_other.rs"] mod save_other;
 #[cfg(not(target_os="linux"))]
 #[path="screenshot_screen_other.rs"] mod screen_other;
-#[cfg(not(target_os="linux"))]
 #[path="screenshot_release_probe.rs"] mod release_probe;
-#[cfg(not(target_os="linux"))]
 pub async fn release_smoke_check(app:&AppHandle)->Result<(),String>{release_probe::run(app).await}
 static OPERATION:std::sync::atomic::AtomicBool=std::sync::atomic::AtomicBool::new(false);
 struct Operation;

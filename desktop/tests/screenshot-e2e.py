@@ -79,7 +79,7 @@ def start_capture(main,mode,copy_only=False):
         window('^VibeZ screen selection$');sleep(.4);xd('mousemove','--window',main,224*S,178*S);xd('mousedown',1)
         xd('mousemove','--sync','--window',main,104*S,78*S);xd('mouseup',1)
 try:
-    main=window('VibeZ 3 v3.0.2');sleep(4);n=0
+    main=window('VibeZ 3 v3.0.3');sleep(4);n=0
     for mode in ['visible','full','selection']:
         start_capture(main,mode);im=await_png(mode+'.png');n+=1;await_paste(n,im,mode)
         assert count(im,(230,30,40))>5000,(mode,'red missing',im.size)

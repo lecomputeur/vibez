@@ -15,6 +15,7 @@
     "allow-close-settings",
     "allow-capture-screenshot",
     "allow-get-diagnostics",
-    "allow-show-screenshot"
+    "allow-show-screenshot",
+    "allow-check-for-updates"
   ]
 }

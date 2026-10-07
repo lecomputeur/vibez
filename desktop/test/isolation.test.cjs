@@ -62,9 +62,9 @@ test('related OAuth popups keep opener callbacks without credential interception
   assert.match(auth,/if auth_chain_allowed\(next, smoke\) \{ return true; \}/);
 });
 test('updates select published releases rather than CI artifacts', () => {
-  const source=read('src-tauri/src/release_updates.rs');
-  assert.match(source,/release\["draft"\]/); assert.match(source,/release\["prerelease"\]/);
-  assert.match(source,/version.major < 3/); assert.doesNotMatch(source,/actions\/runs/);
+  const source=read('src-tauri/src/update_download.rs');
+  assert.match(source,/value\["draft"\]/); assert.match(source,/value\["prerelease"\]/);
+  assert.match(source,/version.major!=3/); assert.doesNotMatch(source,/actions\/runs/);
 });
 test('native routing does not reintroduce injected opener interception', () => {
   const main=read('src-tauri/src/main.rs');
