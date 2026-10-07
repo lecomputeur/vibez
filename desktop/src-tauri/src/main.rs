@@ -47,7 +47,7 @@ struct PreviewState {
     auth_active: AtomicBool,
 }
 fn err(e: impl std::fmt::Display) -> String { e.to_string() }
-fn title() -> String { format!("{APP_NAME} v{} · screenshot test 3", env!("CARGO_PKG_VERSION")) }
+fn title() -> String { format!("{APP_NAME} v{} · screenshot test 4", env!("CARGO_PKG_VERSION")) }
 fn require_local(webview: &Webview) -> Result<(), String> {
     if policy::trusted_caller(webview.label(), &webview.url().map_err(err)?) { Ok(()) }
     else { Err("Native commands are restricted to the bundled preview controls".into()) }
@@ -99,7 +99,7 @@ async fn get_state(webview: Webview, app: AppHandle) -> Result<Value, String> {
     }
     let raw_status = state.status.lock().map_err(err)?.text().to_owned();
     let status = desktop_ui::status(&app, &raw_status);
-    Ok(json!({"settings": settings, "revision": revision, "version": env!("CARGO_PKG_VERSION"), "build_label": "test 3", "os_locale": os_locale(), "platform": std::env::consts::OS,
+    Ok(json!({"settings": settings, "revision": revision, "version": env!("CARGO_PKG_VERSION"), "build_label": "test 4", "os_locale": os_locale(), "platform": std::env::consts::OS,
         "can_go_back": back, "can_go_forward": forward, "loading": loading,
         "tray_ready": state.tray_ready.load(Ordering::Relaxed), "status": status}))
 }
@@ -179,10 +179,10 @@ async fn take_screenshot(app: &AppHandle) -> Result<(), String> {
     screenshot_dialog::open(app).await
 }
 #[tauri::command]
-async fn capture_screenshot(webview: Webview, app: AppHandle, mode: String) -> Result<Value, String> {
+async fn capture_screenshot(webview: Webview, app: AppHandle, mode: String, paste: Option<bool>) -> Result<Value, String> {
     require_local(&webview)?;
     if webview.label() != "screenshot" { return Err("Use the screenshot dialog".into()); }
-    screenshot_dialog::capture(&app, &mode).await
+    screenshot_dialog::capture(&app, &mode, paste.unwrap_or(false)).await
 }
 #[tauri::command]
 async fn show_screenshot(webview: Webview, app: AppHandle) -> Result<(), String> {
@@ -319,6 +319,17 @@ fn main() {
                     tokio::time::sleep(std::time::Duration::from_secs(2)).await;
                     if let Some(view)=handle.get_webview("vibe") {
                         let _=view.eval(include_str!("screenshot_fixture.js"));
+                        if let Ok(dir)=std::env::var("SHOT_OUTPUT") {
+                            for _ in 0..1000 {
+                                tokio::time::sleep(std::time::Duration::from_millis(120)).await;
+                                if let Ok(value)=screenshots::eval_value(&view,"JSON.stringify(window.__shotPasteEvents || [])").await {
+                                    let target=std::path::Path::new(&dir).join("paste-events.json");
+                                    let temporary=target.with_extension("tmp");
+                                    let _=std::fs::write(&temporary,value);
+                                    let _=std::fs::rename(temporary,target);
+                                }
+                            }
+                        }
                     }
                 });
             }

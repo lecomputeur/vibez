@@ -7,3 +7,28 @@
   const canvas=document.getElementById('shot-canvas'),c=canvas.getContext('2d');c.fillStyle='rgb(160,40,190)';c.fillRect(0,0,100,80);
   const meta=document.createElement('meta');meta.httpEquiv='Content-Security-Policy';meta.content="default-src 'none'; style-src 'self'; img-src 'self'; script-src 'self'";document.head.append(meta);
 })();
+
+// Offline consumer of the real trusted clipboard event, not a synthetic paste.
+(() => {
+  window.__shotPasteEvents=[];
+  const form=document.createElement('form');
+  form.style.cssText='position:fixed;left:280px;bottom:20px;width:400px;height:70px;z-index:10';
+  const editor=document.createElement('textarea');editor.id='shot-composer';editor.value='Bestaande concepttekst';
+  editor.style.cssText='width:100%;height:70px;box-sizing:border-box;background:white;color:black';
+  let submits=0;
+  form.addEventListener('submit',e=>{e.preventDefault();submits++;});
+  editor.addEventListener('paste',e=>{
+    const files=[...(e.clipboardData?.files||[])];
+    e.preventDefault();
+    for(const f of files) {
+      const record={trusted:e.isTrusted,type:f.type,size:f.size,draft:editor.value,submits,dataUrl:null};
+      window.__shotPasteEvents.push(record);
+      const reader=new FileReader();reader.onload=()=>{record.dataUrl=reader.result;};reader.readAsDataURL(f);
+    }
+  });
+  form.append(editor);document.body.append(form);
+  const toggle=document.createElement('button');toggle.id='shot-block-editor';toggle.textContent='Composer on/off';
+  toggle.style.cssText='position:fixed;left:700px;bottom:25px;width:160px;height:40px;z-index:11';
+  toggle.addEventListener('click',()=>{editor.readOnly=!editor.readOnly;toggle.textContent=editor.readOnly?'Composer disabled':'Composer on/off';});
+  document.body.append(toggle);
+})();

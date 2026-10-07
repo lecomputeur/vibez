@@ -5,16 +5,21 @@ use std::sync::{Mutex,atomic::Ordering};
 use tauri::{AppHandle,Manager,WebviewUrl,WebviewWindowBuilder};
 #[cfg(target_os="linux")]
 #[path="screenshot_screen_linux.rs"] mod screen_linux;
+#[path="screenshot_paste.rs"] mod paste_composer;
+static OPERATION:std::sync::atomic::AtomicBool=std::sync::atomic::AtomicBool::new(false);
+struct Operation;
+impl Operation {fn start()->Result<Self,String>{if OPERATION.swap(true,Ordering::SeqCst){Err("Screenshot busy".into())}else{Ok(Self)}}}
+impl Drop for Operation {fn drop(&mut self){OPERATION.store(false,Ordering::SeqCst);}}
 static LAST:Mutex<Option<Vec<u8>>>=Mutex::new(None);
 pub fn clear() {if let Ok(mut last)=LAST.lock(){*last=None;}}
 pub fn remember(bytes:Vec<u8>)->Result<(),String>{*LAST.lock().map_err(err)?=Some(bytes);Ok(())}
 fn last()->Result<Vec<u8>,String>{LAST.lock().map_err(err)?.clone().ok_or("Make a screenshot first".into())}
 pub async fn open(app:&AppHandle)->Result<(),String> {
-    if app.state::<PreviewState>().capture_busy.load(Ordering::SeqCst) {return Err(desktop_ui::status(app,"screenshot_busy"));}
+    if OPERATION.load(Ordering::SeqCst) || app.state::<PreviewState>().capture_busy.load(Ordering::SeqCst) {return Err(desktop_ui::status(app,"screenshot_busy"));}
     if let Some(window)=app.get_webview_window("screenshot") {window.show().map_err(err)?;return window.set_focus().map_err(err);}
     let builder=WebviewWindowBuilder::new(app,"screenshot",WebviewUrl::App("screenshot.html".into()))
-        .title(format!("VibeZ · {} · test 3",desktop_ui::text(app,"screenshot")))
-        .inner_size(580.,620.).min_inner_size(480.,520.).center().resizable(true)
+        .title(format!("VibeZ · {} · test 4",desktop_ui::text(app,"screenshot")))
+        .inner_size(340.,290.).min_inner_size(340.,290.).center().resizable(false).maximizable(false)
         .data_directory(app.path().app_data_dir().map_err(err)?.join("controls"))
         .data_store_identifier([118,105,98,101,122,51,0,0,0,0,0,0,0,0,0,1])
         .on_navigation(policy::local_url).on_new_window(|_,_|tauri::webview::NewWindowResponse::Deny);
@@ -23,9 +28,11 @@ pub async fn open(app:&AppHandle)->Result<(),String> {
     let window=builder.build().map_err(err)?;
     window.set_focus().map_err(err)
 }
-pub async fn capture(app:&AppHandle,mode:&str)->Result<Value,String> {
+pub async fn capture(app:&AppHandle,mode:&str,auto_paste:bool)->Result<Value,String> {
     if !matches!(mode,"full"|"visible"|"selection") {return Err("Unsupported screenshot mode".into());}
     if app.state::<PreviewState>().capture_busy.load(Ordering::SeqCst) {return Err(desktop_ui::status(app,"screenshot_busy"));}
+    let _operation=Operation::start()?;
+    let original=app.get_webview("vibe").and_then(|v|v.url().ok());
     if let Some(window)=app.get_webview_window("screenshot") {window.hide().map_err(err)?;}
     // Do not run the layout repair on an already visible window here: GTK
     // reallocates its webviews asynchronously and can expose a transient 1x1.
@@ -36,9 +43,18 @@ pub async fn capture(app:&AppHandle,mode:&str)->Result<Value,String> {
     }
     tokio::time::sleep(std::time::Duration::from_millis(150)).await;
     #[cfg(target_os="linux")]
-    let result=if mode=="selection" {capture_desktop(app).await} else {screenshots::capture_preview(app,mode).await};
+    let mut result=if mode=="selection" {capture_desktop(app).await} else {screenshots::capture_preview(app,mode).await};
     #[cfg(not(target_os="linux"))]
-    let result=screenshots::capture_preview(app,mode).await;
+    let mut result=screenshots::capture_preview(app,mode).await;
+    if let Ok(value)=&mut result {
+        if auto_paste && value["cancelled"]!=true && value["copied"]==true {
+            let current=app.get_webview("vibe").and_then(|v|v.url().ok());
+            let pasted=if original.is_some() && current==original {paste_composer::paste(app).await}
+                else {Err("De pagina is gewijzigd. De opname is niet geplakt.".into())};
+            match pasted {Ok(())=>{value["pasted"]=json!(true);},Err(error)=>{value["pasteError"]=json!(error);}}
+        }
+        if value["pasted"]==true {return result;}
+    }
     // Restore the chooser even after Escape, timeout, clipboard failure or errors.
     if let Some(window)=app.get_webview_window("screenshot") {let _=window.show();let _=window.set_focus();}
     result
@@ -60,11 +76,20 @@ async fn capture_desktop(app:&AppHandle)->Result<Value,String> {
 pub async fn action(app:&AppHandle,action:&str)->Result<Value,String> {
     match action {
         "copy"=>{screenshots::copy_last(app,&last()?)?;Ok(json!({"copied":true}))},
+        "paste"=>{
+            let _operation=Operation::start()?;
+            screenshots::copy_last(app,&last()?)?;
+            if let Some(w)=app.get_webview_window("screenshot"){w.hide().map_err(err)?;}
+            focus_main(app);
+            let result=paste_composer::paste(app).await;
+            if result.is_err(){if let Some(w)=app.get_webview_window("screenshot"){let _=w.show();let _=w.set_focus();}}
+            result?;Ok(json!({"pasted":true}))
+        },
         "save"=>save(app,last()?).await,
         "new"=>{clear();Ok(json!({}))},
         "close"=>{
             #[cfg(target_os="linux")] screen_linux::cancel(app);
-            screenshots::cancel_active(app);clear();if let Some(w)=app.get_webview_window("screenshot"){w.close().map_err(err)?;}crate::show_main(app);Ok(json!({}))},
+            screenshots::cancel_active(app);clear();if let Some(w)=app.get_webview_window("screenshot"){w.close().map_err(err)?;}focus_main(app);Ok(json!({}))},
         _=>Err("Unsupported screenshot action".into())
     }
 }
@@ -107,3 +132,8 @@ async fn save(app:&AppHandle,bytes:Vec<u8>)->Result<Value,String> {
 }
 #[cfg(not(target_os="linux"))]
 async fn save(_app:&AppHandle,_bytes:Vec<u8>)->Result<Value,String>{Err("Save is not enabled in this Linux test candidate. Use Copy.".into())}
+
+fn focus_main(app:&AppHandle) {
+    if let Some(w)=app.get_window("main"){if w.is_minimized().unwrap_or(false){let _=w.unminimize();}if !w.is_visible().unwrap_or(true){let _=w.show();}let _=w.set_focus();}
+    if let Some(view)=app.get_webview("vibe"){let _=view.set_focus();}
+}

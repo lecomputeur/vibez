@@ -15,7 +15,7 @@ static SERIAL: AtomicU64 = AtomicU64::new(1);
 struct Busy<'a>(&'a AtomicBool);
 impl Drop for Busy<'_> { fn drop(&mut self) { self.0.store(false,Ordering::SeqCst); } }
 
-async fn eval_value(view: &Webview, script: impl Into<String>) -> Result<String,String> {
+pub(super) async fn eval_value(view: &Webview, script: impl Into<String>) -> Result<String,String> {
     let (tx,rx)=tokio::sync::oneshot::channel();
     let tx=Arc::new(Mutex::new(Some(tx)));
     view.eval_with_callback(script,move |result| {
