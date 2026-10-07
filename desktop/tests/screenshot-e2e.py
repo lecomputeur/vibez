@@ -66,7 +66,9 @@ def open_chooser(main):
     assert len(pts)>100,'Cannot find screenshot toolbar button'
     x=(min(p[0] for p in pts)+max(p[0] for p in pts))//2;y=(min(p[1] for p in pts)+max(p[1] for p in pts))//2
     xd('mousemove',x,y);xd('click',1);w=window('VibeZ · .*test 5');xd('mousemove','--window',w,25*S,25*S);sleep(1)
-    d=geom(w);assert d['WIDTH']/S<=282 and d['HEIGHT']/S<=186,('Chooser oversized',d)
+    # GTK imposes a 200px webview minimum even when 184px is requested.
+    # Accept that native floor, not the old 340x290 dialog.
+    d=geom(w);assert d['WIDTH']/S<=282 and d['HEIGHT']/S<=202,('Chooser oversized',d)
     return w
 def start_capture(main,mode,copy_only=False):
     dialog=open_chooser(main);shot('chooser.png')

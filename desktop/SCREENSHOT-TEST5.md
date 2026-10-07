@@ -2,7 +2,7 @@
 
 Test candidate only. Do not merge to main, tag, publish downloads, or submit to Partner Center before the maintainer approves testing on Mint.
 
-- Smaller screenshot chooser: 280 × 184 logical pixels (test 4: 340 × 290).
+- Smaller screenshot chooser: 280 × 200 logical pixels on GTK (requests 280 × 184; GTK enforces a 200-pixel minimum). Test 4 was 340 × 290.
 - Three short option labels and the automatic-paste checkbox. No explanations below the options or checkbox.
 - Screenshot-menu text uses the same 34 bundled language selections as the toolbar. System follows the OS locale; an explicit language overrides it. An already open menu also refreshes its language without changing the checkbox or result.
 - Native Save labels follow the selected language too. Unexpected low-level native errors may still contain untranslated technical details.
