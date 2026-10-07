@@ -1,0 +1,13 @@
+{
+  "identifier": "local-screenshot",
+  "description": "Only the bundled screenshot dialog can capture, preview, copy or request a native PNG save dialog. No remote page access.",
+  "local": true,
+  "webviews": [
+    "screenshot"
+  ],
+  "permissions": [
+    "allow-get-state",
+    "allow-capture-screenshot",
+    "allow-screenshot-action"
+  ]
+}

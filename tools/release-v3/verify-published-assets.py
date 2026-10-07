@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Verify the exact VibeZ 3.0.1 release asset set without executing installers."""
+"""Verify the exact VibeZ 3.0.2 release asset set without executing installers."""
 import hashlib
 import os
 from pathlib import Path
 import re
 import sys
 
-VERSION = '3.0.1'
+VERSION = '3.0.2'
 # Deterministic default for unit tests. Real publication supplies VIBEZ_RELEASE_SOURCE.
 SOURCE = '1111111111111111111111111111111111111111'
 SUFFIXES = (

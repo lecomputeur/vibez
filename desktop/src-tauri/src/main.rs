@@ -17,6 +17,8 @@ mod native_layout;
 mod native_layout;
 mod auth;
 mod desktop_ui;
+mod screenshots;
+mod screenshot_dialog;
 #[path = "release_updates.rs"]
 mod preview_updates;
 
@@ -26,7 +28,6 @@ use std::{fs, path::PathBuf, sync::{Mutex, atomic::{AtomicBool, AtomicU64, Order
 use tauri::{AppHandle, Manager, Webview, WebviewUrl, WebviewWindowBuilder, LogicalPosition, LogicalSize};
 use tauri::webview::{WebviewBuilder, NewWindowResponse, PermissionResponse};
 use tauri_plugin_autostart::ManagerExt as AutostartExt;
-use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_opener::OpenerExt;
 #[cfg(target_os = "linux")]
 use webkit2gtk::WebViewExt;
@@ -98,7 +99,7 @@ async fn get_state(webview: Webview, app: AppHandle) -> Result<Value, String> {
     }
     let raw_status = state.status.lock().map_err(err)?.text().to_owned();
     let status = desktop_ui::status(&app, &raw_status);
-    Ok(json!({"settings": settings, "revision": revision, "version": env!("CARGO_PKG_VERSION"), "os_locale": os_locale(), "platform": std::env::consts::OS,
+    Ok(json!({"settings": settings, "revision": revision, "version": env!("CARGO_PKG_VERSION"), "build_label": "", "os_locale": os_locale(), "platform": std::env::consts::OS,
         "can_go_back": back, "can_go_forward": forward, "loading": loading,
         "tray_ready": state.tray_ready.load(Ordering::Relaxed), "status": status}))
 }
@@ -174,57 +175,25 @@ async fn close_settings(webview: Webview) -> Result<(), String> {
     if webview.label() != "settings" { return Err("Only settings can close itself".into()); }
     webview.window().close().map_err(err)
 }
-#[cfg(target_os = "linux")]
 async fn take_screenshot(app: &AppHandle) -> Result<(), String> {
-    let state = app.state::<PreviewState>();
-    if state.capture_busy.swap(true, Ordering::SeqCst) { return Err(desktop_ui::status(app, "A screenshot is already in progress")); }
-    message(app, "Choose a screenshot in the desktop dialog…");
-    let result: Result<(), String> = async {
-        let response = ashpd::desktop::screenshot::Screenshot::request().interactive(true).modal(true)
-            .send().await.map_err(err)?.response().map_err(err)?;
-        let uri = url::Url::parse(response.uri().as_str()).map_err(err)?;
-        let file = uri.to_file_path().map_err(|_| "The portal did not return a local image".to_string())?;
-        if fs::metadata(&file).map_err(err)?.len() > 64 * 1024 * 1024 { return Err("Screenshot is larger than the 64 MiB preview limit".into()); }
-        let image = tauri::image::Image::from_bytes(&fs::read(file).map_err(err)?).map_err(err)?;
-        app.clipboard().write_image(&image).map_err(err)?; Ok(())
-    }.await;
-    state.capture_busy.store(false, Ordering::SeqCst);
-    match &result {
-        Ok(()) => { message(app, "Screenshot copied — paste it into Vibe with Ctrl+V."); show_main(app); },
-        Err(error) => message(app, format!("Screenshot cancelled or unavailable: {error}")),
-    }
-    result
-}
-#[cfg(target_os = "windows")]
-async fn take_screenshot(app: &AppHandle) -> Result<(), String> {
-    let state = app.state::<PreviewState>();
-    if state.capture_busy.swap(true, Ordering::SeqCst) { return Err(desktop_ui::status(app, "A screenshot is already in progress")); }
-    message(app, "Opening Windows screen capture…");
-    let result = app.opener().open_url("ms-screenclip:", None::<&str>).map_err(err);
-    state.capture_busy.store(false, Ordering::SeqCst);
-    match &result {
-        Ok(()) => message(app, "Windows screen capture opened — select an area, then paste it into Vibe with Ctrl+V."),
-        Err(error) => message(app, format!("Screenshot cancelled or unavailable: {error}")),
-    }
-    result
-}
-#[cfg(target_os = "macos")]
-async fn take_screenshot(app: &AppHandle) -> Result<(), String> {
-    let state = app.state::<PreviewState>();
-    if state.capture_busy.swap(true, Ordering::SeqCst) { return Err(desktop_ui::status(app, "A screenshot is already in progress")); }
-    let result = tauri::async_runtime::spawn_blocking(|| {
-        let status = std::process::Command::new("/usr/sbin/screencapture").args(["-i", "-c"]).status().map_err(err)?;
-        if status.success() { Ok(()) } else { Err("Capture cancelled or permission denied".to_string()) }
-    }).await.map_err(err).and_then(|r| r);
-    state.capture_busy.store(false, Ordering::SeqCst);
-    match &result {
-        Ok(()) => message(app, "Screenshot copied — paste it into Vibe with Ctrl+V."),
-        Err(error) => message(app, format!("Screenshot cancelled or unavailable: {error}")),
-    }
-    result
+    screenshot_dialog::open(app).await
 }
 #[tauri::command]
-async fn capture_screenshot(webview: Webview, app: AppHandle) -> Result<(), String> { require_local(&webview)?; take_screenshot(&app).await }
+async fn capture_screenshot(webview: Webview, app: AppHandle, mode: String, paste: Option<bool>) -> Result<Value, String> {
+    require_local(&webview)?;
+    if webview.label() != "screenshot" { return Err("Use the screenshot dialog".into()); }
+    screenshot_dialog::capture(&app, &mode, paste.unwrap_or(false)).await
+}
+#[tauri::command]
+async fn show_screenshot(webview: Webview, app: AppHandle) -> Result<(), String> {
+    require_local(&webview)?; screenshot_dialog::open(&app).await
+}
+#[tauri::command]
+async fn screenshot_action(webview: Webview, app: AppHandle, action: String) -> Result<Value, String> {
+    require_local(&webview)?;
+    if webview.label() != "screenshot" { return Err("Use the screenshot dialog".into()); }
+    screenshot_dialog::action(&app, &action).await
+}
 #[tauri::command]
 async fn check_for_updates(webview: Webview, app: AppHandle) -> Result<(), String> {
     require_local(&webview)?;
@@ -257,13 +226,14 @@ fn main() {
     if std::env::args().any(|a| a == "--version") { println!("{}", title()); return; }
     let link_probe_only = std::env::args().any(|a| a == "--link-probe-only");
     let icon_probe = std::env::args().any(|a| a == "--icon-smoke-test");
-    let smoke = icon_probe || link_probe_only || std::env::args().any(|a| a == "--smoke-test");
+    let screenshot_ui_test = std::env::args().any(|a| a == "--screenshot-ui-test");
+    let smoke = screenshot_ui_test || icon_probe || link_probe_only || std::env::args().any(|a| a == "--smoke-test");
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| show_main(app)))
         .plugin(tauri_plugin_opener::Builder::new().open_js_links_on_click(false).build())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_autostart::Builder::new().app_name(APP_NAME).arg("--hidden").build())
-        .invoke_handler(tauri::generate_handler![get_state, navigate, show_settings, save_settings, close_settings, capture_screenshot, check_for_updates, get_diagnostics])
+        .invoke_handler(tauri::generate_handler![get_state, navigate, show_settings, save_settings, close_settings, capture_screenshot, show_screenshot, screenshot_action, check_for_updates, get_diagnostics])
         .setup(move |app| {
             #[cfg(target_os = "linux")]
             linux_identity::initialize().map_err(std::io::Error::other)?;
@@ -342,10 +312,36 @@ fn main() {
             if !start_hidden { window.show()?; }
             if !smoke { preview_updates::schedule(app.handle().clone()); }
             // The external icon probe inspects a real, offline running app.
-            if smoke && !icon_probe { link_probe::start(app.handle().clone(), link_probe_only); }
+            if smoke && !icon_probe && !screenshot_ui_test { link_probe::start(app.handle().clone(), link_probe_only); }
+            if screenshot_ui_test {
+                let handle=app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                    if let Some(view)=handle.get_webview("vibe") {
+                        let _=view.eval(include_str!("screenshot_fixture.js"));
+                        if let Ok(dir)=std::env::var("SHOT_OUTPUT") {
+                            for _ in 0..1000 {
+                                tokio::time::sleep(std::time::Duration::from_millis(120)).await;
+                                if let Ok(value)=screenshots::eval_value(&view,"JSON.stringify(window.__shotPasteEvents || [])").await {
+                                    let target=std::path::Path::new(&dir).join("paste-events.json");
+                                    let temporary=target.with_extension("tmp");
+                                    let _=std::fs::write(&temporary,value);
+                                    let _=std::fs::rename(temporary,target);
+                                }
+                            }
+                        }
+                    }
+                });
+            }
             Ok(())
         })
         .on_window_event(|window, event| {
+            if window.label() == "screenshot" {
+                if matches!(event, tauri::WindowEvent::CloseRequested { .. }) {
+                    screenshots::cancel_active(window.app_handle()); screenshot_dialog::clear();
+                }
+                return;
+            }
             if window.label() != "main" { return; }
             let app = window.app_handle();
             match event {

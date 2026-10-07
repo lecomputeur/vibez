@@ -1,0 +1,91 @@
+name: Screenshot repair — Linux DEB only
+on:
+  push:
+    branches: ['vibe/screenshot-dialog-fix-a61c92']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: screenshot-repair-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_BUILD_JOBS: 2
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      WEBKIT_DISABLE_DMABUF_RENDERER: '1'
+      VIBEZ_SCREENSHOT_ARTIFACT_DIR: '${{ github.workspace }}/desktop/artifacts/native-pixels'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Record exact source for review
+        run: |
+          test "$GITHUB_REF" = refs/heads/vibe/screenshot-dialog-fix-a61c92
+          mkdir -p desktop/artifacts
+          git rev-parse HEAD > desktop/artifacts/source-commit.txt
+          git archive --format=tar.gz HEAD > /tmp/screenshot-source.tar.gz
+      - uses: actions/upload-artifact@v5
+        with:
+          name: screenshot-repair-source
+          path: /tmp/screenshot-source.tar.gz
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Native dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev xvfb openbox dbus-x11 imagemagick desktop-file-utils python3-gi python3-gi-cairo gir1.2-gtk-3.0 gstreamer1.0-tools gstreamer1.0-plugins-good gstreamer1.0-plugins-base gstreamer1.0-plugins-bad libgdk-pixbuf2.0-bin xdg-utils python3-pil python3-xlib xdotool xserver-xorg-core xserver-xorg-video-dummy x11-xserver-utils > /tmp/dependencies.log 2>&1 || { tail -80 /tmp/dependencies.log; exit 1; }
+          rustup toolchain install '1.99.0' --profile minimal
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+          key: vibez-302-screenshot-linux
+          cache-on-failure: true
+      - name: Test and build exact DEB source
+        id: build
+        working-directory: desktop
+        shell: bash
+        run: |
+          set -o pipefail
+          npm ci --ignore-scripts
+          npm test 2>&1 | tee artifacts/javascript-tests.log
+          cargo test --release --locked --manifest-path src-tauri/Cargo.toml 2>&1 | tee artifacts/rust-tests.log
+          npm run build -- --bundles deb -- --locked 2>&1 | tee artifacts/deb-build.log
+      - name: Native regression and real screenshot probes
+        shell: bash
+        run: |
+          set -o pipefail
+          bash tools/release-v3/linux-smoke.sh 2>&1 | tee desktop/artifacts/native-tests.log
+      - name: End-to-end chooser, capture, and saved pixels
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -o pipefail
+          bash desktop/tests/screenshot-e2e.sh 2>&1 | tee desktop/artifacts/chooser-e2e.log
+      - name: Two-monitor placement and paste regression
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -o pipefail
+          bash desktop/tests/screenshot-monitors.sh 2>&1 | tee desktop/artifacts/monitor-tests.log
+      - name: Collect test package and provenance
+        run: |
+          mkdir -p test-delivery
+          cp desktop/src-tauri/target/release/bundle/deb/*.deb test-delivery/
+          git rev-parse HEAD > test-delivery/source-commit.txt
+          cd test-delivery && sha256sum *.deb > SHA256SUMS
+      - uses: actions/upload-artifact@v5
+        if: success()
+        with:
+          name: vibez-3.0.2-test6-linux-deb
+          path: test-delivery/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: screenshot-repair-evidence
+          path: desktop/artifacts/
+          if-no-files-found: ignore

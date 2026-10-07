@@ -1,7 +1,8 @@
 name: VibeZ 3 — all desktop formats
 on:
   push:
-    branches: ['release/v3.0.1']
+    branches: ['vibe/release-3.0.2-7e2b46']
+    paths: ['desktop/**', 'tools/release-v3/**', '.github/workflows/vibez-v3.yml', '!tools/release-v3/release-proof.json']
   workflow_dispatch:
 permissions:
   contents: read
@@ -25,39 +26,31 @@ jobs:
         with:
           ref: ${{ github.ref_name }}
           fetch-depth: 0
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-      - name: Promote tested source without rewriting Electron or preview
+      - name: Promote maintainer-approved Mint source
         run: |
-          if [ ! -d desktop ]; then python3 tools/seed-v3.py; fi
-          python3 tools/release-v3/prepare-source.py
-          rustup toolchain install stable --profile minimal
-          if [ ! -f desktop/rust-toolchain.toml ]; then
-            version="$(rustup run stable rustc --version | cut -d' ' -f2)"
-            printf '[toolchain]\nchannel = "%s"\nprofile = "minimal"\n' "$version" > desktop/rust-toolchain.toml
-          fi
-          cd desktop
-          if [ ! -f package-lock.json ]; then npm install --package-lock-only --ignore-scripts; fi
-          if [ ! -f src-tauri/Cargo.lock ]; then cargo generate-lockfile --manifest-path src-tauri/Cargo.toml; fi
-      - name: Commit resolved build inputs before compiling
+          test "$GITHUB_REF" = refs/heads/vibe/release-3.0.2-7e2b46
+          python3 tools/release-v3/finalize-302.py
+      - name: Commit complete release inputs before compiling
         id: source
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add desktop
+          git add desktop tools/release-v3 README.md MICROSOFT-STORE.md V3-RELEASE.md docs
           if ! git diff --cached --quiet; then
-            git commit -m 'VibeZ 3.0.1: freeze reviewed automatic-update release'
-            git push origin HEAD:release/v3.0.1
+            git commit -m 'Finalize VibeZ 3.0.2 from approved Mint source and freeze platform inputs'
+            git push origin HEAD:refs/heads/vibe/release-3.0.2-7e2b46
           fi
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "rust=$(sed -n 's/^channel = "\(.*\)"/\1/p' desktop/rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
-          git diff --exit-code c8178697fa9db6df9259e4d9e4520cdd28b05b4e -- tauri-preview main-v2.js main.js package.json package-lock.json
+          git diff --exit-code 8008d50ffb848e9969949a5c5a9ec0ceacf31a2b -- tauri-preview main-v2.js main.js package.json package-lock.json
           git archive --format=tar.gz HEAD > "$RUNNER_TEMP/v3-source.tar.gz"
+          git rev-parse HEAD > "$RUNNER_TEMP/source-commit.txt"
       - uses: actions/upload-artifact@v5
         with:
           name: v3-source
-          path: ${{ runner.temp }}/v3-source.tar.gz
+          path: |
+            ${{ runner.temp }}/v3-source.tar.gz
+            ${{ runner.temp }}/source-commit.txt
   audit:
     name: Dependency security gate
     needs: source
@@ -89,6 +82,7 @@ jobs:
       WEBKIT_DISABLE_DMABUF_RENDERER: '1'
       APPIMAGE_EXTRACT_AND_RUN: '1'
       NO_STRIP: '1'
+      VIBEZ_SCREENSHOT_ARTIFACT_DIR: '${{ github.workspace }}/desktop/artifacts/native-pixels'
     steps:
       - uses: actions/checkout@v5
         with:
@@ -99,8 +93,8 @@ jobs:
           node-version: 22
       - name: Native build and test dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf rpm libfuse2t64 xvfb openbox dbus-x11 imagemagick desktop-file-utils python3-gi gir1.2-gtk-3.0 gstreamer1.0-tools gstreamer1.0-plugins-good gstreamer1.0-plugins-base gstreamer1.0-plugins-bad libgdk-pixbuf2.0-bin squashfs-tools zsync xdg-utils
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf rpm libfuse2t64 xvfb openbox dbus-x11 imagemagick desktop-file-utils python3-gi python3-gi-cairo python3-pil python3-xlib gir1.2-gtk-3.0 gstreamer1.0-tools gstreamer1.0-plugins-good gstreamer1.0-plugins-base gstreamer1.0-plugins-bad libgdk-pixbuf2.0-bin squashfs-tools zsync xdg-utils xdotool xserver-xorg-core xserver-xorg-video-dummy x11-xserver-utils > /tmp/dependencies.log 2>&1 || { tail -80 /tmp/dependencies.log; exit 1; }
           rustup toolchain install '${{ needs.source.outputs.rust }}' --profile minimal
       - uses: Swatinem/rust-cache@v2
         with:
@@ -118,8 +112,12 @@ jobs:
         working-directory: desktop
         run: npm run build -- --bundles deb,rpm -- --locked 2>&1 | tee artifacts/build.log
       - name: Native history, language, layout and installed icon tests
-        run: bash tools/release-v3/linux-smoke.sh
-      - name: Package standalone AppImage with detailed bundler diagnostics
+        run: bash tools/release-v3/linux-smoke.sh 2>&1 | tee desktop/artifacts/native.log
+      - name: Screenshot, actual paste and two-monitor regression
+        run: |
+          bash desktop/tests/screenshot-e2e.sh 2>&1 | tee desktop/artifacts/screenshot-e2e.log
+          bash desktop/tests/screenshot-monitors.sh 2>&1 | tee desktop/artifacts/monitors.log
+      - name: Package standalone AppImage
         working-directory: desktop
         run: npm run build -- --verbose --bundles appimage -- --locked 2>&1 | tee artifacts/appimage.log
       - name: Inspect and name installable packages
@@ -133,7 +131,7 @@ jobs:
         if: always()
         with:
           name: v3-linux-validation
-          path: desktop/artifacts/*
+          path: desktop/artifacts/
           if-no-files-found: warn
   arch:
     name: Linux — Arch/Pacman
@@ -171,7 +169,7 @@ jobs:
           path: release-assets
       - name: Install Flatpak tools and runtime
         run: |
-          sudo apt-get update
+          sudo apt-get update -qq
           sudo apt-get install -y flatpak flatpak-builder
           flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
           flatpak install --user -y flathub org.gnome.Platform//50 org.gnome.Sdk//50
@@ -186,6 +184,8 @@ jobs:
     needs: source
     runs-on: windows-2025
     timeout-minutes: 45
+    env:
+      VIBEZ_SCREENSHOT_ARTIFACT_DIR: '${{ github.workspace }}/desktop/artifacts/native-pixels'
     steps:
       - uses: actions/checkout@v5
         with:
@@ -208,7 +208,16 @@ jobs:
           npm test 2>&1 | tee artifacts/frontend.log
           cargo test --release --locked --manifest-path src-tauri/Cargo.toml 2>&1 | tee artifacts/rust.log
           npm run build -- --bundles nsis,msi -- --locked 2>&1 | tee artifacts/build.log
-      - name: Actual WebView2 history, cookie and popup tests
+      - name: Validate Windows desktop-selector compilation
+        shell: pwsh
+        run: |
+          $source = Get-Content desktop/src-tauri/src/screenshot_screen_windows.ps1 -Raw
+          $source = $source.Replace('[Console]::Write([VibeZScreenSelection]::Select())', '[Console]::Write("WINDOWS_SELECTOR_COMPILED")')
+          $script = Join-Path $env:RUNNER_TEMP selector-check.ps1
+          Set-Content $script $source
+          & powershell.exe -NoProfile -NonInteractive -STA -File $script
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Actual WebView2 capture, image paste, history and popup tests
         run: python tools/release-v3/native-smoke.py desktop/src-tauri/target/release/vibez3.exe desktop/artifacts/native.log
       - name: Build approved-identity Store package without submitting it
         shell: pwsh
@@ -223,7 +232,7 @@ jobs:
         if: always()
         with:
           name: v3-windows-validation
-          path: desktop/artifacts/*.log
+          path: desktop/artifacts/
           if-no-files-found: warn
   macos:
     name: macOS — ${{ matrix.arch }} signed DMG and ZIP
@@ -238,6 +247,8 @@ jobs:
             arch: arm64
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 110
+    env:
+      VIBEZ_SCREENSHOT_ARTIFACT_DIR: '${{ github.workspace }}/desktop/artifacts/native-pixels'
     steps:
       - uses: actions/checkout@v5
         with:
@@ -260,7 +271,7 @@ jobs:
           npm test 2>&1 | tee artifacts/frontend.log
           cargo test --release --locked --manifest-path src-tauri/Cargo.toml 2>&1 | tee artifacts/rust.log
           npm run build -- --bundles app --no-sign -- --locked 2>&1 | tee artifacts/build.log
-      - name: Actual WKWebView history, language, popup and window tests
+      - name: Actual WKWebView capture, paste, history, language and window tests
         env:
           RUST_BACKTRACE: '1'
         run: python3 tools/release-v3/native-smoke.py desktop/src-tauri/target/release/vibez3 desktop/artifacts/native.log
@@ -282,7 +293,7 @@ jobs:
         if: always()
         with:
           name: v3-macos-${{ matrix.arch }}-validation
-          path: desktop/artifacts/*.log
+          path: desktop/artifacts/
           if-no-files-found: warn
   release-gate:
     name: All formats present — prepare GitHub release draft
@@ -302,20 +313,27 @@ jobs:
       - name: Collect all twelve required deliverables
         run: |
           mkdir -p release-assets
-          find downloads -type f -name 'VibeZ-3.0.1-*' -exec cp '{}' release-assets/ \;
+          find downloads -type f -name 'VibeZ-3.0.2-*' -exec cp '{}' release-assets/ \;
           printf '%s\n' '${{ needs.source.outputs.sha }}' > release-assets/source-commit.txt
           python3 tools/release-v3/collect.py all
+          VIBEZ_RELEASE_SOURCE='${{ needs.source.outputs.sha }}' python3 tools/release-v3/verify-published-assets.py release-assets
       - name: Create complete draft, never publish a partial platform set
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SOURCE_SHA: ${{ needs.source.outputs.sha }}
         run: |
-          current="$(gh api repos/$GITHUB_REPOSITORY/git/ref/heads/release/v3.0.1 --jq .object.sha)"
+          current="$(gh api repos/$GITHUB_REPOSITORY/git/ref/heads/vibe/release-3.0.2-7e2b46 --jq .object.sha)"
           test "$current" = "$SOURCE_SHA"
-          if gh release view v3.0.1 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            test "$(gh release view v3.0.1 --repo "$GITHUB_REPOSITORY" --json isDraft -q .isDraft)" = true
-            gh release upload v3.0.1 release-assets/* --clobber --repo "$GITHUB_REPOSITORY"
+          if gh release view v3.0.2 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            test "$(gh release view v3.0.2 --repo "$GITHUB_REPOSITORY" --json isDraft -q .isDraft)" = true
+            gh release upload v3.0.2 release-assets/* --clobber --repo "$GITHUB_REPOSITORY"
+            gh release edit v3.0.2 --draft=true --target "$SOURCE_SHA" --notes-file V3-RELEASE.md --repo "$GITHUB_REPOSITORY"
           else
-            gh release create v3.0.1 release-assets/* --draft --target "$SOURCE_SHA" --title 'VibeZ 3.0.1 — Rust-powered, language-smart, update-aware' --notes-file V3-RELEASE.md --repo "$GITHUB_REPOSITORY"
+            gh release create v3.0.2 release-assets/* --draft --target "$SOURCE_SHA" --title 'VibeZ 3.0.2 — Compact screenshots and direct paste' --notes-file V3-RELEASE.md --repo "$GITHUB_REPOSITORY"
           fi
-          echo 'All package gates passed. Complete draft prepared; promotion requires final release review.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'All package gates passed. Complete 3.0.2 draft prepared for verified main-branch publication.' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v5
+        with:
+          name: v3-complete-release
+          path: release-assets/
+          if-no-files-found: error

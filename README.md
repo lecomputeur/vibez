@@ -9,7 +9,7 @@
 <p>Rewritten from the ground up for VibeZ 3. A rebuilt language engine that directly addresses the earlier language-selection and startup issues.<br>Windows, macOS and Linux — one version, twelve release files.</p>
 
 <p>
-<a href="https://github.com/lecomputeur/vibez/releases/tag/v3.0.1"><strong>Explore VibeZ 3.0.1</strong></a> ·
+<a href="https://github.com/lecomputeur/vibez/releases/tag/v3.0.2"><strong>Explore VibeZ 3.0.2</strong></a> ·
 <a href="https://lecomputeur.github.io/vibez/">Website & installation guides</a> ·
 <a href="V3-RELEASE.md">What's new</a>
 </p>
@@ -18,7 +18,7 @@
 
 </div>
 
-> **Release status:** **VibeZ 3.0.1 is the current public GitHub Latest release.** The complete build passed the all-format gate; the Microsoft Store listing is updated separately. [View the verified build](https://github.com/lecomputeur/vibez/actions/runs/37346347043).
+> **Release status:** **VibeZ 3.0.2 is the current public GitHub Latest release.** The complete build passed the all-format gate; the Microsoft Store listing is updated separately. [View the verified build](https://github.com/lecomputeur/vibez/actions/workflows/vibez-v3.yml).
 
 ## Not a new coat of paint. A new desktop foundation.
 
@@ -48,14 +48,14 @@ The rebuilt module also prevents stale settings windows from reverting a newer l
 
 ## One version. Every distribution format.
 
-All files below belong to the same **VibeZ 3.0.1** release. No platform was dropped to make the build green.
+All files below belong to the same **VibeZ 3.0.2** release. No platform was dropped to make the build green.
 
 | Platform | Downloads |
 |---|---|
-| **Linux x86-64** | [AppImage](https://github.com/lecomputeur/vibez/releases/download/v3.0.1/VibeZ-3.0.1-Linux-x64.AppImage) · [DEB](https://github.com/lecomputeur/vibez/releases/download/v3.0.1/VibeZ-3.0.1-Linux-x64.deb) · [RPM](https://github.com/lecomputeur/vibez/releases/download/v3.0.1/VibeZ-3.0.1-Linux-x64.rpm) · [Arch/Pacman](https://github.com/lecomputeur/vibez/releases/download/v3.0.1/VibeZ-3.0.1-Linux-x64.pkg.tar.zst) · [Flatpak](https://github.com/lecomputeur/vibez/releases/download/v3.0.1/VibeZ-3.0.1-Linux-x64.flatpak) |
-| **Windows x64** | [Setup EXE](https://github.com/lecomputeur/vibez/releases/download/v3.0.1/VibeZ-3.0.1-Windows-x64-Setup.exe) · [MSI](https://github.com/lecomputeur/vibez/releases/download/v3.0.1/VibeZ-3.0.1-Windows-x64.msi) · [Store submission MSIX](https://github.com/lecomputeur/vibez/releases/download/v3.0.1/VibeZ-3.0.1-Windows-x64-Store.msix) |
-| **macOS Apple Silicon** | [DMG](https://github.com/lecomputeur/vibez/releases/download/v3.0.1/VibeZ-3.0.1-macOS-arm64.dmg) · [ZIP](https://github.com/lecomputeur/vibez/releases/download/v3.0.1/VibeZ-3.0.1-macOS-arm64.zip) |
-| **macOS Intel** | [DMG](https://github.com/lecomputeur/vibez/releases/download/v3.0.1/VibeZ-3.0.1-macOS-x64.dmg) · [ZIP](https://github.com/lecomputeur/vibez/releases/download/v3.0.1/VibeZ-3.0.1-macOS-x64.zip) |
+| **Linux x86-64** | [AppImage](https://github.com/lecomputeur/vibez/releases/download/v3.0.2/VibeZ-3.0.2-Linux-x64.AppImage) · [DEB](https://github.com/lecomputeur/vibez/releases/download/v3.0.2/VibeZ-3.0.2-Linux-x64.deb) · [RPM](https://github.com/lecomputeur/vibez/releases/download/v3.0.2/VibeZ-3.0.2-Linux-x64.rpm) · [Arch/Pacman](https://github.com/lecomputeur/vibez/releases/download/v3.0.2/VibeZ-3.0.2-Linux-x64.pkg.tar.zst) · [Flatpak](https://github.com/lecomputeur/vibez/releases/download/v3.0.2/VibeZ-3.0.2-Linux-x64.flatpak) |
+| **Windows x64** | [Setup EXE](https://github.com/lecomputeur/vibez/releases/download/v3.0.2/VibeZ-3.0.2-Windows-x64-Setup.exe) · [MSI](https://github.com/lecomputeur/vibez/releases/download/v3.0.2/VibeZ-3.0.2-Windows-x64.msi) · [Store submission MSIX](https://github.com/lecomputeur/vibez/releases/download/v3.0.2/VibeZ-3.0.2-Windows-x64-Store.msix) |
+| **macOS Apple Silicon** | [DMG](https://github.com/lecomputeur/vibez/releases/download/v3.0.2/VibeZ-3.0.2-macOS-arm64.dmg) · [ZIP](https://github.com/lecomputeur/vibez/releases/download/v3.0.2/VibeZ-3.0.2-macOS-arm64.zip) |
+| **macOS Intel** | [DMG](https://github.com/lecomputeur/vibez/releases/download/v3.0.2/VibeZ-3.0.2-macOS-x64.dmg) · [ZIP](https://github.com/lecomputeur/vibez/releases/download/v3.0.2/VibeZ-3.0.2-macOS-x64.zip) |
 
 **Downloads become accessible when the release is published.** Until then the complete set is held in the release draft. macOS packages are Developer ID signed, notarized and stapled. Direct Windows EXE/MSI installers are unsigned; Windows may show a reputation warning. The unsigned MSIX is for Partner Center submission, not the recommended direct installer. Building it does **not** mean Microsoft has certified or published version 3.
 
@@ -79,7 +79,7 @@ Native Linux packages and AppImage require **glibc 2.39 or newer**; DEB targets 
 
 The verified release workflow passed its dependency-security check, frontend/Rust tests, native browser/window probes, Linux icon tests, packaging checks and macOS signing/notarization gates. All twelve required deliverables were collected from the frozen source. See [validation and release notes](V3-RELEASE.md).
 
-Automated native probes are offline tests. They are not a claim that every live sign-in provider, Linux distribution, Wayland session, fractional scale or website feature has been tested. Microphone/camera access, global screenshot shortcuts and unattended installer execution are not enabled in this version. Direct-download updates remain user-confirmed; Microsoft Store updates are delivered by the Store. Screenshots use the operating system's interactive tools; updates are installed manually.
+Automated native probes are offline tests. They are not a claim that every live sign-in provider, Linux distribution, Wayland session, fractional scale or website feature has been tested. Microphone/camera access, global screenshot shortcuts and unattended installer execution are not enabled in this version. Direct-download updates remain user-confirmed; Microsoft Store updates are delivered by the Store. Screenshots offer native visible-page, full-loaded-page and desktop-area capture, with optional direct paste into a draft. Updates are installed manually.
 
 ## Build, contribute, make it better
 
@@ -99,3 +99,7 @@ Install the native Tauri build prerequisites for your operating system first. De
 ---
 
 VibeZ is an independent desktop client for [Mistral Vibe](https://vibe.mistral.ai/). It is **not affiliated with, endorsed by or supported by Mistral AI**. Internet access and a Mistral account may be required; website features and account plans remain provided by Mistral.
+
+## Screenshots in 3.0.2
+
+Compact three-option menu, 34 bundled languages, same-monitor placement, direct image paste into a draft, Copy and Save PNG. No automatic message sending. Full page captures loaded content only. Linux desktop selection uses X11; macOS may require Screen Recording permission. The Store MSIX is built separately from Microsoft certification.
