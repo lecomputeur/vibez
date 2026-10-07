@@ -66,11 +66,13 @@ try:
             g=geom(main);assert abs(im.width-g['WIDTH']/S)<=2 and abs(im.height-(g['HEIGHT']/S-54))<=2,im.size
             assert count(im,(160,40,190))>5000,'Native canvas pixels missing with restrictive CSP'
             key('Tab');key('Return');window('Screenshot opslaan|Save screenshot');sleep(.4)
-            key('ctrl+l');xd('type','--clearmodifiers','--delay',1,str(OUT/'saved.png'));key('Return');sleep(.5)
+            # GTK initially selects only the stem of a filename. Select ALL of
+            # the entry after Ctrl+L so the test does not leave a second .png.
+            key('ctrl+l');key('ctrl+a');xd('type','--clearmodifiers','--delay',1,str(OUT/'saved.png'));key('Return');sleep(.5)
             if not (OUT/'saved.png').exists():key('Return')
             end=time.monotonic()+6
             while not (OUT/'saved.png').exists() and time.monotonic()<end:sleep(.2)
-            assert (OUT/'saved.png').exists(),'Native Save did not write PNG'
+            assert (OUT/'saved.png').exists(),'Native Save did not write the chosen PNG path'
             saved=Image.open(OUT/'saved.png').convert('RGB');assert saved.size==im.size and saved.tobytes()==im.tobytes(),'Saved PNG differs from clipboard'
         key('Escape');sleep(.4)
         print('E2E_MODE_OK:',mode,im.size,'scale',S,flush=True)
