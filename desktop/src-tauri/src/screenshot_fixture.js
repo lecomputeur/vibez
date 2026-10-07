@@ -20,6 +20,7 @@
   editor.addEventListener('paste',e=>{
     const files=[...(e.clipboardData?.files||[])];
     e.preventDefault();
+    if(!files.length) window.__shotPasteEvents.push({diagnostic:true,trusted:e.isTrusted,types:[...(e.clipboardData?.types||[])],items:[...(e.clipboardData?.items||[])].map(i=>({kind:i.kind,type:i.type})),uri:e.clipboardData?.getData('text/uri-list'),text:e.clipboardData?.getData('text/plain')});
     for(const f of files) {
       const record={trusted:e.isTrusted,type:f.type,size:f.size,draft:editor.value,submits,dataUrl:null};
       window.__shotPasteEvents.push(record);

@@ -122,4 +122,18 @@ try:
     key('Return');im=await_png('after-cancel.png');n+=1;await_paste(n,im,'after-cancel')
     print('SCREENSHOT_E2E_OK: compact chooser; real image paste for 3 modes, Ctrl+V, desktop; copy-only/save; unavailable composer; cancel/retry; scale',S,flush=True)
 except Exception:
-    shot('failure.png');raise
+    shot('failure.png')
+    try:
+        from urllib.parse import urlparse,unquote
+        print('CLIPBOARD_TARGETS:',clipboard.wait_for_targets(),flush=True)
+        uris=clipboard.wait_for_uris() or []
+        print('CLIPBOARD_FILES:',[(u,Path(unquote(urlparse(u).path)).exists()) for u in uris],flush=True)
+        print('FAILED_PASTE_METADATA:',events(),flush=True)
+        # Diagnostic only: never turns a failed automatic-paste test green.
+        key('Escape');xd('windowactivate','--sync',main);g=geom(main)
+        click(main,320,g['HEIGHT']/S-50);key('ctrl+v');sleep(2)
+        print('MANUAL_PASTE_METADATA:',[{k:v for k,v in e.items() if k!='dataUrl'} for e in events()],flush=True)
+        import subprocess
+        subprocess.run(['/usr/bin/python3','tests/clipboard-diagnostic.py'],check=False,timeout=25)
+    except Exception as diagnostic_error:print('DIAGNOSTIC_ERROR:',str(diagnostic_error),flush=True)
+    raise
