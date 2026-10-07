@@ -41,6 +41,7 @@ pub async fn paste(app: &AppHandle) -> Result<(), String> {
             tokio::time::sleep(Duration::from_millis(80)).await;
             let raw = screenshots::eval_value(&view,"JSON.stringify(window.__vibezPasteReceipt ? {received:window.__vibezPasteReceipt.received,images:window.__vibezPasteReceipt.images,trusted:window.__vibezPasteReceipt.trusted} : {})").await?;
             let receipt: Value = serde_json::from_str(&raw).map_err(err)?;
+            if app.state::<PreviewState>().smoke { println!("NATIVE_PASTE_RECEIPT: {receipt}"); }
             if receipt["received"] == true {
                 if receipt["trusted"] == true && receipt["images"].as_u64().unwrap_or(0) > 0 {return Ok(());}
                 break;

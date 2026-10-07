@@ -70,7 +70,8 @@ def open_chooser(main):
     return w
 def start_capture(main,mode,copy_only=False):
     dialog=open_chooser(main);shot('chooser.png')
-    if copy_only:click(dialog,18,211)
+    if copy_only:
+        key('Tab');key('Tab');key('Tab');key('space')
     clear_clip();click(dialog,150,{'visible':69,'full':120,'selection':171}[mode])
     if mode=='selection':
         window('^VibeZ screen selection$');sleep(.4);xd('mousemove','--window',main,224*S,178*S);xd('mousedown',1)

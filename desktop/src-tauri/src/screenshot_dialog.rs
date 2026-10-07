@@ -69,16 +69,16 @@ async fn capture_desktop(app:&AppHandle)->Result<Value,String> {
     let _busy=Busy(&state.capture_busy);clear();
     let Some(bytes)=screen_linux::capture(app,desktop_ui::language(app)=="nl").await? else{return Ok(json!({"cancelled":true}));};
     let image=tauri::image::Image::from_bytes(&bytes).map_err(err)?;
-    let copied=screenshots::copy_last(app,&bytes).is_ok();
+    let copied=screenshots::copy_last(app,&bytes).await.is_ok();
     let result=json!({"cancelled":false,"dataUrl":format!("data:image/png;base64,{}",STANDARD.encode(&bytes)),"width":image.width(),"height":image.height(),"copied":copied});
     remember(bytes)?;Ok(result)
 }
 pub async fn action(app:&AppHandle,action:&str)->Result<Value,String> {
     match action {
-        "copy"=>{screenshots::copy_last(app,&last()?)?;Ok(json!({"copied":true}))},
+        "copy"=>{screenshots::copy_last(app,&last()?).await?;Ok(json!({"copied":true}))},
         "paste"=>{
             let _operation=Operation::start()?;
-            screenshots::copy_last(app,&last()?)?;
+            screenshots::copy_last(app,&last()?).await?;
             if let Some(w)=app.get_webview_window("screenshot"){w.hide().map_err(err)?;}
             focus_main(app);
             let result=paste_composer::paste(app).await;

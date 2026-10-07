@@ -49,7 +49,7 @@ pub async fn run(app:&AppHandle)->Result<(),String> {
             if mode!="full" && blue>100 {return Err("Offscreen content leaked into visible/selection screenshot".into());}
             let after=eval_value(&view,"JSON.stringify([document.getElementById('shot-host').style.cssText,document.getElementById('shot-scroll').style.cssText,document.getElementById('shot-scroll').scrollTop])").await?;
             if before!=after {return Err("Screenshot left the page layout or scroll position modified".into());}
-            copy_png(app,&bytes)?;
+            copy_png(app,&bytes).await?;
             let clipboard=app.clipboard().read_image().map_err(err)?;
             if clipboard.width()!=w||clipboard.height()!=h {return Err("Clipboard PNG dimensions changed".into());}
             println!("SCREENSHOT_MODE_OK: {mode} {w}x{h}; pixels, page restoration and clipboard verified");

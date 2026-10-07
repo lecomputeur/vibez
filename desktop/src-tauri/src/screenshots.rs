@@ -9,6 +9,8 @@ use crate::{desktop_ui, err, message, PreviewState};
 const SNAPDOM: &str = include_str!("../../node_modules/@zumer/snapdom/dist/snapdom.js");
 #[cfg(target_os = "linux")]
 #[path="screenshot_native_linux.rs"] mod native_linux;
+#[cfg(target_os="linux")]
+#[path="screenshot_clipboard.rs"] mod native_clipboard;
 const SCRIPT: &str = include_str!("capture_page.js");
 const MAX_DATA: usize = 34 * 1024 * 1024;
 static SERIAL: AtomicU64 = AtomicU64::new(1);
@@ -102,9 +104,11 @@ fn png_bytes(data:&str)->Result<Vec<u8>,String> {
     }
     Ok(bytes)
 }
-fn copy_png(app:&AppHandle,bytes:&[u8])->Result<(),String> {
-    let image=tauri::image::Image::from_bytes(bytes).map_err(err)?;
-    app.clipboard().write_image(&image).map_err(err)
+async fn copy_png(app:&AppHandle,bytes:&[u8])->Result<(),String> {
+    #[cfg(target_os="linux")]
+    { native_clipboard::write(app,bytes).await }
+    #[cfg(not(target_os="linux"))]
+    { let image=tauri::image::Image::from_bytes(bytes).map_err(err)?;app.clipboard().write_image(&image).map_err(err) }
 }
 pub async fn capture_preview(app:&AppHandle,mode:&str)->Result<Value,String> {
     if !matches!(mode,"full"|"visible"|"selection") { return Err("Unsupported screenshot mode".into()); }
@@ -123,7 +127,7 @@ pub async fn capture_preview(app:&AppHandle,mode:&str)->Result<Value,String> {
             Some("ok")=> {
                 if view.url().map_err(err)?!=url { return Err("The page changed during capture; please try again".into()); }
                 let bytes=png_bytes(payload["dataUrl"].as_str().ok_or("Missing screenshot data")?)?;
-                let copy_error=copy_png(app,&bytes).err();
+                let copy_error=copy_png(app,&bytes).await.err();
                 crate::screenshot_dialog::remember(bytes)?;
                 Ok(json!({"cancelled":false,"dataUrl":payload["dataUrl"],"width":payload["width"],"height":payload["height"],
                     "copied":copy_error.is_none(),"copyError":copy_error}))
@@ -142,7 +146,7 @@ pub async fn capture_preview(app:&AppHandle,mode:&str)->Result<Value,String> {
 pub fn cancel_active(app:&AppHandle) {
     if let Some(view)=app.get_webview("vibe") { let _=view.eval("window.__vibezCapture?.cancel?.();"); }
 }
-pub fn copy_last(app:&AppHandle,bytes:&[u8])->Result<(),String> { copy_png(app,bytes) }
+pub async fn copy_last(app:&AppHandle,bytes:&[u8])->Result<(),String> { copy_png(app,bytes).await }
 #[path="screenshot_probe.rs"] mod probe;
 pub async fn smoke_check(app:&AppHandle)->Result<(),String> { probe::run(app).await }
 #[cfg(test)] mod tests {
