@@ -99,30 +99,41 @@ pub fn schedule(app:AppHandle){tauri::async_runtime::spawn(async move{
     tokio::time::sleep(Duration::from_secs(6)).await;
     if app.state::<crate::PreviewState>().settings.lock().map(|s|s.auto_updates).unwrap_or(false){check(app.clone(),false);}
 });}
+// Test helper: retry pure observations during WKWebView document startup, never
+// replay a button click or treat a pending/failed permission result as success.
+async fn await_probe_value(view:&tauri::Webview,script:&str,wanted:&str,context:&str)->Result<(),String>{
+    let deadline=std::time::Instant::now()+Duration::from_secs(12);
+    loop{
+        let observed=match crate::screenshots::eval_value(view,script).await{
+            Ok(value) if value==wanted=>return Ok(()),
+            Ok(value)=>value,
+            Err(error)=>format!("read error: {error}"),
+        };
+        if std::time::Instant::now()>deadline{return Err(format!("{context}: expected {wanted}, observed {observed}"));}
+        tokio::time::sleep(Duration::from_millis(80)).await;
+    }
+}
 /// Explicit CI test exercises the real local button and downloads a published
 /// package. It never opens, installs or announces a fake public release.
 pub async fn smoke_check(app:&AppHandle)->Result<(),String>{
     if !app.state::<crate::PreviewState>().smoke{return Err("Update probe requires offline smoke mode".into());}
-    show(app).await?;
+    show(app).await.map_err(|e|format!("Open update window: {e}"))?;
     let window=app.get_webview("updates").ok_or("Update window missing")?;
-    tokio::time::sleep(Duration::from_millis(400)).await;
+    // A nonempty status is written only after the production frontend has read
+    // get_state AND update_state and rendered the result. Arbitrary sleeps are
+    // insufficient when a new WKWebView process starts on a busy test runner.
+    await_probe_value(&window,"String(document.readyState==='complete' && !!document.getElementById('status')?.textContent && typeof window.__TAURI__?.core?.invoke==='function')","true","Update frontend readiness").await?;
     window.eval("window.__updateAcl='pending';window.__TAURI__.core.invoke('update_state').then(()=>window.__updateAcl='allowed').catch(()=>window.__updateAcl='denied');true").map_err(err)?;
-    for _ in 0..40{tokio::time::sleep(Duration::from_millis(50)).await;if crate::screenshots::eval_value(&window,"window.__updateAcl").await?=="allowed"{break;}}
-    if crate::screenshots::eval_value(&window,"window.__updateAcl").await?!="allowed"{return Err("Local update dialog ACL denied".into());}
+    await_probe_value(&window,"window.__updateAcl","allowed","Local update dialog ACL").await?;
     let remote=app.get_webview("vibe").ok_or("Missing webview")?;
     remote.eval("(() => {window.__updateAcl='pending';if(typeof window.__TAURI__?.core?.invoke!=='function'){window.__updateAcl='no-bridge';return true;}window.__TAURI__.core.invoke('update_state').then(()=>window.__updateAcl='allowed').catch(()=>window.__updateAcl='denied');return true;})()").map_err(err)?;
-    tokio::time::sleep(Duration::from_millis(300)).await;
-    let remote_state=crate::screenshots::eval_value(&remote,"window.__updateAcl").await?;
-    if !matches!(remote_state.as_str(),"denied"|"no-bridge"){return Err(format!("Remote update isolation failed: {remote_state}"));}
+    await_probe_value(&remote,"String(['denied','no-bridge'].includes(window.__updateAcl))","true","Remote update isolation").await?;
     println!("UPDATE_ACL_OK: local dialog allowed, remote page denied");
     if std::env::args().any(|a|a=="--update-download-probe"){
         let release=update_download::discover().await?.ok_or("No published package for probe")?;
         let asset=release.assets.first().ok_or("No download")?.clone();
         {let mut s=state().lock().map_err(err)?;s.release=Some(release);s.phase="available";s.ready=None;s.error.clear();}
-        for _ in 0..50{
-            tokio::time::sleep(Duration::from_millis(100)).await;
-            if crate::screenshots::eval_value(&window,"String(!document.getElementById('download').hidden && !document.getElementById('download').disabled && !!document.getElementById('package').value)").await?=="true"{break;}
-        }
+        await_probe_value(&window,"String(!document.getElementById('download').hidden && !document.getElementById('download').disabled && !!document.getElementById('package').value)","true","Download button readiness").await?;
         window.eval("document.getElementById('download').click();").map_err(err)?;
         let mut ready=None;
         for _ in 0..600{
@@ -134,8 +145,7 @@ pub async fn smoke_check(app:&AppHandle)->Result<(),String>{
         let(path,downloaded)=ready.ok_or("Update button did not produce a verified download")?;
         update_download::verify_file(&path,&downloaded)?;
         if downloaded.name!=asset.name{return Err("Update button selected the wrong artifact".into());}
-        tokio::time::sleep(Duration::from_millis(500)).await;
-        if crate::screenshots::eval_value(&window,"String(!document.getElementById('open').hidden && !document.getElementById('reveal').hidden)").await?!="true"{return Err("Verified download actions were not shown".into());}
+        await_probe_value(&window,"String(!document.getElementById('open').hidden && !document.getElementById('reveal').hidden)","true","Verified download actions").await?;
         println!("UPDATE_DOWNLOAD_OK: button -> native ACL -> HTTPS -> {} bytes -> SHA-256 -> explicit Open, {} (never executed)",asset.size,asset.name);
         {let mut s=state().lock().map_err(err)?;s.ready=None;s.release=None;s.phase="latest";}
         let _=std::fs::remove_dir_all(path.parent().unwrap());
