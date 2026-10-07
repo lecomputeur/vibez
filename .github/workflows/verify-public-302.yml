@@ -1,0 +1,65 @@
+name: Verify live VibeZ 3.0.2 publication
+on:
+  push:
+    branches: ['vibe/release-3.0.2-7e2b46']
+    paths: ['.github/workflows/verify-public-302.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Fetch real public pages and verify all published package identities
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,os,time,urllib.request
+          out=Path('public-verification');out.mkdir()
+          records=[]
+          base='https://lecomputeur.github.io/vibez/'
+          for name in ['index.html','linux.html','windows.html','macos.html']:
+              url=base+('' if name=='index.html' else name)+'?release=3.0.2'
+              expected=Path('docs',name).read_bytes()
+              for attempt in range(12):
+                  try:
+                      request=urllib.request.Request(url,headers={'User-Agent':'VibeZ-publication-check/3.0.2','Cache-Control':'no-cache'})
+                      with urllib.request.urlopen(request,timeout=20) as response:
+                          assert response.status==200
+                          content=response.read()
+                      assert content==expected, 'Live HTML differs from the merged release page'
+                      assert b'3.0.2' in content and b'screenshots-302' in content
+                      assert b'VibeZ-3.0.1' not in content
+                      break
+                  except Exception:
+                      if attempt==11:raise
+                      time.sleep(10)
+              (out/name).write_bytes(content)
+              records.append(f'SITE_OK: {base+("" if name=="index.html" else name)}; HTTP 200; exact released HTML; 3.0.2 text and links; SHA256 {hashlib.sha256(content).hexdigest()}')
+          request=urllib.request.Request('https://api.github.com/repos/lecomputeur/vibez/releases/latest',headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','User-Agent':'VibeZ-publication-check/3.0.2'})
+          with urllib.request.urlopen(request,timeout=20) as response:release=json.load(response)
+          assert release['tag_name']=='v3.0.2' and not release['draft'] and not release['prerelease']
+          assert release['target_commitish']=='317d28c376b0f5d5a447e6f483e89bf57e8c74c5'
+          suffixes=[f'Linux-x64.{e}' for e in ['AppImage','deb','rpm','pkg.tar.zst','flatpak']]+['Windows-x64-Setup.exe','Windows-x64.msi','Windows-x64-Store.msix']+[f'macOS-{a}.{e}' for a in ['x64','arm64'] for e in ['dmg','zip']]
+          assets={a['name']:a for a in release['assets']}
+          for suffix in suffixes:
+              name='VibeZ-3.0.2-'+suffix;asset=assets[name]
+              assert asset['state']=='uploaded' and asset['size']>1024 and asset['digest'].startswith('sha256:')
+              records.append(f'ASSET_OK: {name}; {asset["size"]} bytes; {asset["digest"]}')
+          assert assets['VibeZ-3.0.2-Windows-x64-Store.msix']['digest']=='sha256:09807d3b72eb3008038b5db35bb22877517ab43ca0eab7a5871bd7ee9c5a9297'
+          assert assets['VibeZ-3.0.2-Linux-x64.deb']['digest']=='sha256:6586a2fb883dd4058a1c29c900f2b9357fbc0012420d0a05c8e30b6be1ff57b0'
+          (out/'public-release.json').write_text(json.dumps(release,indent=2)+'\n')
+          records.append('PUBLICATION_OK: four live pages match the released source; twelve public 3.0.2 assets; DEB and MSIX hashes match the delivered files. No Partner Center submission performed.')
+          report='\n'.join(records)+'\n';(out/'public-check.txt').write_text(report);print(report)
+          PY
+      - uses: actions/upload-artifact@v5
+        with:
+          name: vibez-302-public-verification
+          path: public-verification/
+          if-no-files-found: error
