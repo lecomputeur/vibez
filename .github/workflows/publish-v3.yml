@@ -1,8 +1,8 @@
-name: Publish verified VibeZ 3.0.1
+name: Publish verified VibeZ 3.0.2
 on:
   push:
     branches: [main]
-    paths: ['.github/workflows/publish-v3.yml', 'V3-RELEASE.md']
+    paths: ['.github/workflows/publish-v3.yml', 'V3-RELEASE.md', 'tools/release-v3/release-proof.json']
   workflow_dispatch:
 permissions:
   contents: read
@@ -16,14 +16,11 @@ defaults:
 jobs:
   publish:
     runs-on: ubuntu-24.04
-    # Unpublished release drafts require the release-authorized token, even to read.
-    # Every verification below completes before the first release write.
     permissions:
       contents: write
       actions: read
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      SOURCE: 655c8eda589cda720c0c264c5b6b4f42e86127ae
     steps:
       - uses: actions/checkout@v5
         with:
@@ -32,71 +29,53 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-      - name: Verify source, complete native validation and publication tests
+      - name: Verify exact tested source and every platform/security gate
         run: |
           test "$GITHUB_REPOSITORY" = lecomputeur/vibez
           test "$GITHUB_REF" = refs/heads/main
-          git merge-base --is-ancestor "$SOURCE" HEAD
-          git diff --exit-code "$SOURCE" HEAD -- desktop icon.png shell.css i18n.js locales
-          gh api repos/lecomputeur/vibez/actions/runs/37346347043 > /tmp/v3-run.json
-          gh api 'repos/lecomputeur/vibez/actions/runs/37346347043/jobs?per_page=100' > /tmp/v3-jobs.json
-          python3 - <<'PY'
-          import json,os
-          run=json.load(open('/tmp/v3-run.json'))
-          assert run['head_sha']==os.environ['SOURCE']
-          assert run['status']=='completed' and run['conclusion']=='success'
-          jobs=json.load(open('/tmp/v3-jobs.json'))['jobs']
-          assert len(jobs)==9 and all(j['conclusion']=='success' for j in jobs)
-          print('Exact source and all nine native/platform/security gates verified.')
-          PY
+          python3 tools/release-v3/verify-release-proof.py
           python3 -m unittest discover -s tools/release-v3/tests -p 'test_*.py'
-      - name: Detect whether VibeZ 3.0.1 is already public
+          echo "SOURCE=$(python3 -c 'import json; print(json.load(open("tools/release-v3/release-proof.json"))["source"])')" >> "$GITHUB_ENV"
+      - name: Verify release identity, source and all twelve package checksums
         id: release_state
         run: |
-          state="$(gh release view v3.0.1 --repo lecomputeur/vibez --json isDraft --jq .isDraft)"
-          if [ "$state" = false ]; then
-            echo "public=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "public=false" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Verify existing draft identity and every original package checksum
-        if: steps.release_state.outputs.public != 'true'
-        run: |
-          gh release view v3.0.1 --repo lecomputeur/vibez --json tagName,targetCommitish,isDraft,isPrerelease > /tmp/release.json
+          gh release view v3.0.2 --repo "$GITHUB_REPOSITORY" --json tagName,targetCommitish,isDraft,isPrerelease > /tmp/release.json
+          gh api "repos/$GITHUB_REPOSITORY/releases/latest" > /tmp/latest.json
           python3 - <<'PY'
-          import json,os
-          r=json.load(open('/tmp/release.json'))
-          assert r['tagName']=='v3.0.1' and not r['isPrerelease']
-          assert r['isDraft'] is True
+          import json,os,re
+          release=json.load(open('/tmp/release.json'));latest=json.load(open('/tmp/latest.json'))
+          assert release['tagName']=='v3.0.2' and not release['isPrerelease']
+          assert release['targetCommitish']==os.environ['SOURCE']
+          match=re.fullmatch(r'v(\d+)\.(\d+)\.(\d+)',latest['tag_name'])
+          assert match and tuple(map(int,match.groups()))<=(3,0,2), 'Refusing to replace a newer Latest release'
+          with open(os.environ['GITHUB_OUTPUT'],'a') as out:
+              out.write(f"public={str(not release['isDraft']).lower()}\n")
           PY
           mkdir -p verified-assets
-          gh release download v3.0.1 --repo lecomputeur/vibez --dir verified-assets --pattern 'VibeZ-3.0.1-*' --pattern SHA256SUMS --pattern source-commit.txt
+          gh release download v3.0.2 --repo "$GITHUB_REPOSITORY" --dir verified-assets --pattern 'VibeZ-3.0.2-*' --pattern SHA256SUMS --pattern source-commit.txt
           VIBEZ_RELEASE_SOURCE="$SOURCE" python3 tools/release-v3/verify-published-assets.py verified-assets
-      - name: Point the verified draft at the exact tested source
-        if: steps.release_state.outputs.public != 'true'
-        run: |
-          gh release edit v3.0.1 --repo lecomputeur/vibez --target "$SOURCE" --draft=true
-          test "$(gh release view v3.0.1 --repo lecomputeur/vibez --json targetCommitish --jq .targetCommitish)" = "$SOURCE"
+          if git show-ref --verify --quiet refs/tags/v3.0.2; then
+            test "$(git rev-parse 'v3.0.2^{commit}')" = "$SOURCE"
+          fi
       - name: Test historical update compatibility with the actual locked updater
         if: steps.release_state.outputs.public != 'true'
         run: |
           npm ci --omit=dev --ignore-scripts
           npm audit --omit=dev --audit-level=high
           mkdir -p legacy-feed
-          gh api repos/lecomputeur/vibez/releases/tags/v2.0.2 > legacy-feed/release.json
-          gh release download v2.0.2 --repo lecomputeur/vibez --dir legacy-feed --pattern latest.yml --pattern latest-linux.yml --pattern latest-mac.yml
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v2.0.2" > legacy-feed/release.json
+          gh release download v2.0.2 --repo "$GITHUB_REPOSITORY" --dir legacy-feed --pattern latest.yml --pattern latest-linux.yml --pattern latest-mac.yml
           node tools/release-v3/legacy-feed.cjs legacy-feed
-      - name: Publish the complete VibeZ 3 release as Latest
+      - name: Publish verified VibeZ 3.0.2 as Latest
         if: steps.release_state.outputs.public != 'true'
         run: |
-          gh release upload v3.0.1 legacy-feed/latest.yml legacy-feed/latest-linux.yml legacy-feed/latest-mac.yml --clobber --repo lecomputeur/vibez
-          gh release edit v3.0.1 --repo lecomputeur/vibez --draft=false --latest --title 'VibeZ 3.0.1 — Rewritten in Rust. Language rebuilt. Updates restored.' --notes-file V3-RELEASE.md
-          test "$(gh api repos/lecomputeur/vibez/releases/latest --jq .tag_name)" = v3.0.1
-          gh release view v3.0.1 --repo lecomputeur/vibez --json isDraft,isPrerelease,url --jq '{public: (.isDraft == false), prerelease: .isPrerelease, url: .url}'
-          echo 'VibeZ 3.0.1 is public and Latest. Automatic update checks are restored for direct installs; Store delivery remains separate. Original v2 assets remain archived and legacy updater compatibility is verified.' >> "$GITHUB_STEP_SUMMARY"
-      - name: Sync copy to the already-public VibeZ 3.0.1 release
+          gh release upload v3.0.2 legacy-feed/latest.yml legacy-feed/latest-linux.yml legacy-feed/latest-mac.yml --clobber --repo "$GITHUB_REPOSITORY"
+          gh release edit v3.0.2 --repo "$GITHUB_REPOSITORY" --target "$SOURCE" --draft=false --latest --title 'VibeZ 3.0.2 — Compact screenshots and direct paste' --notes-file V3-RELEASE.md
+          test "$(gh api repos/$GITHUB_REPOSITORY/releases/latest --jq .tag_name)" = v3.0.2
+          test "$(gh api repos/$GITHUB_REPOSITORY/git/ref/tags/v3.0.2 --jq .object.sha)" = "$SOURCE"
+          echo 'VibeZ 3.0.2 is public and Latest. All twelve packages match the frozen tested source. Store MSIX is prepared; Microsoft submission and certification remain separate.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Sync descriptions without replacing verified binaries
         if: steps.release_state.outputs.public == 'true'
         run: |
-          gh release edit v3.0.1 --repo lecomputeur/vibez --latest --title 'VibeZ 3.0.1 — Rewritten in Rust. Language rebuilt. Updates restored.' --notes-file V3-RELEASE.md
-          test "$(gh api repos/lecomputeur/vibez/releases/latest --jq .tag_name)" = v3.0.1
-          echo 'Updated the public VibeZ 3.0.1 release copy without touching the verified binaries or checksums.' >> "$GITHUB_STEP_SUMMARY"
+          gh release edit v3.0.2 --repo "$GITHUB_REPOSITORY" --title 'VibeZ 3.0.2 — Compact screenshots and direct paste' --notes-file V3-RELEASE.md
+          echo 'Updated release descriptions; verified package bytes and checksums were retained.' >> "$GITHUB_STEP_SUMMARY"
