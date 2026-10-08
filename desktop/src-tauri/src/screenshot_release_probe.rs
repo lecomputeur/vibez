@@ -64,14 +64,24 @@ pub async fn run(app:&AppHandle)->Result<(),String>{
             // Observe the production dialog before any capture or paste call.
             let chooser=app.get_webview("screenshot").ok_or("Screenshot chooser missing")?;
             let expected_hint=route.starts_with("/code");
-            let mut hint_ready=false;
-            for _ in 0..40 {
+            // A freshly-created WKWebView can still be on its initial blank
+            // document. Retry read-only observations until readiness; a missing
+            // node or callback is never counted as a passing hint check.
+            let deadline=std::time::Instant::now()+Duration::from_secs(12);
+            let mut observed;
+            loop {
                 tokio::time::sleep(Duration::from_millis(100)).await;
-                let probe=crate::screenshots::eval_value(&chooser,"JSON.stringify({ready:!document.querySelector('[data-mode=visible]').disabled,shown:!document.getElementById('code-hint').hidden,text:!!document.getElementById('code-hint').textContent})").await?;
-                let probe:Value=serde_json::from_str(&probe).map_err(err)?;
-                if probe["ready"]==true && probe["shown"]==expected_hint && probe["text"]==true {hint_ready=true;break;}
+                let result=crate::screenshots::eval_value(&chooser,"JSON.stringify({ready:document.readyState==='complete'&&document.querySelector('[data-mode=visible]')?.disabled===false,shown:document.getElementById('code-hint')?.hidden===false,text:!!document.getElementById('code-hint')?.textContent})").await;
+                observed=match result {
+                    Ok(raw)=>{
+                        let probe:Value=serde_json::from_str(&raw).map_err(err)?;
+                        if probe["ready"]==true && probe["shown"]==expected_hint && probe["text"]==true {break;}
+                        raw
+                    },
+                    Err(error)=>format!("read error: {error}"),
+                };
+                if std::time::Instant::now()>=deadline{return Err(format!("Early Code hint was missing or incorrect on {route}: {observed}"));}
             }
-            if !hint_ready{return Err(format!("Early Code hint was missing or incorrect on {route}"));}
             let before=crate::screenshots::eval_value(&view,"String(window.__shotPasteEvents.length)").await?;
             if before!="0"{return Err("Displaying the hint triggered a paste".into());}
             println!("EARLY_CODE_HINT_OK: {route}; visible before capture when relevant, no paste side effect");
