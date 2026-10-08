@@ -23,6 +23,10 @@
       if(lastFeedback){const {key,kind}=lastFeedback;status(key,kind);}
     }
     $('save').hidden=false;
+    const hint=$('code-hint');
+    hint.textContent=preview.extra('screenshotCodeHint');
+    hint.hidden=state.screenshot_code_context!==true;
+
   }
   async function refresh(initial=false){
     if(refreshing||closed||(!initial&&busy))return;

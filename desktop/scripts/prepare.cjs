@@ -91,6 +91,12 @@ for(const [code,values] of Object.entries(updateRows)){
   if(values.length!==updateKeys.length||values.some(v=>typeof v!=='string'||!v.trim()))throw new Error('Missing update translation: '+code);
   Object.assign(previewData.translations[code],Object.fromEntries(updateKeys.map((key,i)=>[key,values[i]])));
 }
+const codeHints=JSON.parse(fs.readFileSync(path.join(project,'screenshot-hints-i18n.json'),'utf8'));
+if(JSON.stringify(Object.keys(codeHints).sort())!==JSON.stringify(Object.keys(TRANSLATIONS).sort()))throw new Error('Screenshot hint languages differ');
+for(const [code,hint] of Object.entries(codeHints)){
+  if(typeof hint!=='string'||!hint.trim())throw new Error('Missing screenshot hint: '+code);
+  previewData.translations[code].screenshotCodeHint=hint;
+}
 const baseLanguages = Object.keys(TRANSLATIONS).sort();
 if (JSON.stringify(baseLanguages) !== JSON.stringify(Object.keys(previewData.translations).sort())) throw new Error('Preview language codes differ');
 const keys = Object.keys(previewData.translations.en).sort();

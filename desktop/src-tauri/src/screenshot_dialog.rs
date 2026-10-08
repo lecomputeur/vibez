@@ -12,6 +12,22 @@ use tauri::{AppHandle,Manager,WebviewUrl,WebviewWindowBuilder};
 #[path="screenshot_screen_other.rs"] mod screen_other;
 #[path="screenshot_release_probe.rs"] mod release_probe;
 pub async fn release_smoke_check(app:&AppHandle)->Result<(),String>{release_probe::run(app).await}
+/// This is a UI hint, NOT a capability check or a reason to reject paste.
+pub fn code_context(app:&AppHandle)->bool {
+    app.get_webview("vibe").and_then(|view|view.url().ok())
+        .map(|url|code_path(url.path())).unwrap_or(false)
+}
+fn code_path(path:&str)->bool {
+    path.trim_start_matches('/').split('/').next()
+        .is_some_and(|part|part.eq_ignore_ascii_case("code"))
+}
+#[cfg(test)] mod context_tests {
+    use super::code_path;
+    #[test] fn advisory_matches_code_mode_not_a_conversation_title() {
+        for path in ["/code","/code/","/code/session","/CODE/session"] {assert!(code_path(path),"{path}");}
+        for path in ["/","/work","/chat/code/thread","/decode","/code-project"] {assert!(!code_path(path),"{path}");}
+    }
+}
 static OPERATION:std::sync::atomic::AtomicBool=std::sync::atomic::AtomicBool::new(false);
 struct Operation;
 impl Operation {fn start()->Result<Self,String>{if OPERATION.swap(true,Ordering::SeqCst){Err("Screenshot busy".into())}else{Ok(Self)}}}
@@ -38,6 +54,9 @@ pub async fn open(app:&AppHandle)->Result<(),String> {
     let builder=builder.visible(false);
     #[cfg(not(target_os="linux"))]
     let builder=builder.visible(false);
+    // The optional two/three-line Code notice needs a little more vertical
+    // room. Normal dialogs stay 280 x 184; positioning remains unchanged.
+    let builder=if code_context(app){builder.inner_size(280.,236.)}else{builder};
     let window=builder.build().map_err(err)?;
     #[cfg(target_os="linux")]
     show_on_parent(app,&window).await?;

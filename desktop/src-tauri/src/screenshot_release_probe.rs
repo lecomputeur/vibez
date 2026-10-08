@@ -61,7 +61,20 @@ pub async fn run(app:&AppHandle)->Result<(),String>{
             // It must not steal a screenshot destined for that message field.
             view.eval("(()=>{const block=document.createElement('div');block.className='monaco-editor';block.style.cssText='position:fixed;left:0;top:0;width:150px;height:50px';const field=document.createElement('textarea');field.id='excluded-code-field';block.append(field);document.body.append(block);field.focus();})()").map_err(err)?;
             super::open(app).await?;
-            tokio::time::sleep(Duration::from_millis(300)).await;
+            // Observe the production dialog before any capture or paste call.
+            let chooser=app.get_webview("screenshot").ok_or("Screenshot chooser missing")?;
+            let expected_hint=route.starts_with("/code");
+            let mut hint_ready=false;
+            for _ in 0..40 {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                let probe=crate::screenshots::eval_value(&chooser,"JSON.stringify({ready:!document.querySelector('[data-mode=visible]').disabled,shown:!document.getElementById('code-hint').hidden,text:!!document.getElementById('code-hint').textContent})").await?;
+                let probe:Value=serde_json::from_str(&probe).map_err(err)?;
+                if probe["ready"]==true && probe["shown"]==expected_hint && probe["text"]==true {hint_ready=true;break;}
+            }
+            if !hint_ready{return Err(format!("Early Code hint was missing or incorrect on {route}"));}
+            let before=crate::screenshots::eval_value(&view,"String(window.__shotPasteEvents.length)").await?;
+            if before!="0"{return Err("Displaying the hint triggered a paste".into());}
+            println!("EARLY_CODE_HINT_OK: {route}; visible before capture when relevant, no paste side effect");
             let captured=super::capture(app,"visible",true).await?;
             if captured["pasted"]!=true{return Err(format!("Route {route}: {}",captured["pasteError"]));}
             let check=screenshots::eval_value(&view,"JSON.stringify({events:window.__shotPasteEvents.length,draft:document.getElementById('shot-composer').value,code:document.getElementById('excluded-code-field').value,submits:window.__shotPasteEvents[0]?.submits})").await?;
