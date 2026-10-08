@@ -20,7 +20,7 @@ pub async fn paste(app:&AppHandle,png:&[u8],only_focused:bool)->Result<&'static 
     for _ in 0..25 {
         if view.url().map_err(err)?!=url{return Err(desktop_ui::preview(app,"pasteUnconfirmed"));}
         state=serde_json::from_str(&screenshots::eval_value(&view,script.clone()).await?).map_err(err)?;
-        if state["ready"]==true||state["reason"]=="code-editor"{break;}
+        if state["ready"]==true{break;}
         tokio::time::sleep(Duration::from_millis(80)).await;
     }
     record("composer",&state);

@@ -5,7 +5,7 @@
   const requireFocused=__VIBEZ_PASTE_FOCUSED__;
   window.__vibezPasteReceipt?.cleanup?.();
   const selector='textarea,[contenteditable],[role="textbox"],input[type="text"],input:not([type])';
-  const excluded='[role="search"],.monaco-editor,.cm-editor,.CodeMirror,[data-vibez-no-paste]';
+  const excluded='[role="search"],.monaco-editor,.cm-editor,.CodeMirror,.xterm,[data-vibez-no-paste]';
   const stats={scanned:0,editable:0,hidden:0,blocked:0,frames:0,shadows:0,width:innerWidth,height:innerHeight};
   const parent=el=>el.parentElement||el.getRootNode()?.host||null;
   const ancestor=(el,query)=>{for(let p=el;p;p=parent(p))if(p.matches?.(query))return p;return null;};
@@ -42,7 +42,8 @@
     return true;
   }
   const fail=reason=>JSON.stringify({ready:false,reason,stats});
-  if(/(^|\/)code(?:\/|$)/i.test(location.pathname))return fail('code-editor');
+  // A /code route may contain an ordinary message composer beside a code
+  // editor. Exclude the actual editor/terminal element, never the whole page.
   const candidates=[],seen=new Set();
   function add(el){const h=host(el);if(!h||seen.has(h))return;seen.add(h);stats.editable++;if(eligible(h))candidates.push(h);}
   function visit(root,depth=0){

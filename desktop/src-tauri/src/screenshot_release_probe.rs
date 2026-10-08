@@ -7,7 +7,7 @@ use base64::{engine::general_purpose::STANDARD,Engine as _};
 pub async fn run(app:&AppHandle)->Result<(),String>{
     if !app.state::<PreviewState>().smoke{return Err("Release probe requires explicit offline smoke mode".into());}
     let view=app.get_webview("vibe").ok_or("Missing test webview")?;
-    let old=screenshots::eval_value(&view,"JSON.stringify({html:document.body.innerHTML,style:document.body.style.cssText})").await?;
+    let old=screenshots::eval_value(&view,"JSON.stringify({html:document.body.innerHTML,style:document.body.style.cssText,url:location.href})").await?;
     let result:Result<(),String>=async{
         view.eval(include_str!("screenshot_fixture.js")).map_err(err)?;tokio::time::sleep(Duration::from_millis(300)).await;
         let mut clipboard_png:Option<Vec<u8>>=None;
@@ -47,6 +47,38 @@ pub async fn run(app:&AppHandle)->Result<(),String>{
             super::paste_composer::paste(app,bytes,false).await.map_err(|e|format!("Composer {kind}: {e}"))?;
             println!("EDITING_HOST_OK: {kind}; actual native paste and visible attachment");
         }
+        // Regression from the maintainer's [P:code-editor] screenshot. Use
+        // real same-origin SPA routes and the actual native capture/paste path,
+        // not a mocked pathname passed only to the selector.
+        let previous_url=view.url().map_err(err)?;
+        for route in ["/code","/code/fixture-session","/work","/chat/code/fixture"] {
+            let target=previous_url.join(route).map_err(err)?;
+            let target_json=serde_json::to_string(target.as_str()).map_err(err)?;
+            screenshots::eval_value(&view,format!("history.replaceState(null,'',{target_json});location.pathname")).await?;
+            view.eval(include_str!("screenshot_fixture.js")).map_err(err)?;
+            tokio::time::sleep(Duration::from_millis(200)).await;
+            // A real code editor can coexist with a regular message field.
+            // It must not steal a screenshot destined for that message field.
+            view.eval("(()=>{const block=document.createElement('div');block.className='monaco-editor';block.style.cssText='position:fixed;left:0;top:0;width:150px;height:50px';const field=document.createElement('textarea');field.id='excluded-code-field';block.append(field);document.body.append(block);field.focus();})()").map_err(err)?;
+            super::open(app).await?;
+            tokio::time::sleep(Duration::from_millis(300)).await;
+            let captured=super::capture(app,"visible",true).await?;
+            if captured["pasted"]!=true{return Err(format!("Route {route}: {}",captured["pasteError"]));}
+            let check=screenshots::eval_value(&view,"JSON.stringify({events:window.__shotPasteEvents.length,draft:document.getElementById('shot-composer').value,code:document.getElementById('excluded-code-field').value,submits:window.__shotPasteEvents[0]?.submits})").await?;
+            let check:Value=serde_json::from_str(&check).map_err(err)?;
+            if check["events"]!=1||check["draft"]!="Bestaande concepttekst"||check["code"]!=""||check["submits"]!=0{return Err(format!("Route {route} selected the wrong field or changed a draft: {check}"));}
+            super::action(app,"close").await?;
+            println!("CODE_ROUTE_PASTE_OK: {route}; one visible attachment in composer, code field untouched, draft retained, no submit");
+            // Removing the real composer must never cause fallback into a
+            // terminal or code editor on this same route.
+            view.eval("document.getElementById('shot-composer').closest('form').remove();").map_err(err)?;
+            let discover=include_str!("paste_composer.js").replace("__VIBEZ_PASTE_FOCUSED__","false");
+            let denied:Value=serde_json::from_str(&screenshots::eval_value(&view,discover).await?).map_err(err)?;
+            if denied["ready"]==true{return Err(format!("Route {route} accepted a code-only editor"));}
+            println!("CODE_FIELD_EXCLUDED_OK: {route}; code-only editor rejected by element, not address");
+        }
+        let restore_url=serde_json::to_string(previous_url.as_str()).map_err(err)?;
+        screenshots::eval_value(&view,format!("history.replaceState(null,'',{restore_url});true")).await?;
         // Restore the standard fixture before ignore/reject/delay tests.
         view.eval(include_str!("screenshot_fixture.js")).map_err(err)?;
         tokio::time::sleep(Duration::from_millis(300)).await;
@@ -64,6 +96,6 @@ pub async fn run(app:&AppHandle)->Result<(),String>{
         if unavailable["pasted"]==true||!unavailable["dataUrl"].is_string(){return Err("Unavailable composer lost image or claimed false success".into());}
         super::action(app,"close").await?;println!("RELEASE_SCREENSHOT_OK: capture, attachment, ignored/rejected/delayed upload and recovery");Ok(())
     }.await;
-    let restore=format!("(() => {{const old={old};document.body.innerHTML=old.html;document.body.style.cssText=old.style;document.head.querySelectorAll('meta[data-vibez-test-csp]').forEach(e=>e.remove());}})()");
+    let restore=format!("(() => {{const old={old};history.replaceState(null,'',old.url);document.body.innerHTML=old.html;document.body.style.cssText=old.style;document.head.querySelectorAll('meta[data-vibez-test-csp]').forEach(e=>e.remove());}})()");
     let _=view.eval(restore);result
 }
