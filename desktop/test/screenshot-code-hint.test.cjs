@@ -37,11 +37,11 @@ test('a successful Code paste still closes normally; notice never blocks paste',
  const u=dialog({capture:{pasted:true}});await flush();await u.modes[0].listeners.click();
  assert.ok(u.calls.some(([c,a])=>c==='screenshot_action'&&a.action==='close'));
 });
-test('real failure feedback and the screenshot survive beside the early notice',async()=>{
+test('a real failure replaces the advisory without duplicate warnings or losing the screenshot',async()=>{
  const u=dialog({capture:{copied:true,dataUrl:'data:image/png;base64,AAAA',width:100,height:120,pasteError:'Bijlage niet bevestigd'}});
  await flush();await u.modes[0].listeners.click();
  assert.equal(u.el('feedback').textContent,'Bijlage niet bevestigd');assert.equal(u.el('feedback').dataset.kind,'error');
- assert.equal(u.el('code-hint').textContent,hints.nl);assert.equal(u.el('code-hint').hidden,false);assert.equal(u.el('image').src,'data:image/png;base64,AAAA');
+ assert.equal(u.el('code-hint').textContent,hints.nl);assert.equal(u.el('code-hint').hidden,true);assert.equal(u.el('image').src,'data:image/png;base64,AAAA');
 });
 test('language and page changes update the advisory without resetting PNG, paste checkbox or feedback',async()=>{
  const u=dialog();await flush();u.el('auto-paste').checked=false;u.el('image').src='existing-png';u.el('feedback').textContent='existing-feedback';

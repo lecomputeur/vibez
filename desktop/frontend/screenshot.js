@@ -4,9 +4,15 @@
   // All UI text comes from the same 34 language bundles as the toolbar.
   const extraKeys={auto:'screenshotAutoPaste',paste:'screenshotPaste',save:'screenshotSavePng',again:'screenshotNew',copied:'screenshotCopied',cancelled:'screenshotCancelled',copyFailed:'screenshotCopyFailed',selectionBusy:'screenshotDrag',working:'screenshotWorking',pasting:'screenshotPaste'};
   const baseKeys={copy:'copy',close:'close',failed:'shotFailed',saving:'saving',saved:'saved'};
-  let busy=false,baseStrings={},refreshing=false,closed=false,lastFeedback=null;
+  let busy=false,baseStrings={},refreshing=false,closed=false,lastFeedback=null,codeContext=false;
   function t(key){return extraKeys[key]?preview.extra(extraKeys[key]):baseStrings[baseKeys[key]||key]||key;}
-  function feedback(text='',kind='info'){lastFeedback=null;const e=$('feedback');e.hidden=!text;e.dataset.kind=kind;e.textContent=text;}
+  function renderHint(){
+    const hint=$('code-hint'),current=$('feedback'),text=preview.extra('screenshotCodeHint');
+    if(hint.textContent!==text)hint.textContent=text;
+    // An actual error replaces the advisory instead of stacking two warnings.
+    hint.hidden=!codeContext||(!current.hidden&&current.dataset.kind==='error');
+  }
+  function feedback(text='',kind='info'){lastFeedback=null;const e=$('feedback');e.hidden=!text;e.dataset.kind=kind;e.textContent=text;renderHint();}
   function status(key,kind='info'){feedback(t(key),kind);lastFeedback={key,kind};}
   function lock(value){busy=value;for(const b of document.querySelectorAll('button,input'))b.disabled=value;}
   function choose(){ $('choose').hidden=false;$('result').hidden=true;$('image').removeAttribute('src'); }
@@ -17,16 +23,14 @@
       baseStrings=preview.localize(state);
       for(const el of document.querySelectorAll('[data-shot]'))el.textContent=t(el.dataset.shot);
       $('close').setAttribute('aria-label',t('close'));
-      $('choose').setAttribute('aria-label',baseStrings.screenshot);
+      $('choose').setAttribute('aria-label',t('screenshot'));
       $('result').setAttribute('aria-label',baseStrings.screenshot);
       $('image').alt=baseStrings.screenshot;document.title=baseStrings.screenshot;
       if(lastFeedback){const {key,kind}=lastFeedback;status(key,kind);}
     }
     $('save').hidden=false;
-    const hint=$('code-hint');
-    hint.textContent=preview.extra('screenshotCodeHint');
-    hint.hidden=state.screenshot_code_context!==true;
-
+    codeContext=state.screenshot_code_context===true;
+    renderHint();
   }
   async function refresh(initial=false){
     if(refreshing||closed||(!initial&&busy))return;
