@@ -9,14 +9,14 @@
 (() => {
   window.__shotPasteEvents=[];
   const form=document.createElement('form');form.style.cssText='position:fixed;left:280px;bottom:20px;width:400px;height:70px;z-index:10';
-  const editor=document.createElement('textarea');editor.id='shot-composer';editor.value='Bestaande concepttekst';editor.style.cssText='width:100%;height:70px;box-sizing:border-box;background:white;color:black';
+  let editor=document.createElement('textarea');editor.id='shot-composer';editor.value='Bestaande concepttekst';editor.style.cssText='width:100%;height:70px;box-sizing:border-box;background:white;color:black';
   let submits=0;form.addEventListener('submit',e=>{e.preventDefault();submits++;});
   const attachments=document.createElement('div');attachments.style.cssText='position:absolute;bottom:78px;left:0;width:400px;min-height:30px;background:white';
   const upload=document.createElement('input');upload.type='file';upload.accept='image/png';upload.hidden=true;
   function receive(files,trusted,bridge){
     if(window.__shotPasteMode==='ignore')return;
     for(const f of files){
-      const record={trusted,bridge,type:f.type,size:f.size,draft:editor.value,submits,dataUrl:null};window.__shotPasteEvents.push(record);
+      const record={trusted,bridge,type:f.type,size:f.size,draft:editor.value??editor.textContent,submits,dataUrl:null};window.__shotPasteEvents.push(record);
       const reader=new FileReader();reader.onload=()=>{
         record.dataUrl=reader.result;
         if(window.__shotPasteMode==='reject'){const error=document.createElement('div');error.setAttribute('role','alert');error.textContent='Upload rejected';attachments.append(error);return;}
@@ -25,9 +25,20 @@
       };reader.readAsDataURL(f);
     }
   }
-  editor.addEventListener('paste',e=>{const files=Array.from(e.clipboardData?.files||[]);if(files.length){e.preventDefault();receive(files,e.isTrusted,e.vibezScreenshotBridge===true);}});
+  form.addEventListener('paste',e=>{const files=Array.from(e.clipboardData?.files||[]);if(files.length){e.preventDefault();receive(files,e.isTrusted,e.vibezScreenshotBridge===true);}});
   upload.addEventListener('change',()=>{receive(Array.from(upload.files),false,true);upload.value='';});
   form.append(attachments,upload,editor);document.body.append(form);
+  window.__shotSetEditor=kind=>{
+    const next=document.createElement(kind==='input'?'input':kind==='inline'?'span':'div');
+    next.id='shot-composer';
+    if(kind==='input'){next.type='text';next.setAttribute('role','textbox');next.value='Bestaande concepttekst';}
+    else{next.setAttribute('contenteditable',kind==='mixed'?'TrUe':kind==='plain'?'plaintext-only':'');next.textContent='Bestaande concepttekst';}
+    next.style.cssText=kind==='inline'?'display:inline-block;font:8px system-ui;width:60px;min-height:10px':'display:block;min-height:40px;width:100%;background:white';
+    editor.replaceWith(next);editor=next;
+    if(kind==='nested'){const child=document.createElement('span');child.tabIndex=0;child.textContent=next.textContent;next.textContent='';next.append(child);child.focus();}
+    else next.focus();
+    return true;
+  };
   const toggle=document.createElement('button');toggle.id='shot-block-editor';toggle.textContent='Composer on/off';toggle.style.cssText='position:fixed;left:700px;bottom:25px;width:160px;height:40px;z-index:11';
   toggle.addEventListener('click',()=>{editor.readOnly=!editor.readOnly;toggle.textContent=editor.readOnly?'Composer disabled':'Composer on/off';});document.body.append(toggle);
 })();

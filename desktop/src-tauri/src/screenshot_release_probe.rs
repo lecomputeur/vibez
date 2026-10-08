@@ -40,6 +40,16 @@ pub async fn run(app:&AppHandle)->Result<(),String>{
         view.eval("document.getElementById('shot-composer').focus();").map_err(err)?;
         super::paste_composer::paste(app,clipboard_png.as_deref().ok_or("Missing clipboard probe fixture")?,true).await?;
         println!("NATIVE_CLIPBOARD_ATTACHMENT_OK: focused native paste produced a visible attachment");
+        for kind in ["empty","mixed","plain","inline","nested","input"] {
+            view.eval(format!("window.__shotSetEditor('{kind}');")).map_err(err)?;
+            let bytes=clipboard_png.as_deref().ok_or("Missing regression PNG")?;
+            screenshots::copy_last(app,bytes).await?;
+            super::paste_composer::paste(app,bytes,false).await.map_err(|e|format!("Composer {kind}: {e}"))?;
+            println!("EDITING_HOST_OK: {kind}; actual native paste and visible attachment");
+        }
+        // Restore the standard fixture before ignore/reject/delay tests.
+        view.eval(include_str!("screenshot_fixture.js")).map_err(err)?;
+        tokio::time::sleep(Duration::from_millis(300)).await;
         for behaviour in ["ignore","reject","delay"]{
             view.eval(format!("window.__shotPasteMode='{behaviour}';document.querySelectorAll('[role=alert]').forEach(e=>e.remove());")).map_err(err)?;
             super::open(app).await?;tokio::time::sleep(Duration::from_millis(300)).await;
