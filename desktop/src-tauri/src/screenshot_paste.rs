@@ -2,7 +2,10 @@
 use crate::{desktop_ui,err,policy,screenshots,PreviewState};
 use base64::{engine::general_purpose::STANDARD,Engine as _};
 use serde_json::Value;
-use std::time::Duration;
+use std::{time::Duration,sync::Mutex};
+static DIAGNOSTIC:Mutex<String>=Mutex::new(String::new());
+fn record(phase:&str,detail:&Value){if let Ok(mut d)=DIAGNOSTIC.lock(){*d=format!("{phase}: {detail}");}}
+pub fn diagnostics()->String{DIAGNOSTIC.lock().map(|v|v.clone()).unwrap_or_default()}
 use tauri::{AppHandle,Manager};
 pub async fn paste(app:&AppHandle,png:&[u8],only_focused:bool)->Result<&'static str,String>{
     let view=app.get_webview("vibe").ok_or("Vibe is not ready")?;
@@ -11,20 +14,23 @@ pub async fn paste(app:&AppHandle,png:&[u8],only_focused:bool)->Result<&'static 
     if !allowed_url(&url,app.state::<PreviewState>().smoke){return Err(if dutch{"Open eerst je gesprek in Vibe. De opname staat op het klembord."}else{"Open your conversation in Vibe first. The screenshot is on the clipboard."}.into());}
     if !only_focused{view.set_focus().map_err(err)?;}
     let script=include_str!("paste_composer.js").replace("__VIBEZ_PASTE_FOCUSED__",if only_focused{"true"}else{"false"});
-    let state:Value=serde_json::from_str(&screenshots::eval_value(&view,script).await?).map_err(err)?;
-    if state["ready"]!=true{return Err(if dutch{"Geen geschikt berichtveld gevonden. Open Chat of Work, of sla de PNG op voor Code."}else{"No message composer found. Open Chat or Work, or save the PNG for Code."}.into());}
+    // Native focus and GTK allocation settle asynchronously after a chooser
+    // or screen selector is hidden. Retry discovery, never the paste itself.
+    let mut state=serde_json::json!({"ready":false,"reason":"not-inspected"});
+    for _ in 0..25 {
+        if view.url().map_err(err)?!=url{return Err(desktop_ui::preview(app,"pasteUnconfirmed"));}
+        state=serde_json::from_str(&screenshots::eval_value(&view,script.clone()).await?).map_err(err)?;
+        if state["ready"]==true||state["reason"]=="code-editor"{break;}
+        tokio::time::sleep(Duration::from_millis(80)).await;
+    }
+    record("composer",&state);
+    if state["ready"]!=true {
+        return Err(format!("{} [P:{}]",desktop_ui::preview(app,"pasteUnconfirmed"),state["reason"].as_str().unwrap_or("unavailable")));
+    }
     let result:Result<&'static str,String>=async{
-        if view.url().map_err(err)?!=url{return Err("The page changed; the image was not pasted".into());}
-        // Use only the existing scoped, enabled image upload input. Keep the
-        // approved Mint native clipboard path and explicit Ctrl+V unchanged.
-        #[cfg(not(target_os="linux"))]
-        if !only_focused&&state["canUpload"]==true{
-            let encoded=serde_json::to_string(&STANDARD.encode(png)).map_err(err)?;
-            let source=include_str!("paste_file_input.js").replace("__VIBEZ_SCREENSHOT_PNG__",&encoded);
-            let delivery:Value=serde_json::from_str(&screenshots::eval_value(&view,source).await?).map_err(err)?;
-            if delivery["ok"]==true{return confirmed(&view,&url,"upload").await;}
-            return Err("Attachment transfer was not confirmed".into());
-        }
+        if view.url().map_err(err)?!=url{return Err("page-changed".into());}
+        // Restore native Paste on every platform. Setting a hidden upload
+        // input first is not equivalent to the user's normal paste action.
         #[cfg(target_os="linux")]{
             use webkit2gtk::WebViewExt;
             let(tx,rx)=tokio::sync::oneshot::channel();
@@ -48,6 +54,7 @@ pub async fn paste(app:&AppHandle,png:&[u8],only_focused:bool)->Result<&'static 
             tokio::time::sleep(Duration::from_millis(80)).await;
             let raw=screenshots::eval_value(&view,"JSON.stringify(window.__vibezPasteReceipt ? {received:window.__vibezPasteReceipt.received,images:window.__vibezPasteReceipt.images,trusted:window.__vibezPasteReceipt.trusted} : {})").await?;
             let receipt:Value=serde_json::from_str(&raw).map_err(err)?;
+            record("native-paste",&receipt);
             if receipt["received"]==true&&receipt["trusted"]==true{
                 if receipt["images"].as_u64().unwrap_or(0)>0{return confirmed(&view,&url,"native").await;}
                 // Only an empty trusted native paste allows the memory fallback.
@@ -64,7 +71,7 @@ pub async fn paste(app:&AppHandle,png:&[u8],only_focused:bool)->Result<&'static 
     }.await;
     let _=screenshots::eval_value(&view,"window.__vibezPasteReceipt?.cleanup?.(); delete window.__vibezPasteReceipt; true").await;
     if result.is_ok(){crate::message(app,desktop_ui::preview(app,"pasteConfirmed"));}
-    result.map_err(|_|desktop_ui::preview(app,"pasteUnconfirmed"))
+    result.map_err(|error|{record("not-confirmed",&serde_json::json!({"reason":error}));desktop_ui::preview(app,"pasteUnconfirmed")})
 }
 async fn confirmed(view:&tauri::Webview,url:&url::Url,method:&'static str)->Result<&'static str,String>{
     for _ in 0..60{
@@ -72,6 +79,7 @@ async fn confirmed(view:&tauri::Webview,url:&url::Url,method:&'static str)->Resu
         if view.url().map_err(err)?.as_str()!=url.as_str(){return Err("Page changed".into());}
         let raw=screenshots::eval_value(view,"JSON.stringify(window.__vibezPasteReceipt?.status?.() || {})").await?;
         let receipt:Value=serde_json::from_str(&raw).map_err(err)?;
+        record("attachment",&receipt);
         if receipt["rejected"]==true||receipt["reason"]=="composer-changed"{return Err("Attachment rejected".into());}
         if receipt["attached"]==true{return Ok(method);}
     }
