@@ -52,7 +52,20 @@ def await_paste(number,expected,name):
             image.save(OUT/f'pasted-{name}.png')
             # The application requires 700 ms of stable attachment UI after
             # delivery. Do not launch the next action on mere FileReader receipt.
-            sleep(1.2);assert len(events())==number,'Duplicate paste event'
+            sleep(1.2)
+            # Receipt of PNG bytes precedes the production dialog's async
+            # attachment confirmation and close. Wait for actual destruction
+            # (including hidden chooser windows), not just the FileReader.
+            # Never repeat capture/click here or count timeout as success.
+            close_deadline=time.monotonic()+8
+            while True:
+                try:remaining=xd('search','--name','^VibeZ · ').splitlines()
+                except subprocess.CalledProcessError:remaining=[]
+                if not remaining:break
+                if time.monotonic()>=close_deadline:
+                    raise AssertionError('Image received but screenshot window did not close: '+str(remaining))
+                sleep(.08)
+            assert len(events())==number,'Duplicate paste event'
             print('PASTE_OK:',name,image.size,('native' if p['trusted'] else 'memory compatibility'),'image/png, exact pixels, preserved draft, no send; scale',S,flush=True)
             return
         sleep(.15)
