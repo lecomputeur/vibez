@@ -11,7 +11,10 @@ use tauri::{AppHandle,Manager,WebviewUrl,WebviewWindowBuilder};
 #[cfg(not(target_os="linux"))]
 #[path="screenshot_screen_other.rs"] mod screen_other;
 #[path="screenshot_release_probe.rs"] mod release_probe;
-pub async fn release_smoke_check(app:&AppHandle)->Result<(),String>{release_probe::run(app).await}
+#[path="screenshot_login_probe.rs"] mod login_probe;
+#[cfg(target_os="macos")]
+#[path="macos_layout_probe.rs"] mod macos_layout_probe;
+pub async fn release_smoke_check(app:&AppHandle)->Result<(),String>{login_probe::run(app).await?;release_probe::run(app).await}
 /// Read only the selected mode. Unknown never hides the file alternative.
 pub async fn selected_mode(app:&AppHandle)->String {
     let Some(view)=app.get_webview("vibe") else{return "unknown".into();};
@@ -20,6 +23,19 @@ pub async fn selected_mode(app:&AppHandle)->String {
     let observed=tokio::time::timeout(std::time::Duration::from_millis(400),
         screenshots::eval_value(&view,include_str!("screenshot_context.js"))).await;
     match observed {Ok(Ok(mode)) if matches!(mode.as_str(),"code"|"chat"|"work")=>mode,_=>"unknown".into()}
+}
+/// Read-only guest UI detection. Unknown, errors and absent auth buttons do
+/// not claim the user is logged out. No cookies/session information is read.
+pub async fn login_required(app:&AppHandle)->bool {
+    let Some(view)=app.get_webview("vibe") else{return false;};
+    let Ok(url)=view.url() else{return false;};
+    if !(policy::auth_return_url(&url)||(app.state::<PreviewState>().smoke&&policy::local_url(&url))){return false;}
+    let rows:serde_json::Value=match serde_json::from_str(include_str!("../../screenshot-login-i18n.json")){Ok(v)=>v,Err(_)=>return false};
+    let labels=|column:usize|->Vec<String>{rows.as_object().into_iter().flat_map(|v|v.values()).filter_map(|v|v[column].as_str()).flat_map(|v|v.split('|').map(str::to_owned)).collect()};
+    let script=include_str!("screenshot_login.js")
+        .replace("__VIBEZ_LOGIN_LABELS__",&serde_json::json!(labels(0)).to_string())
+        .replace("__VIBEZ_SIGNUP_LABELS__",&serde_json::json!(labels(1)).to_string());
+    matches!(tokio::time::timeout(std::time::Duration::from_millis(400),screenshots::eval_value(&view,script)).await,Ok(Ok(value)) if value=="true")
 }
 pub async fn code_context(app:&AppHandle)->bool {notice_required(&selected_mode(app).await)}
 fn notice_required(mode:&str)->bool { !matches!(mode,"chat"|"work") }
@@ -42,6 +58,7 @@ pub async fn open(app:&AppHandle)->Result<(),String> {
     if OPERATION.load(Ordering::SeqCst) || app.state::<PreviewState>().capture_busy.load(Ordering::SeqCst) {return Err(desktop_ui::status(app,"screenshot_busy"));}
     if let Some(window)=app.get_webview_window("screenshot") {window.show().map_err(err)?;return window.set_focus().map_err(err);}
     let show_hint=code_context(app).await;
+    let show_login=login_required(app).await;
     #[cfg(target_os="linux")] install_clipboard_bridge(app)?;
     let builder=WebviewWindowBuilder::new(app,"screenshot",WebviewUrl::App("screenshot.html".into()))
         .title(format!("VibeZ · {}",desktop_ui::text(app,"screenshot")))
@@ -59,7 +76,7 @@ pub async fn open(app:&AppHandle)->Result<(),String> {
     let builder=builder.visible(false);
     // The file option and explanation need a little more vertical
     // room. Normal dialogs stay 280 x 184; positioning remains unchanged.
-    let builder=if show_hint{builder.inner_size(280.,318.)}else{builder};
+    let builder=if show_hint||show_login{builder.inner_size(280.,(if show_hint{318.}else{200.})+if show_login{72.}else{0.})}else{builder};
     let window=builder.build().map_err(err)?;
     #[cfg(target_os="linux")]
     show_on_parent(app,&window).await?;

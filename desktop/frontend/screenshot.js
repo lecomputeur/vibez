@@ -3,11 +3,13 @@
   const $=id=>document.getElementById(id);
   const extraKeys={auto:'screenshotAutoPaste',paste:'screenshotPaste',save:'screenshotSavePng',again:'screenshotNew',copied:'screenshotCopied',cancelled:'screenshotCancelled',copyFailed:'screenshotCopyFailed',selectionBusy:'screenshotDrag',working:'screenshotWorking',pasting:'screenshotPaste',fileSaved:'screenshotFileSaved'};
   const baseKeys={copy:'copy',close:'close',failed:'shotFailed',saving:'saving',saved:'saved'};
-  let busy=false,baseStrings={},refreshing=false,closed=false,lastFeedback=null,mode='unknown',fileChoice=null,fileResult=false;
+  let busy=false,baseStrings={},refreshing=false,closed=false,lastFeedback=null,mode='unknown',fileChoice=null,fileResult=false,loginRequired=false;
   const asFile=()=>mode==='code'||fileChoice===true;
   const fileStrings=()=>window.VIBEZ_SCREENSHOT_FILES?.[preview.currentLanguage()]||window.VIBEZ_SCREENSHOT_FILES?.en||[];
   function t(key){if(key==='fileSaved')return fileStrings()[1]||preview.extra('saved');return extraKeys[key]?preview.extra(extraKeys[key]):baseStrings[baseKeys[key]||key]||key;}
   function render(){
+    $('login-hint').textContent=window.VIBEZ_SCREENSHOT_LOGIN?.[preview.currentLanguage()]||window.VIBEZ_SCREENSHOT_LOGIN?.en||'';
+    $('login-hint').hidden=!loginRequired;
     const file=asFile(),result=!$('result').hidden;
     // Unknown still offers a file option, but must not disable previously
     // working Chat/Work paste simply because the selected mode is unreadable.
@@ -38,6 +40,7 @@
       if(lastFeedback){const {key,kind}=lastFeedback;status(key,kind);}
     }
     mode=['code','chat','work'].includes(state.screenshot_mode)?state.screenshot_mode:'unknown';
+    loginRequired=state.screenshot_login_required===true;
     render();
   }
   async function refresh(initial=false){

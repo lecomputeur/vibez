@@ -3,3 +3,5 @@
 #code-hint{font-size:11px;line-height:1.35;padding:5px 6px;margin:0 0 5px;background:#fff6e7;color:#755016;border-radius:5px;overflow-wrap:anywhere}
 
 #file-option{margin-bottom:6px;padding:6px;background:#f7f8fa;border:1px solid #e1e3e7;border-radius:7px}.file-choice{display:flex;gap:6px;align-items:center;cursor:pointer;font-size:12px}.file-choice strong{overflow-wrap:anywhere;min-width:0}.file-choice input{margin:0;accent-color:#c85532}.format{font-size:10px;color:#69717d;margin-inline-start:auto}#code-hint{margin:5px 0 0;padding:0;background:transparent;color:#444c59}.file-choice:has(input:checked){color:#a44123}
+
+#login-hint{font-size:11px;line-height:1.35;margin:0 0 6px;padding:6px;background:#fff6e7;color:#755016;border-radius:5px;overflow-wrap:anywhere}
