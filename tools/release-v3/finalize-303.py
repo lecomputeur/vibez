@@ -1,4 +1,4 @@
-"""Promote maintainer-approved test 7: release metadata/text only, no functional edits."""
+"""Promote approved test 7 using contents-only CI permissions; never edit workflows."""
 from pathlib import Path
 import os,json,subprocess
 ROOT=Path(__file__).resolve().parents[2]
@@ -20,9 +20,8 @@ if not marker.exists():
  replace('tools/release-v3/flatpak.py','2026-10-07','2026-10-09')
  replace('tools/release-v3/verify-release-proof.py','vibe/release-3.0.3-7e2b46',BRANCH)
  replace('tools/release-v3/verify-release-proof.py','.github/workflows/vibez-v3.yml','.github/workflows/release-approved-303.yml')
- replace('.github/workflows/publish-v3.yml','3.0.2','3.0.3')
- replace('.github/workflows/publish-v3.yml','(3,0,2)','(3,0,3)')
- replace('.github/workflows/publish-v3.yml','Compact screenshots and direct paste','Screenshots, in-app downloads and macOS layout')
+ # The CI token cannot edit workflows. The existing publication workflow is
+ # deliberately left unchanged; no permission expansion or rejected retry.
  for p in [Path('README.md'),Path('MICROSOFT-STORE.md'),*Path('docs').glob('*.html')]:
   s=p.read_text().replace('3.0.2','3.0.3').replace('screenshots-302','screenshots-303').replace('actions/workflows/vibez-v3.yml','actions/workflows/release-approved-303.yml')
   p.write_text(s)
@@ -85,9 +84,9 @@ The MSIX retains LeComputeur.VibeZDesktop, product 9NR7L2G4MS08, version 3.0.3.0
 Promote maintainer-approved test 7 without changing its functional code. Add the screenshot-as-PNG route for Code, concise Chat/Work clarification and conditional sign-in notice in all 34 languages; preserve direct Chat/Work paste. Include in-app update downloads with progress and integrity checks, and the macOS native-titlebar layout correction. Ship all Linux formats, Windows EXE/MSI/Store MSIX, and signed/notarized Intel and Apple Silicon Mac packages. Store certification is separate from package creation.
 '''+s[at:];p.write_text(s)
  marker.write_text('Approved test 7: '+APPROVED+'\nMaintainer authorized stable all-platform rollout on 2026-10-09.\n')
-# Fail closed on any unrequested functional change, including translation bundles.
 protected=['desktop/frontend','desktop/src-tauri/src','desktop/src-tauri/Cargo.toml','desktop/src-tauri/Cargo.lock','desktop/src-tauri/tauri.conf.json','desktop/src-tauri/capabilities','desktop/src-tauri/permissions','desktop/preview-i18n.json','desktop/screenshot-hints-i18n.json','desktop/updates-i18n.json','tauri-preview','main.js','main-v2.js','package.json','package-lock.json']
 subprocess.run(['git','diff','--exit-code',APPROVED,'--',*protected,':(exclude)desktop/src-tauri/src/main.rs'],check=True)
+subprocess.run(['git','diff','--exit-code','HEAD','--','.github/workflows'],check=True)
 main=Path('desktop/src-tauri/src/main.rs').read_text()
 old=subprocess.check_output(['git','show',APPROVED+':desktop/src-tauri/src/main.rs'],text=True)
 assert main==old.replace(' · test 7','').replace('"build_label": "test 7"','"build_label": ""')
