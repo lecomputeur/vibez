@@ -82,7 +82,7 @@ try:
         r=display.get_monitor(i).get_geometry();monitors.append([r.x,r.y,r.width,r.height])
     (OUT/'gdk-monitors.json').write_text(json.dumps(monitors))
     assert sorted(r[0] for r in monitors)==[0,1280],monitors
-    main=window('VibeZ 3 v3.0.2');sleep(4)
+    main=window('VibeZ 3 v3.0.3');sleep(4)
     # The previous generic center() opened on the primary (left) output here.
     move_main(main,1400);dialog=open_chooser(main,50)
     d=check_monitor(main,dialog,'right-nonprimary-first-open')

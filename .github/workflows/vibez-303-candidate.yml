@@ -1,0 +1,140 @@
+name: VibeZ 3.0.3 candidate — no publication
+on:
+  push:
+    branches: ['vibe/windows-real-paste-303-91c4']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: vibez-303-${{ github.ref }}
+  cancel-in-progress: true
+defaults:
+  run:
+    shell: bash
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Record committed candidate — no source mutation or publication
+        id: source
+        run: |
+          test "$GITHUB_REF" = refs/heads/vibe/windows-real-paste-303-91c4
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          python3 -c 'import json; assert json.load(open("desktop/package.json"))["version"] == "3.0.3"'
+          git diff --exit-code
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          git archive --format=tar.gz HEAD > /tmp/candidate-source.tar.gz
+      - uses: actions/upload-artifact@v5
+        with:
+          name: candidate-303-source
+          path: /tmp/candidate-source.tar.gz
+  native:
+    needs: source
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            kind: linux
+          - os: windows-2025
+            kind: windows
+          - os: macos-15
+            kind: macos-arm64
+          - os: macos-15-intel
+            kind: macos-x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 65
+    env:
+      CARGO_BUILD_JOBS: 2
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      WEBKIT_DISABLE_DMABUF_RENDERER: '1'
+      VIBEZ_SCREENSHOT_ARTIFACT_DIR: '${{ github.workspace }}/desktop/artifacts/native-pixels'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.source.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Native Linux prerequisites
+        if: matrix.kind == 'linux'
+        timeout-minutes: 10
+        run: |
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 update -qq
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 install -y --no-install-recommends libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev xvfb openbox dbus-x11 imagemagick desktop-file-utils python3-gi python3-gi-cairo python3-pil python3-xlib gir1.2-gtk-3.0 gstreamer1.0-tools gstreamer1.0-plugins-good gstreamer1.0-plugins-base gstreamer1.0-plugins-bad libgdk-pixbuf2.0-bin xdg-utils xdotool xserver-xorg-core xserver-xorg-video-dummy x11-xserver-utils > /tmp/dependencies.log 2>&1 || { tail -80 /tmp/dependencies.log; exit 1; }
+      - run: rustup toolchain install '1.99.0' --profile minimal
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+          key: vibez-v3-${{ matrix.kind }}
+          cache-on-failure: true
+      - name: All frontend and native unit tests
+        working-directory: desktop
+        run: |
+          set -o pipefail
+          mkdir -p artifacts
+          git rev-parse HEAD > artifacts/source-commit.txt
+          npm ci --ignore-scripts
+          npm audit --audit-level=high 2>&1 | tee artifacts/npm-audit.log
+          npm test 2>&1 | tee artifacts/frontend.log
+          cargo test --release --locked --manifest-path src-tauri/Cargo.toml 2>&1 | tee artifacts/rust.log
+      - name: Build candidate packages
+        working-directory: desktop
+        run: |
+          set -o pipefail
+          case '${{ matrix.kind }}' in
+            linux) npm run build -- --bundles deb -- --locked 2>&1 | tee artifacts/build.log ;;
+            windows) npm run build -- --bundles nsis,msi -- --locked 2>&1 | tee artifacts/build.log ;;
+            macos-*) npm run build -- --bundles app --no-sign -- --locked 2>&1 | tee artifacts/build.log ;;
+          esac
+      - name: Windows and macOS — real engines, attachments and verified download
+        if: matrix.kind != 'linux'
+        env:
+          VIBEZ_CI_UPDATE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python tools/release-v3/native-smoke.py desktop/src-tauri/target/release/vibez3${{ matrix.kind == 'windows' && '.exe' || '' }} desktop/artifacts/native.log
+      - name: Linux — native, installed icon, real input, HiDPI and dual monitor
+        if: matrix.kind == 'linux'
+        env:
+          VIBEZ_CI_UPDATE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -o pipefail
+          bash tools/release-v3/linux-smoke.sh 2>&1 | tee desktop/artifacts/native.log
+          bash desktop/tests/screenshot-e2e.sh 2>&1 | tee desktop/artifacts/screenshot-e2e.log
+          bash desktop/tests/screenshot-monitors.sh 2>&1 | tee desktop/artifacts/monitors.log
+      - name: Apple signing and notarization for test candidate
+        if: startsWith(matrix.kind, 'macos-')
+        env:
+          MAC_CERTIFICATE_P12_BASE64: ${{ secrets.MAC_CERTIFICATE_P12_BASE64 }}
+          MAC_CERTIFICATE_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+          APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: bash tools/release-v3/sign-macos.sh '${{ matrix.kind == 'macos-arm64' && 'arm64' || 'x64' }}' 2>&1 | tee desktop/artifacts/signing.log
+      - name: Collect only after platform tests pass
+        run: |
+          mkdir -p candidate-delivery
+          case '${{ matrix.kind }}' in
+            linux) cp desktop/src-tauri/target/release/bundle/deb/*.deb candidate-delivery/VibeZ-3.0.3-Mint-x64-test1.deb ;;
+            windows) cp desktop/src-tauri/target/release/bundle/nsis/*-setup.exe candidate-delivery/VibeZ-3.0.3-Windows-x64-test1-Setup.exe; cp desktop/src-tauri/target/release/bundle/msi/*.msi candidate-delivery/ ;;
+            macos-*) cp release-assets/*.dmg candidate-delivery/ ;;
+          esac
+          python -c "import pathlib,hashlib; p=pathlib.Path('candidate-delivery'); (p/'SHA256SUMS').write_text(''.join(hashlib.sha256(f.read_bytes()).hexdigest()+'  '+f.name+'\n' for f in p.iterdir() if f.is_file()))"
+          git rev-parse HEAD > candidate-delivery/source-commit.txt
+      - uses: actions/upload-artifact@v5
+        with:
+          name: candidate-303-${{ matrix.kind }}
+          path: candidate-delivery/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: candidate-303-${{ matrix.kind }}-evidence
+          path: desktop/artifacts/
+          if-no-files-found: warn

@@ -1,142 +1,154 @@
-//! Automatic and manual update checks against published VibeZ 3 releases.
-use std::{sync::atomic::{AtomicBool, Ordering}, time::Duration};
-use serde_json::Value;
-use semver::Version;
-use tauri::{AppHandle, Manager};
+//! Visible, local update dialog; verified download followed by an explicit OS handoff.
+use std::{sync::{Mutex,OnceLock,atomic::{AtomicBool,Ordering}},time::Duration,path::PathBuf};
+use tauri::{AppHandle,Manager,WebviewUrl,WebviewWindowBuilder};
 use tauri_plugin_opener::OpenerExt;
-
-const API: &str = "https://api.github.com/repos/lecomputeur/vibez/releases?per_page=100";
-const STORE_URI: &str = "ms-windows-store://pdp/?ProductId=9NR7L2G4MS08";
-const STORE_WEB: &str = "https://apps.microsoft.com/detail/9NR7L2G4MS08";
-static BUSY: AtomicBool = AtomicBool::new(false);
-
-struct Guard;
-impl Drop for Guard { fn drop(&mut self) { BUSY.store(false, Ordering::SeqCst); } }
-
-#[derive(Debug)]
-struct Download { version: Version, url: String }
-
-fn platform() -> String {
-    let os = if cfg!(target_os="windows") {"Windows"} else if cfg!(target_os="macos") {"macOS"} else {"Linux"};
-    let arch = if cfg!(target_arch="aarch64") {"arm64"} else {"x64"};
-    format!("{os}-{arch}")
+use serde_json::{json,Value};
+use crate::{desktop_ui,err,policy,update_download::{self,Release,Asset}};
+static BUSY:AtomicBool=AtomicBool::new(false);
+static CANCEL:AtomicBool=AtomicBool::new(false);
+#[derive(Default)]
+struct State {phase:&'static str,release:Option<Release>,received:u64,total:u64,error:String,ready:Option<(PathBuf,Asset)>}
+fn state()->&'static Mutex<State>{static S:OnceLock<Mutex<State>>=OnceLock::new();S.get_or_init(||Mutex::new(State{phase:"idle",..Default::default()}))}
+struct Guard;impl Drop for Guard{fn drop(&mut self){BUSY.store(false,Ordering::SeqCst);}}
+#[cfg(target_os="windows")]
+fn store_packaged()->bool{
+    #[link(name="kernel32")]extern "system"{fn GetCurrentPackageFullName(length:*mut u32,name:*mut u16)->i32;}
+    let mut length=0u32;unsafe{GetCurrentPackageFullName(&mut length,std::ptr::null_mut())==122&&length>0}
 }
-
-#[cfg(target_os = "windows")]
-fn store_packaged() -> bool {
-    #[link(name = "kernel32")]
-    extern "system" {
-        fn GetCurrentPackageFullName(package_full_name_length: *mut u32, package_full_name: *mut u16) -> i32;
-    }
-    // APPMODEL_ERROR_NO_PACKAGE (15700) means a normal unpackaged process.
-    // ERROR_INSUFFICIENT_BUFFER (122) with a non-zero length means this process has package identity.
-    let mut length = 0u32;
-    unsafe { GetCurrentPackageFullName(&mut length, std::ptr::null_mut()) == 122 && length > 0 }
+#[cfg(not(target_os="windows"))]fn store_packaged()->bool{false}
+pub fn snapshot()->Result<Value,String>{
+    let s=state().lock().map_err(err)?;
+    Ok(json!({"phase":s.phase,"release":s.release,"received":s.received,"total":s.total,"error":s.error,
+        "fileName":s.ready.as_ref().map(|(_,a)|&a.name),"current":env!("CARGO_PKG_VERSION"),"busy":BUSY.load(Ordering::SeqCst)}))
 }
-#[cfg(not(target_os = "windows"))]
-fn store_packaged() -> bool { false }
-
-fn candidate(release: &Value, target: &str) -> Option<Download> {
-    if release["draft"] != false || release["prerelease"] != false { return None; }
-    let tag = release["tag_name"].as_str()?;
-    let version = Version::parse(tag.strip_prefix('v')?).ok()?;
-    if version.major < 3 || !version.pre.is_empty() || !version.build.is_empty() { return None; }
-    let prefix = format!("VibeZ-{version}-{target}");
-    let url_prefix = format!("https://github.com/lecomputeur/vibez/releases/download/{tag}/");
-    let found = release["assets"].as_array()?.iter().any(|asset| {
-        let Some(name) = asset["name"].as_str() else { return false };
-        let suffix = name.strip_prefix(&prefix).unwrap_or("");
-        [".deb",".rpm",".AppImage",".flatpak",".pkg.tar.zst","-Setup.exe",".msi",".dmg",".zip"].contains(&suffix)
-            && asset["size"].as_u64().unwrap_or(0) > 0
-            && asset["browser_download_url"].as_str() == Some(format!("{url_prefix}{name}").as_str())
-    });
-    if !found { return None; }
-    Some(Download { version, url: format!("https://github.com/lecomputeur/vibez/releases/tag/{tag}") })
-}
-
-async fn discover() -> Result<Option<Download>, String> {
-    let client = reqwest::Client::builder()
-        .https_only(true)
-        .redirect(reqwest::redirect::Policy::none())
-        .timeout(Duration::from_secs(15))
-        .user_agent(concat!("VibeZ/", env!("CARGO_PKG_VERSION")))
-        .build().map_err(crate::err)?;
-    let mut response = client.get(API).send().await.map_err(crate::err)?
-        .error_for_status().map_err(crate::err)?;
-    let mut body = Vec::new();
-    while let Some(chunk) = response.chunk().await.map_err(crate::err)? {
-        if body.len() + chunk.len() > 4 * 1024 * 1024 { return Err("Release response exceeds size limit".into()); }
-        body.extend_from_slice(&chunk);
-    }
-    let data: Value = serde_json::from_slice(&body).map_err(crate::err)?;
-    Ok(data.as_array().ok_or("Invalid release response")?.iter()
-        .filter_map(|r| candidate(r, &platform())).max_by(|a,b| a.version.cmp(&b.version)))
-}
-
-fn open_store(app: &AppHandle) {
-    if app.opener().open_url(STORE_URI, None::<&str>).is_err() {
-        let _ = app.opener().open_url(STORE_WEB, None::<&str>);
-    }
-}
-
-pub fn check(app: AppHandle, manual: bool) {
-    if BUSY.swap(true, Ordering::SeqCst) {
-        if manual { crate::message(&app, "An update check is already running."); }
-        return;
-    }
-    tauri::async_runtime::spawn(async move {
-        let _guard = Guard;
-        if store_packaged() {
-            if manual {
-                crate::message(&app, "Microsoft Store manages updates for this installation.");
-                open_store(&app);
-            }
-            return;
+fn set_phase(phase:&'static str){if let Ok(mut s)=state().lock(){s.phase=phase;s.error.clear();}}
+pub async fn show(app:&AppHandle)->Result<(),String>{
+    if let Some(w)=app.get_webview_window("updates"){w.show().map_err(err)?;return w.set_focus().map_err(err);}
+    let window=WebviewWindowBuilder::new(app,"updates",WebviewUrl::App("updates.html".into()))
+        .title(format!("VibeZ · {}",desktop_ui::text(app,"updates")))
+        .inner_size(400.,300.).min_inner_size(340.,260.).visible(false).resizable(true)
+        .data_directory(app.path().app_data_dir().map_err(err)?.join("controls"))
+        .data_store_identifier([118,105,98,101,122,51,0,0,0,0,0,0,0,0,0,1])
+        .on_navigation(policy::local_url).on_new_window(|_,_|tauri::webview::NewWindowResponse::Deny).build().map_err(err)?;
+    if let Some(main)=app.get_window("main"){
+        if let (Ok(p),Ok(size))=(main.outer_position(),main.outer_size()){
+            let ws=window.outer_size().map_err(err)?;
+            let(mut x,mut y)=(p.x as i64+(size.width as i64-ws.width as i64)/2,p.y as i64+(size.height as i64-ws.height as i64)/2);
+            if let Some(m)=main.current_monitor().map_err(err)?{let left=m.position().x as i64;let top=m.position().y as i64;x=x.clamp(left,(left+m.size().width as i64-ws.width as i64).max(left));y=y.clamp(top,(top+m.size().height as i64-ws.height as i64).max(top));}
+            window.set_position(tauri::PhysicalPosition::new(x as i32,y as i32)).map_err(err)?;
         }
-        if manual { crate::message(&app, "Checking for VibeZ updates…"); }
-        let current = Version::parse(env!("CARGO_PKG_VERSION")).ok();
-        match discover().await {
-            Ok(Some(download)) if current.as_ref().map(|v| download.version > *v).unwrap_or(false) => {
-                if manual {
-                    crate::message(&app, format!("VibeZ {} is available — opening the download page.", download.version));
-                    if app.opener().open_url(download.url, None::<&str>).is_err() {
-                        crate::message(&app, "A newer VibeZ version is available, but the download page could not be opened.");
-                    }
-                } else {
-                    crate::message(&app, format!("VibeZ {} is available. Open Settings and choose Check for updates.", download.version));
-                }
+    }
+    window.show().map_err(err)?;window.set_focus().map_err(err)
+}
+pub fn check(app:AppHandle,manual:bool){
+    if BUSY.swap(true,Ordering::SeqCst){
+        if manual{tauri::async_runtime::spawn(async move{let _=show(&app).await;});}return;
+    }
+    tauri::async_runtime::spawn(async move{
+        let _guard=Guard;
+        let already_ready=state().lock().map(|s|s.phase=="ready").unwrap_or(false);
+        if already_ready{if manual{let _=show(&app).await;}return;}
+        if store_packaged(){set_phase("store");if manual{let _=show(&app).await;}return;}
+        set_phase("checking");if manual{let _=show(&app).await;}
+        match update_download::discover().await{
+            Ok(Some(release)) if semver::Version::parse(&release.version).ok()>semver::Version::parse(env!("CARGO_PKG_VERSION")).ok()=>{
+                if let Ok(mut s)=state().lock(){s.phase="available";s.release=Some(release);s.received=0;s.total=0;}
+                crate::message(&app,desktop_ui::preview(&app,"updateAvailable"));let _=show(&app).await;
             },
-            Ok(Some(_)) => { if manual { crate::message(&app, "You already have the latest VibeZ version."); } },
-            Ok(None) => { if manual { crate::message(&app, "No downloadable VibeZ release was found."); } },
-            Err(_) => { if manual { crate::message(&app, "Could not check for VibeZ updates. Please try again later."); } },
+            Ok(_)=>set_phase("latest"),
+            Err(error)=>{if let Ok(mut s)=state().lock(){s.phase="error";s.error=error;}},
         }
     });
 }
-
-pub fn schedule(app: AppHandle) {
-    tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(Duration::from_secs(6)).await;
-        let enabled = app.state::<crate::PreviewState>().settings.lock()
-            .map(|s| s.auto_updates).unwrap_or(false);
-        if enabled { check(app, false); }
-    });
+pub async fn action(app:&AppHandle,action:&str,name:Option<String>)->Result<Value,String>{
+    match action{
+        "close"=>{if let Some(w)=app.get_webview_window("updates"){w.close().map_err(err)?;}},
+        "cancel"=>{CANCEL.store(true,Ordering::SeqCst);},
+        "check"=>check(app.clone(),true),
+        "store"=>{if !store_packaged(){return Err("This is not a Store installation".into());}app.opener().open_url("ms-windows-store://pdp/?ProductId=9NR7L2G4MS08",None::<&str>).map_err(err)?;},
+        "download"=>{
+            if store_packaged(){return Err("Microsoft Store manages this installation".into());}
+            if BUSY.swap(true,Ordering::SeqCst){return Err("An update operation is already running".into());}
+            let selected=state().lock().ok().and_then(|s|s.release.as_ref().and_then(|r|r.assets.iter().find(|a|Some(&a.name)==name.as_ref())).cloned());
+            let Some(asset)=selected else{BUSY.store(false,Ordering::SeqCst);return Err("Choose an offered update package".into());};
+            CANCEL.store(false,Ordering::SeqCst);
+            {let mut s=state().lock().map_err(err)?;s.phase="downloading";s.received=0;s.total=asset.size;s.error.clear();s.ready=None;}
+            let app=app.clone();
+            tauri::async_runtime::spawn(async move{
+                let _guard=Guard;
+                let result=async{
+                    let root=app.path().app_cache_dir().map_err(err)?.join("updates");
+                    update_download::download(&root,&asset,&CANCEL,|n|{if let Ok(mut s)=state().lock(){s.received=n;}}).await
+                }.await;
+                if let Ok(mut s)=state().lock(){match result{Ok(path)=>{s.ready=Some((path,asset));s.phase="ready";},Err(e)=>{s.phase=if e=="cancelled"{"available"}else{"error"};s.error=if e=="cancelled"{String::new()}else{e};}}}
+            });
+        },
+        "reveal"|"open"=>{
+            if store_packaged()||BUSY.load(Ordering::SeqCst){return Err("Update cannot be opened now".into());}
+            let(path,asset)=state().lock().map_err(err)?.ready.clone().ok_or("No verified download")?;
+            let p=path.clone();tauri::async_runtime::spawn_blocking(move||update_download::verify_file(&p,&asset)).await.map_err(err)??;
+            // No command arguments, elevation, silent flags, profile deletion, or restart.
+            if action=="open"{app.opener().open_path(path.to_string_lossy().into_owned(),None::<&str>).map_err(err)?;}
+            else{app.opener().reveal_item_in_dir(&path).map_err(err)?;}
+        },
+        _=>return Err("Unsupported update action".into()),
+    }
+    snapshot()
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    fn fixture() -> Value { serde_json::json!({"draft":false,"prerelease":false,"tag_name":"v3.0.1","assets":[{"name":"VibeZ-3.0.1-Linux-x64.deb","size":100,"browser_download_url":"https://github.com/lecomputeur/vibez/releases/download/v3.0.1/VibeZ-3.0.1-Linux-x64.deb"}]}) }
-    #[test] fn published_matching_platform_is_required() {
-        assert!(candidate(&fixture(),"Linux-x64").is_some());
-        assert!(candidate(&fixture(),"Windows-x64").is_none());
+pub fn schedule(app:AppHandle){tauri::async_runtime::spawn(async move{
+    tokio::time::sleep(Duration::from_secs(6)).await;
+    if app.state::<crate::PreviewState>().settings.lock().map(|s|s.auto_updates).unwrap_or(false){check(app.clone(),false);}
+});}
+// Test helper: retry pure observations during WKWebView document startup, never
+// replay a button click or treat a pending/failed permission result as success.
+async fn await_probe_value(view:&tauri::Webview,script:&str,wanted:&str,context:&str)->Result<(),String>{
+    let deadline=std::time::Instant::now()+Duration::from_secs(12);
+    loop{
+        let observed=match crate::screenshots::eval_value(view,script).await{
+            Ok(value) if value==wanted=>return Ok(()),
+            Ok(value)=>value,
+            Err(error)=>format!("read error: {error}"),
+        };
+        if std::time::Instant::now()>deadline{return Err(format!("{context}: expected {wanted}, observed {observed}"));}
+        tokio::time::sleep(Duration::from_millis(80)).await;
     }
-    #[test] fn ignore_drafts_old_major_foreign_and_empty_assets() {
-        for (key,value) in [("draft",serde_json::json!(true)),("prerelease",serde_json::json!(true)),("tag_name",serde_json::json!("v2.0.2"))] {
-            let mut v=fixture(); v[key]=value; assert!(candidate(&v,"Linux-x64").is_none());
+}
+/// Explicit CI test exercises the real local button and downloads a published
+/// package. It never opens, installs or announces a fake public release.
+pub async fn smoke_check(app:&AppHandle)->Result<(),String>{
+    if !app.state::<crate::PreviewState>().smoke{return Err("Update probe requires offline smoke mode".into());}
+    show(app).await.map_err(|e|format!("Open update window: {e}"))?;
+    let window=app.get_webview("updates").ok_or("Update window missing")?;
+    // A nonempty status is written only after the production frontend has read
+    // get_state AND update_state and rendered the result. Arbitrary sleeps are
+    // insufficient when a new WKWebView process starts on a busy test runner.
+    await_probe_value(&window,"String(document.readyState==='complete' && !!document.getElementById('status')?.textContent && typeof window.__TAURI__?.core?.invoke==='function')","true","Update frontend readiness").await?;
+    window.eval("window.__updateAcl='pending';window.__TAURI__.core.invoke('update_state').then(()=>window.__updateAcl='allowed').catch(()=>window.__updateAcl='denied');true").map_err(err)?;
+    await_probe_value(&window,"window.__updateAcl","allowed","Local update dialog ACL").await?;
+    let remote=app.get_webview("vibe").ok_or("Missing webview")?;
+    remote.eval("(() => {window.__updateAcl='pending';if(typeof window.__TAURI__?.core?.invoke!=='function'){window.__updateAcl='no-bridge';return true;}window.__TAURI__.core.invoke('update_state').then(()=>window.__updateAcl='allowed').catch(()=>window.__updateAcl='denied');return true;})()").map_err(err)?;
+    await_probe_value(&remote,"String(['denied','no-bridge'].includes(window.__updateAcl))","true","Remote update isolation").await?;
+    println!("UPDATE_ACL_OK: local dialog allowed, remote page denied");
+    if std::env::args().any(|a|a=="--update-download-probe"){
+        let release=update_download::discover().await?.ok_or("No published package for probe")?;
+        let asset=release.assets.first().ok_or("No download")?.clone();
+        {let mut s=state().lock().map_err(err)?;s.release=Some(release);s.phase="available";s.ready=None;s.error.clear();}
+        await_probe_value(&window,"String(!document.getElementById('download').hidden && !document.getElementById('download').disabled && !!document.getElementById('package').value)","true","Download button readiness").await?;
+        window.eval("document.getElementById('download').click();").map_err(err)?;
+        let mut ready=None;
+        for _ in 0..600{
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            let s=snapshot()?;
+            if s["phase"]=="error"{return Err(format!("Update button download failed: {}",s["error"]));}
+            if s["phase"]=="ready"&&!BUSY.load(Ordering::SeqCst){ready=state().lock().map_err(err)?.ready.clone();break;}
         }
-        let mut v=fixture(); v["assets"][0]["browser_download_url"]=serde_json::json!("https://example.com/installer");
-        assert!(candidate(&v,"Linux-x64").is_none());
-        let mut v=fixture(); v["assets"][0]["size"]=serde_json::json!(0);
-        assert!(candidate(&v,"Linux-x64").is_none());
+        let(path,downloaded)=ready.ok_or("Update button did not produce a verified download")?;
+        update_download::verify_file(&path,&downloaded)?;
+        if downloaded.name!=asset.name{return Err("Update button selected the wrong artifact".into());}
+        await_probe_value(&window,"String(!document.getElementById('open').hidden && !document.getElementById('reveal').hidden)","true","Verified download actions").await?;
+        println!("UPDATE_DOWNLOAD_OK: button -> native ACL -> HTTPS -> {} bytes -> SHA-256 -> explicit Open, {} (never executed)",asset.size,asset.name);
+        {let mut s=state().lock().map_err(err)?;s.ready=None;s.release=None;s.phase="latest";}
+        let _=std::fs::remove_dir_all(path.parent().unwrap());
     }
+    action(app,"close",None).await?;Ok(())
 }

@@ -8,13 +8,13 @@ export PREVIEW_BINARY="$PWD/src-tauri/target/release/vibez3"
 for scale in 1 2; do
   export GDK_SCALE="$scale" XDG_CONFIG_HOME="$RUNNER_TEMP/v3-smoke/$scale/config" XDG_DATA_HOME="$RUNNER_TEMP/v3-smoke/$scale/data" XDG_CACHE_HOME="$RUNNER_TEMP/v3-smoke/$scale/cache"
   mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_CACHE_HOME"
-  timeout 120s dbus-run-session -- xvfb-run -a -s "-screen 0 $((1600*scale))x$((1000*scale))x24" bash -c '
+  timeout 240s dbus-run-session -- xvfb-run -a -s "-screen 0 $((1600*scale))x$((1000*scale))x24" bash -c '
     openbox --sm-disable > "$PREVIEW_ARTIFACTS/openbox-$GDK_SCALE.log" 2>&1 &
-    "$PREVIEW_BINARY" --smoke-test > "$PREVIEW_ARTIFACTS/native-$GDK_SCALE.log" 2>&1 &
+    "$PREVIEW_BINARY" --smoke-test --update-download-probe > "$PREVIEW_ARTIFACTS/native-$GDK_SCALE.log" 2>&1 &
     pid=$!; sleep 6; import -window root "$PREVIEW_ARTIFACTS/native-$GDK_SCALE.png" || true; wait "$pid"
   ' || { cat "artifacts/native-$scale.log"; exit 1; }
   cat "artifacts/native-$scale.log"
-  for mark in SMOKE_OK: LANGUAGE_BOOTSTRAP_OK: HISTORY_OK: HIDDEN_OK:; do grep -F "$mark" "artifacts/native-$scale.log"; done
+  for mark in SMOKE_OK: LANGUAGE_BOOTSTRAP_OK: HISTORY_OK: HIDDEN_OK: RELEASE_SCREENSHOT_OK: UPDATE_DOWNLOAD_OK:; do grep -F "$mark" "artifacts/native-$scale.log"; done
   test "$(grep -c RESIZE_OK: "artifacts/native-$scale.log")" -ge 8
 done
 unset GDK_SCALE XDG_CONFIG_HOME XDG_DATA_HOME XDG_CACHE_HOME

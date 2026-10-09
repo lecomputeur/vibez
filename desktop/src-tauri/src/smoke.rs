@@ -1,4 +1,4 @@
-//! Offline integration checks against real GTK/WebKit windows; no Mistral account or network required.
+//! Offline integration checks against real native webviews; no Mistral account required.
 use std::{sync::{mpsc, atomic::Ordering}, thread, time::{Duration, Instant}};
 use tauri::{AppHandle, Manager, LogicalSize};
 use crate::{PreviewState, policy::TOOLBAR_HEIGHT};
@@ -13,11 +13,17 @@ fn check_layout(app: &AppHandle) -> Result<(), String> {
     let shell = app.get_webview("shell").ok_or("Missing toolbar webview")?;
     let scale = window.scale_factor().map_err(crate::err)?;
     let size = window.inner_size().map_err(crate::err)?.to_logical::<f64>(scale);
+    // macOS's native full-size content view includes the titlebar. Test the
+    // actual usable layout, rather than validating that same wrong assumption.
+    #[cfg(target_os="macos")]
+    let (left,top,safe_width,safe_height)=crate::native_layout::safe_area(app)?;
+    #[cfg(not(target_os="macos"))]
+    let (left,top,safe_width,safe_height)=(0.,0.,size.width,size.height);
     let (x,y,width,height) = crate::native_layout::geometry(&view)?;
     let (sx,sy,sw,sh) = crate::native_layout::geometry(&shell)?;
-    if x.abs()>2. || (y-TOOLBAR_HEIGHT).abs()>2. || (width-size.width).abs()>2.
-        || (height+TOOLBAR_HEIGHT-size.height).abs()>2. || sx.abs()>2. || sy.abs()>2.
-        || (sw-size.width).abs()>2. || (sh-TOOLBAR_HEIGHT).abs()>2. {
+    if (x-left).abs()>2. || (y-top-TOOLBAR_HEIGHT).abs()>2. || (width-safe_width).abs()>2.
+        || (height+TOOLBAR_HEIGHT-safe_height).abs()>2. || (sx-left).abs()>2. || (sy-top).abs()>2.
+        || (sw-safe_width).abs()>2. || (sh-TOOLBAR_HEIGHT).abs()>2. {
         return Err(format!("Viewport mismatch: window={size:?}, content=({x},{y},{width},{height}), toolbar=({sx},{sy},{sw},{sh})"));
     }
     if window.title().map_err(crate::err)? != crate::title() { return Err("Title does not match preview version".into()); }
@@ -74,7 +80,7 @@ fn popup_checks(app: &AppHandle) -> Result<(), String> {
         popup_view.eval(nested_direct).map_err(crate::err)?;
         let nested_deadline = Instant::now() + Duration::from_secs(5);
         let nested = loop {
-            if let Some((_, window)) = app.webview_windows().into_iter().find(|(label,_)| label.starts_with("auth-popup-") && label != popup.label()) { break window; }
+            if let Some((_, window)) = app.webview_windows().into_iter().find(|(label,_)| label.starts_with("auth-popup-" ) && label != popup.label()) { break window; }
             if Instant::now() > nested_deadline { return Err("Nested OAuth popup did not open".into()); }
             thread::sleep(Duration::from_millis(100));
         };
@@ -140,7 +146,11 @@ fn checks(app: &AppHandle) -> Result<(), String> {
     println!("HIDDEN_OK: layout preserves hidden state");
     window.show().map_err(crate::err)?;
     thread::sleep(Duration::from_millis(500)); check_layout(app)?;
-    #[cfg(not(target_os="linux"))]
+    // Exercise permission rejection in the normal document first. The screenshot
+    // fixture intentionally adds a stricter CSP, which persists for that Document
+    // even after its meta element is removed. Do not weaken IPC checks or the CSP
+    // just to make a later, unrelated test resolve its transport promise.
+    tauri::async_runtime::block_on(crate::preview_updates::smoke_check(app))?;
     tauri::async_runtime::block_on(crate::screenshot_dialog::release_smoke_check(app))?;
     Ok(())
 }

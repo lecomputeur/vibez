@@ -50,7 +50,22 @@ def await_paste(number,expected,name):
             image=Image.open(io.BytesIO(base64.b64decode(p['dataUrl'].split(',',1)[1]))).convert('RGB')
             assert image.size==expected.size and image.tobytes()==expected.tobytes(),'Pasted pixels differ from screenshot'
             image.save(OUT/f'pasted-{name}.png')
-            sleep(.3);assert len(events())==number,'Duplicate paste event'
+            # The application requires 700 ms of stable attachment UI after
+            # delivery. Do not launch the next action on mere FileReader receipt.
+            sleep(1.2)
+            # Receipt of PNG bytes precedes the production dialog's async
+            # attachment confirmation and close. Wait for actual destruction
+            # (including hidden chooser windows), not just the FileReader.
+            # Never repeat capture/click here or count timeout as success.
+            close_deadline=time.monotonic()+8
+            while True:
+                try:remaining=xd('search','--name','^VibeZ · ').splitlines()
+                except subprocess.CalledProcessError:remaining=[]
+                if not remaining:break
+                if time.monotonic()>=close_deadline:
+                    raise AssertionError('Image received but screenshot window did not close: '+str(remaining))
+                sleep(.08)
+            assert len(events())==number,'Duplicate paste event'
             print('PASTE_OK:',name,image.size,('native' if p['trusted'] else 'memory compatibility'),'image/png, exact pixels, preserved draft, no send; scale',S,flush=True)
             return
         sleep(.15)
@@ -79,7 +94,7 @@ def start_capture(main,mode,copy_only=False):
         window('^VibeZ screen selection$');sleep(.4);xd('mousemove','--window',main,224*S,178*S);xd('mousedown',1)
         xd('mousemove','--sync','--window',main,104*S,78*S);xd('mouseup',1)
 try:
-    main=window('VibeZ 3 v3.0.2');sleep(4);n=0
+    main=window('VibeZ 3 v3.0.3');sleep(4);n=0
     for mode in ['visible','full','selection']:
         start_capture(main,mode);im=await_png(mode+'.png');n+=1;await_paste(n,im,mode)
         assert count(im,(230,30,40))>5000,(mode,'red missing',im.size)

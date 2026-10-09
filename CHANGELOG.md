@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.0.3 — 2026-10-09
+
+Promote maintainer-approved test 7 without changing its functional code. Add the screenshot-as-PNG route for Code, concise Chat/Work clarification and conditional sign-in notice in all 34 languages; preserve direct Chat/Work paste. Include in-app update downloads with progress and integrity checks, and the macOS native-titlebar layout correction. Ship all Linux formats, Windows EXE/MSI/Store MSIX, and signed/notarized Intel and Apple Silicon Mac packages. Store certification is separate from package creation.
+
 All notable changes to VibeZ will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows [Semantic Versioning](https://semver.org/).

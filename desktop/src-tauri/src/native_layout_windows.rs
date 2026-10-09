@@ -2,6 +2,11 @@
 use tauri::{AppHandle, Manager, LogicalPosition, LogicalSize, Rect};
 use crate::policy::TOOLBAR_HEIGHT;
 
+#[cfg(target_os="macos")]
+#[path="native_layout_macos.rs"] mod macos;
+#[cfg(target_os="macos")] pub use macos::{layout,safe_area};
+
+#[cfg(target_os="windows")]
 pub fn layout(app: &AppHandle) -> Result<(), String> {
     let Some(window) = app.get_window("main") else { return Ok(()); };
     let scale = window.scale_factor().map_err(crate::err)?;

@@ -1,29 +1,25 @@
-//! Frozen-source release checks: actual native capture -> actual browser paste receipt.
+//! Offline native capture -> upload/paste -> application-rendered attachment.
 use crate::{err,screenshots,PreviewState};
 use serde_json::Value;
 use tauri::{AppHandle,Manager};
 use std::time::Duration;
 use base64::{engine::general_purpose::STANDARD,Engine as _};
-
 pub async fn run(app:&AppHandle)->Result<(),String>{
     if !app.state::<PreviewState>().smoke{return Err("Release probe requires explicit offline smoke mode".into());}
     let view=app.get_webview("vibe").ok_or("Missing test webview")?;
-    let old=screenshots::eval_value(&view,"JSON.stringify({html:document.body.innerHTML,style:document.body.style.cssText})").await?;
+    let old=screenshots::eval_value(&view,"JSON.stringify({html:document.body.innerHTML,style:document.body.style.cssText,url:location.href})").await?;
     let result:Result<(),String>=async{
-        view.eval(include_str!("screenshot_fixture.js")).map_err(err)?;
-        tokio::time::sleep(Duration::from_millis(300)).await;
-        for (index,mode) in ["visible","full"].iter().enumerate(){
-            super::open(app).await?;
-            // Includes local-UI initialization, same capture/paste command path as the button.
-            tokio::time::sleep(Duration::from_millis(500)).await;
+        view.eval(include_str!("screenshot_fixture.js")).map_err(err)?;tokio::time::sleep(Duration::from_millis(300)).await;
+        let mut clipboard_png:Option<Vec<u8>>=None;
+        for(index,mode)in ["visible","full"].iter().enumerate(){
+            super::open(app).await?;tokio::time::sleep(Duration::from_millis(500)).await;
             let value=super::capture(app,mode,true).await?;
             if value["pasted"]!=true{return Err(format!("Release {mode} paste failed: {}",value["pasteError"]));}
-            let expected=super::last()?;
-            let mut actual:Option<Value>=None;
+            let expected=super::last()?;let mut actual:Option<Value>=None;
             for _ in 0..50{
                 let text=screenshots::eval_value(&view,"JSON.stringify(window.__shotPasteEvents||[])").await?;
                 let events:Value=serde_json::from_str(&text).map_err(err)?;
-                if let Some(event)=events.as_array().and_then(|list|list.get(index)).filter(|e|e["dataUrl"].is_string()){actual=Some(event.clone());break;}
+                if let Some(event)=events.as_array().and_then(|l|l.get(index)).filter(|e|e["dataUrl"].is_string()){actual=Some(event.clone());break;}
                 tokio::time::sleep(Duration::from_millis(40)).await;
             }
             let event=actual.ok_or("No image reached the browser composer")?;
@@ -35,17 +31,102 @@ pub async fn run(app:&AppHandle)->Result<(),String>{
             if let Ok(dir)=std::env::var("VIBEZ_SCREENSHOT_ARTIFACT_DIR"){
                 std::fs::create_dir_all(&dir).map_err(err)?;std::fs::write(std::path::Path::new(&dir).join(format!("pasted-{mode}.png")),&data).map_err(err)?;
             }
-            super::action(app,"close").await?;
-            println!("RELEASE_PASTE_OK: {mode}; actual PNG received, pixels identical, draft preserved, no message sent");
+            // Closing intentionally clears the dialog's retained screenshot, not
+            // the native clipboard. Retain test-owned bytes for the next probe.
+            clipboard_png=Some(expected);
+            super::action(app,"close").await?;println!("RELEASE_PASTE_OK: {mode}; visible attachment, pixels identical, draft preserved, no message sent");
         }
-        view.eval("document.getElementById('shot-composer').readOnly=true;").map_err(err)?;
+        view.set_focus().map_err(err)?;
+        view.eval("document.getElementById('shot-composer').focus();").map_err(err)?;
+        super::paste_composer::paste(app,clipboard_png.as_deref().ok_or("Missing clipboard probe fixture")?,true).await?;
+        println!("NATIVE_CLIPBOARD_ATTACHMENT_OK: focused native paste produced a visible attachment");
+        for kind in ["empty","mixed","plain","inline","nested","input"] {
+            view.eval(format!("window.__shotSetEditor('{kind}');")).map_err(err)?;
+            let bytes=clipboard_png.as_deref().ok_or("Missing regression PNG")?;
+            screenshots::copy_last(app,bytes).await?;
+            super::paste_composer::paste(app,bytes,false).await.map_err(|e|format!("Composer {kind}: {e}"))?;
+            println!("EDITING_HOST_OK: {kind}; actual native paste and visible attachment");
+        }
+        // Regression from the maintainer's [P:code-editor] screenshot. Use
+        // real same-origin SPA routes and the actual native capture/paste path,
+        // not a mocked pathname passed only to the selector.
+        let previous_url=view.url().map_err(err)?;
+        for (route,selected,expected_hint) in [
+            ("/","code",true),("/","chat",false),("/","work",false),("/","unknown",true),
+            ("/code","code",true),("/code/fixture-session","code",true),
+            ("/work","work",false),("/chat/code/fixture","chat",false),
+            ("/nl/","code",true),("/?mode=code","unknown",true)
+        ] {
+            let target=previous_url.join(route).map_err(err)?;
+            let target_json=serde_json::to_string(target.as_str()).map_err(err)?;
+            screenshots::eval_value(&view,format!("history.replaceState(null,'',{target_json});location.pathname")).await?;
+            view.eval(include_str!("screenshot_fixture.js")).map_err(err)?;
+            tokio::time::sleep(Duration::from_millis(200)).await;
+            // A real code editor can coexist with a regular message field.
+            // It must not steal a screenshot destined for that message field.
+            view.eval("(()=>{const block=document.createElement('div');block.className='monaco-editor';block.style.cssText='position:fixed;left:0;top:0;width:150px;height:50px';const field=document.createElement('textarea');field.id='excluded-code-field';block.append(field);document.body.append(block);field.focus();})()").map_err(err)?;
+            // Code may be selected without any URL change. Use actual visible
+            // mode controls, and also exercise the conservative unknown state.
+            let selected_json=serde_json::to_string(selected).map_err(err)?;
+            view.eval(format!("(()=>{{const group=document.createElement('div');group.setAttribute('role','tablist');group.style.cssText='position:fixed;right:10px;top:5px;z-index:30';for(const m of ['chat','work','code']){{const b=document.createElement('button');b.textContent=m;b.setAttribute('role','tab');b.setAttribute('aria-selected',String(m==={selected_json}));group.append(b);}}document.body.append(group);}})()")).map_err(err)?;
+            super::open(app).await?;
+            // Observe the production dialog before any capture or paste call.
+            let chooser=app.get_webview("screenshot").ok_or("Screenshot chooser missing")?;
+            // A freshly-created WKWebView can still be on its initial blank
+            // document. Retry read-only observations until readiness; a missing
+            // node or callback is never counted as a passing hint check.
+            let deadline=std::time::Instant::now()+Duration::from_secs(12);
+            let mut observed;
+            loop {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                let result=crate::screenshots::eval_value(&chooser,"JSON.stringify({ready:document.readyState==='complete'&&document.querySelector('[data-mode=visible]')?.disabled===false,shown:document.getElementById('code-hint')?.hidden===false,text:!!document.getElementById('code-hint')?.textContent})").await;
+                observed=match result {
+                    Ok(raw)=>{
+                        let probe:Value=serde_json::from_str(&raw).map_err(err)?;
+                        if probe["ready"]==true && probe["shown"]==expected_hint && probe["text"]==true {break;}
+                        raw
+                    },
+                    Err(error)=>format!("read error: {error}"),
+                };
+                if std::time::Instant::now()>=deadline{return Err(format!("Early Code hint was missing or incorrect on {route} with mode {selected}: {observed}"));}
+            }
+            let before=crate::screenshots::eval_value(&view,"String(window.__shotPasteEvents.length)").await?;
+            if before!="0"{return Err("Displaying the hint triggered a paste".into());}
+            println!("EARLY_CODE_HINT_OK: {route}, mode={selected}, shown={expected_hint}; visible before capture when relevant, no paste side effect");
+            let captured=super::capture(app,"visible",true).await?;
+            if captured["pasted"]!=true{return Err(format!("Route {route}: {}",captured["pasteError"]));}
+            let check=screenshots::eval_value(&view,"JSON.stringify({events:window.__shotPasteEvents.length,draft:document.getElementById('shot-composer').value,code:document.getElementById('excluded-code-field').value,submits:window.__shotPasteEvents[0]?.submits})").await?;
+            let check:Value=serde_json::from_str(&check).map_err(err)?;
+            if check["events"]!=1||check["draft"]!="Bestaande concepttekst"||check["code"]!=""||check["submits"]!=0{return Err(format!("Route {route} selected the wrong field or changed a draft: {check}"));}
+            super::action(app,"close").await?;
+            println!("CODE_ROUTE_PASTE_OK: {route}; one visible attachment in composer, code field untouched, draft retained, no submit");
+            // Removing the real composer must never cause fallback into a
+            // terminal or code editor on this same route.
+            view.eval("document.getElementById('shot-composer').closest('form').remove();").map_err(err)?;
+            let discover=include_str!("paste_composer.js").replace("__VIBEZ_PASTE_FOCUSED__","false");
+            let denied:Value=serde_json::from_str(&screenshots::eval_value(&view,discover).await?).map_err(err)?;
+            if denied["ready"]==true{return Err(format!("Route {route} accepted a code-only editor"));}
+            println!("CODE_FIELD_EXCLUDED_OK: {route}; code-only editor rejected by element, not address");
+        }
+        let restore_url=serde_json::to_string(previous_url.as_str()).map_err(err)?;
+        screenshots::eval_value(&view,format!("history.replaceState(null,'',{restore_url});true")).await?;
+        // Restore the standard fixture before ignore/reject/delay tests.
+        view.eval(include_str!("screenshot_fixture.js")).map_err(err)?;
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        for behaviour in ["ignore","reject","delay"]{
+            view.eval(format!("window.__shotPasteMode='{behaviour}';document.querySelectorAll('[role=alert]').forEach(e=>e.remove());")).map_err(err)?;
+            super::open(app).await?;tokio::time::sleep(Duration::from_millis(300)).await;
+            let result=super::capture(app,"visible",true).await?;
+            if behaviour=="delay"{if result["pasted"]!=true{return Err("Delayed real attachment was not confirmed".into());}}
+            else if result["pasted"]==true||!result["dataUrl"].is_string(){return Err(format!("False success or lost PNG when site {behaviour}s upload"));}
+            super::action(app,"close").await?;println!("ATTACHMENT_ACK_OK: {behaviour}; no false success, PNG preserved");
+        }
+        view.eval("window.__shotPasteMode='normal';document.querySelectorAll('[role=alert]').forEach(e=>e.remove());document.getElementById('shot-composer').readOnly=true;").map_err(err)?;
         super::open(app).await?;tokio::time::sleep(Duration::from_millis(300)).await;
         let unavailable=super::capture(app,"visible",true).await?;
         if unavailable["pasted"]==true||!unavailable["dataUrl"].is_string(){return Err("Unavailable composer lost image or claimed false success".into());}
-        super::action(app,"close").await?;
-        println!("RELEASE_SCREENSHOT_OK: compact chooser, capture/paste and unavailable-composer recovery");Ok(())
+        super::action(app,"close").await?;println!("RELEASE_SCREENSHOT_OK: capture, attachment, ignored/rejected/delayed upload and recovery");Ok(())
     }.await;
-    // Remove only this offline fixture's extra CSP; restore the prior test page.
-    let restore=format!("(() => {{const old={old};document.body.innerHTML=old.html;document.body.style.cssText=old.style;document.head.querySelectorAll('meta[data-vibez-test-csp]').forEach(e=>e.remove());}})()");
+    let restore=format!("(() => {{const old={old};history.replaceState(null,'',old.url);document.body.innerHTML=old.html;document.body.style.cssText=old.style;document.head.querySelectorAll('meta[data-vibez-test-csp]').forEach(e=>e.remove());}})()");
     let _=view.eval(restore);result
 }
