@@ -56,5 +56,14 @@ test('all 34 hint languages render, with no key or English fallback',async()=>{
 test('advisory data is read-only and does not add a native permission or page-wide paste guard',()=>{
  assert.match(read('src-tauri/src/main.rs'),/webview\.label\(\) == "screenshot" && screenshot_dialog::code_context/);
  const source=read('src-tauri/src/paste_composer.js');assert.doesNotMatch(source,/return fail\('code-editor'\)/);
- assert.match(read('frontend/screenshot.html'),/id="code-hint" role="status" aria-live="polite" hidden/);
+ assert.match(read('frontend/screenshot.html'),/id="code-hint" role="status" aria-live="polite">/);
+});
+
+test('an absent, pending or unrecognized mode does not silently hide the Code note',async()=>{
+ for(const code of [null,'unknown',true]){const u=dialog({code});await flush();assert.equal(u.el('code-hint').hidden,false);assert.ok(!u.calls.some(([c])=>c==='capture_screenshot'));}
+ const u=dialog();u.update({screenshot_code_context:undefined});await flush();assert.equal(u.el('code-hint').hidden,false);
+});
+test('the initial HTML includes the Code note before any native response',()=>{
+ const html=read('frontend/screenshot.html');assert.match(html,/<div id="code-hint"[^>]*>Pasting in Code/);
+ assert.doesNotMatch(html,/<div id="code-hint"[^>]*hidden/);
 });

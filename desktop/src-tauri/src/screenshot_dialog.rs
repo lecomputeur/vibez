@@ -12,20 +12,22 @@ use tauri::{AppHandle,Manager,WebviewUrl,WebviewWindowBuilder};
 #[path="screenshot_screen_other.rs"] mod screen_other;
 #[path="screenshot_release_probe.rs"] mod release_probe;
 pub async fn release_smoke_check(app:&AppHandle)->Result<(),String>{release_probe::run(app).await}
-/// This is a UI hint, NOT a capability check or a reason to reject paste.
-pub fn code_context(app:&AppHandle)->bool {
-    app.get_webview("vibe").and_then(|view|view.url().ok())
-        .map(|url|code_path(url.path())).unwrap_or(false)
+/// An advisory, not a capability check. A route is not the selected UI mode.
+/// Keep the Code note visible when the page is unrecognized or not ready.
+pub async fn code_context(app:&AppHandle)->bool {
+    let Some(view)=app.get_webview("vibe") else{return true;};
+    let Ok(url)=view.url() else{return true;};
+    if !(policy::auth_return_url(&url)||(app.state::<PreviewState>().smoke&&policy::local_url(&url))){return true;}
+    let observed=tokio::time::timeout(std::time::Duration::from_millis(400),
+        screenshots::eval_value(&view,include_str!("screenshot_context.js"))).await;
+    match observed {Ok(Ok(mode))=>notice_required(&mode),_=>true}
 }
-fn code_path(path:&str)->bool {
-    path.trim_start_matches('/').split('/').next()
-        .is_some_and(|part|part.eq_ignore_ascii_case("code"))
-}
+fn notice_required(mode:&str)->bool { !matches!(mode,"chat"|"work") }
 #[cfg(test)] mod context_tests {
-    use super::code_path;
-    #[test] fn advisory_matches_code_mode_not_a_conversation_title() {
-        for path in ["/code","/code/","/code/session","/CODE/session"] {assert!(code_path(path),"{path}");}
-        for path in ["/","/work","/chat/code/thread","/decode","/code-project"] {assert!(!code_path(path),"{path}");}
+    use super::notice_required;
+    #[test] fn only_a_recognized_selected_chat_or_work_mode_can_hide_the_notice() {
+        for mode in ["code","unknown","","null","false","timeout"]{assert!(notice_required(mode));}
+        for mode in ["chat","work"]{assert!(!notice_required(mode));}
     }
 }
 static OPERATION:std::sync::atomic::AtomicBool=std::sync::atomic::AtomicBool::new(false);
@@ -39,6 +41,7 @@ fn last()->Result<Vec<u8>,String>{LAST.lock().map_err(err)?.clone().ok_or("Make 
 pub async fn open(app:&AppHandle)->Result<(),String> {
     if OPERATION.load(Ordering::SeqCst) || app.state::<PreviewState>().capture_busy.load(Ordering::SeqCst) {return Err(desktop_ui::status(app,"screenshot_busy"));}
     if let Some(window)=app.get_webview_window("screenshot") {window.show().map_err(err)?;return window.set_focus().map_err(err);}
+    let show_hint=code_context(app).await;
     #[cfg(target_os="linux")] install_clipboard_bridge(app)?;
     let builder=WebviewWindowBuilder::new(app,"screenshot",WebviewUrl::App("screenshot.html".into()))
         .title(format!("VibeZ · {}",desktop_ui::text(app,"screenshot")))
@@ -56,7 +59,7 @@ pub async fn open(app:&AppHandle)->Result<(),String> {
     let builder=builder.visible(false);
     // The optional two/three-line Code notice needs a little more vertical
     // room. Normal dialogs stay 280 x 184; positioning remains unchanged.
-    let builder=if code_context(app){builder.inner_size(280.,236.)}else{builder};
+    let builder=if show_hint{builder.inner_size(280.,236.)}else{builder};
     let window=builder.build().map_err(err)?;
     #[cfg(target_os="linux")]
     show_on_parent(app,&window).await?;

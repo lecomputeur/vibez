@@ -4,13 +4,13 @@
   // All UI text comes from the same 34 language bundles as the toolbar.
   const extraKeys={auto:'screenshotAutoPaste',paste:'screenshotPaste',save:'screenshotSavePng',again:'screenshotNew',copied:'screenshotCopied',cancelled:'screenshotCancelled',copyFailed:'screenshotCopyFailed',selectionBusy:'screenshotDrag',working:'screenshotWorking',pasting:'screenshotPaste'};
   const baseKeys={copy:'copy',close:'close',failed:'shotFailed',saving:'saving',saved:'saved'};
-  let busy=false,baseStrings={},refreshing=false,closed=false,lastFeedback=null,codeContext=false;
+  let busy=false,baseStrings={},refreshing=false,closed=false,lastFeedback=null,codeContext=true;
   function t(key){return extraKeys[key]?preview.extra(extraKeys[key]):baseStrings[baseKeys[key]||key]||key;}
   function renderHint(){
     const hint=$('code-hint'),current=$('feedback'),text=preview.extra('screenshotCodeHint');
     if(hint.textContent!==text)hint.textContent=text;
     // An actual error replaces the advisory instead of stacking two warnings.
-    hint.hidden=!codeContext||(!current.hidden&&current.dataset.kind==='error');
+    hint.hidden=!codeContext||(!$('result').hidden&&!current.hidden&&current.dataset.kind==='error');
   }
   function feedback(text='',kind='info'){lastFeedback=null;const e=$('feedback');e.hidden=!text;e.dataset.kind=kind;e.textContent=text;renderHint();}
   function status(key,kind='info'){feedback(t(key),kind);lastFeedback={key,kind};}
@@ -29,7 +29,7 @@
       if(lastFeedback){const {key,kind}=lastFeedback;status(key,kind);}
     }
     $('save').hidden=false;
-    codeContext=state.screenshot_code_context===true;
+    codeContext=state.screenshot_code_context!==false;
     renderHint();
   }
   async function refresh(initial=false){

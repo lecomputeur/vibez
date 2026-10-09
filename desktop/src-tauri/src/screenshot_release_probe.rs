@@ -51,7 +51,12 @@ pub async fn run(app:&AppHandle)->Result<(),String>{
         // real same-origin SPA routes and the actual native capture/paste path,
         // not a mocked pathname passed only to the selector.
         let previous_url=view.url().map_err(err)?;
-        for route in ["/code","/code/fixture-session","/work","/chat/code/fixture"] {
+        for (route,selected,expected_hint) in [
+            ("/","code",true),("/","chat",false),("/","work",false),("/","unknown",true),
+            ("/code","code",true),("/code/fixture-session","code",true),
+            ("/work","work",false),("/chat/code/fixture","chat",false),
+            ("/nl/","code",true),("/?mode=code","unknown",true)
+        ] {
             let target=previous_url.join(route).map_err(err)?;
             let target_json=serde_json::to_string(target.as_str()).map_err(err)?;
             screenshots::eval_value(&view,format!("history.replaceState(null,'',{target_json});location.pathname")).await?;
@@ -60,10 +65,13 @@ pub async fn run(app:&AppHandle)->Result<(),String>{
             // A real code editor can coexist with a regular message field.
             // It must not steal a screenshot destined for that message field.
             view.eval("(()=>{const block=document.createElement('div');block.className='monaco-editor';block.style.cssText='position:fixed;left:0;top:0;width:150px;height:50px';const field=document.createElement('textarea');field.id='excluded-code-field';block.append(field);document.body.append(block);field.focus();})()").map_err(err)?;
+            // Code may be selected without any URL change. Use actual visible
+            // mode controls, and also exercise the conservative unknown state.
+            let selected_json=serde_json::to_string(selected).map_err(err)?;
+            view.eval(format!("(()=>{{const group=document.createElement('div');group.setAttribute('role','tablist');group.style.cssText='position:fixed;right:10px;top:5px;z-index:30';for(const m of ['chat','work','code']){{const b=document.createElement('button');b.textContent=m;b.setAttribute('role','tab');b.setAttribute('aria-selected',String(m==={selected_json}));group.append(b);}}document.body.append(group);}})()")).map_err(err)?;
             super::open(app).await?;
             // Observe the production dialog before any capture or paste call.
             let chooser=app.get_webview("screenshot").ok_or("Screenshot chooser missing")?;
-            let expected_hint=route.starts_with("/code");
             // A freshly-created WKWebView can still be on its initial blank
             // document. Retry read-only observations until readiness; a missing
             // node or callback is never counted as a passing hint check.
@@ -80,11 +88,11 @@ pub async fn run(app:&AppHandle)->Result<(),String>{
                     },
                     Err(error)=>format!("read error: {error}"),
                 };
-                if std::time::Instant::now()>=deadline{return Err(format!("Early Code hint was missing or incorrect on {route}: {observed}"));}
+                if std::time::Instant::now()>=deadline{return Err(format!("Early Code hint was missing or incorrect on {route} with mode {selected}: {observed}"));}
             }
             let before=crate::screenshots::eval_value(&view,"String(window.__shotPasteEvents.length)").await?;
             if before!="0"{return Err("Displaying the hint triggered a paste".into());}
-            println!("EARLY_CODE_HINT_OK: {route}; visible before capture when relevant, no paste side effect");
+            println!("EARLY_CODE_HINT_OK: {route}, mode={selected}, shown={expected_hint}; visible before capture when relevant, no paste side effect");
             let captured=super::capture(app,"visible",true).await?;
             if captured["pasted"]!=true{return Err(format!("Route {route}: {}",captured["pasteError"]));}
             let check=screenshots::eval_value(&view,"JSON.stringify({events:window.__shotPasteEvents.length,draft:document.getElementById('shot-composer').value,code:document.getElementById('excluded-code-field').value,submits:window.__shotPasteEvents[0]?.submits})").await?;
