@@ -14,6 +14,8 @@ pub fn check(app:&AppHandle)->Result<(),String>{
                 let content=window.contentView().ok_or("Missing content view")?;
                 let rect=native.convertRect_toView(native.bounds(),Some(&content));
                 let bounds=content.bounds();
+                let usable=content.convertRect_fromView(window.contentLayoutRect(),None);
+                let inset=if content.isFlipped(){usable.origin.y-bounds.origin.y}else{bounds.origin.y+bounds.size.height-usable.origin.y-usable.size.height};
                 let top=if content.isFlipped(){rect.origin.y-bounds.origin.y}else{bounds.origin.y+bounds.size.height-rect.origin.y-rect.size.height};
                 let area=window.contentLayoutRect();
                 let parent=native.superview().ok_or("Missing superview")?;
@@ -21,12 +23,15 @@ pub fn check(app:&AppHandle)->Result<(),String>{
                 if label=="shell"{
                     // Check the actual responder at the bottom of the toolbar,
                     // not the same wrapper's setter/getter round trip.
-                    let y=if content.isFlipped(){bounds.origin.y+TOOLBAR_HEIGHT-3.}else{bounds.origin.y+bounds.size.height-TOOLBAR_HEIGHT+3.};
+                    let y=if content.isFlipped(){usable.origin.y+TOOLBAR_HEIGHT-3.}else{usable.origin.y+usable.size.height-TOOLBAR_HEIGHT+3.};
                     let point=content.convertPoint_toView(NSPoint::new(bounds.origin.x+40.,y),content.superview().as_deref());
                     let hit=content.hitTest(point);
                     if !hit.is_some_and(|v|v.isDescendantOf(native)){return Err("Mac toolbar is occluded in actual native hit testing".into());}
                 }
-                if (top-if label=="shell"{0.}else{TOOLBAR_HEIGHT}).abs()>2.{return Err(format!("Mac actual view position differs from intended {label}: {top}"));}
+                if (top-inset-if label=="shell"{0.}else{TOOLBAR_HEIGHT}).abs()>2.{return Err(format!("Mac actual view position differs from intended {label}: {top}"));}
+                let expected_height=if label=="shell"{TOOLBAR_HEIGHT}else{usable.size.height-TOOLBAR_HEIGHT};
+                if (rect.size.height-expected_height).abs()>2.||(rect.size.width-usable.size.width).abs()>2.{return Err("Mac views do not fill the usable content area".into());}
+                println!("MAC_SAFE_AREA_OK: {label}; titlebar inset={inset}, usable={}x{}, visible height={}",usable.size.width,usable.size.height,rect.size.height);
                 Ok(())
             })();
             let _=tx.send(result);
