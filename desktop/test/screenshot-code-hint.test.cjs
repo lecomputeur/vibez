@@ -21,9 +21,9 @@ function dialog({mode='code',language='nl',capture,save={saved:true}}={}){
  vm.runInNewContext(read('frontend/screenshot.js'),{document,preview,window:{VIBEZ_SCREENSHOT_FILES:files,addEventListener(){}},setInterval:f=>timers.push(f),clearInterval(){}});
  return {el,calls,modes,timers,buttons,setSave:s=>saveResult=s,update:patch=>{state={...state,...patch};}};
 }
-test('Code immediately offers checked Screenshot as file with binary-versus-text explanation',async()=>{
+test('Code immediately offers checked Screenshot as file with concise Code versus Chat/Work explanation',async()=>{
  const u=dialog();await flush();assert.equal(u.el('file-option').hidden,false);assert.equal(u.el('code-hint').textContent,hints.nl);
- assert.match(hints.nl,/binaire data/);assert.match(hints.nl,/app.py/);assert.match(hints.nl,/index.js/);assert.doesNotMatch(hints.nl,/kan mislukken/);
+ assert.match(hints.nl,/In Code:/);assert.match(hints.nl,/PNG/);assert.match(hints.nl,/In Chat en Work kun je direct plakken/);assert.doesNotMatch(hints.nl,/binaire data|app\.py|index\.js|kan mislukken/);
  assert.equal(u.el('as-file').checked,true);assert.equal(u.el('as-file').disabled,true);assert.equal(u.el('auto-choice').hidden,true);
  assert.ok(u.calls.every(([c])=>c==='get_state'));assert.equal(u.el('result').hidden,true);
 });
@@ -69,11 +69,11 @@ test('file result and user choices survive language/mode refresh without a secon
  u.update({settings:{language:'de'},screenshot_mode:'chat'});await u.timers[0]();assert.equal(u.el('code-hint').textContent,hints.de);assert.equal(u.el('feedback').textContent,files.de[1]);assert.equal(u.el('image').src,'data:image/png;base64,AAAA');assert.equal(u.el('auto-paste').checked,false);assert.equal(u.el('save-file').hidden,false);
  assert.equal(u.calls.filter(([,a])=>a?.action==='save').length,1);
 });
-test('all 34 languages include option, exact image/text explanation and share-separately success',async()=>{
+test('all 34 languages include option, concise mode explanation and share-separately success',async()=>{
  assert.deepEqual(Object.keys(hints).sort(),Object.keys(languages).sort());assert.deepEqual(Object.keys(files).sort(),Object.keys(languages).sort());
- for(const language of Object.keys(languages)){assert.ok(hints[language]?.trim());assert.equal(files[language].length,2);assert.ok(files[language].every(s=>s.trim()));assert.match(hints[language],/app.py/);assert.match(hints[language],/index.js/);assert.match(hints[language],/PNG/);const u=dialog({language});await flush();assert.equal(u.el('code-hint').textContent,hints[language]);}
+ for(const language of Object.keys(languages)){assert.ok(hints[language]?.trim());assert.equal(files[language].length,2);assert.ok(files[language].every(s=>s.trim()));for(const word of ['Code','Chat','Work'])assert.ok(hints[language].includes(word),language+': '+word);assert.match(hints[language],/PNG/);const u=dialog({language});await flush();assert.equal(u.el('code-hint').textContent,hints[language]);}
 });
 test('initial HTML includes a real file option and explanation, not a may-fail notice',()=>{
- const html=read('frontend/screenshot.html');assert.match(html,/id="as-file"/);assert.match(html,/Screenshot as file/);assert.match(html,/binary data/);assert.doesNotMatch(html,/Pasting in Code may fail/);
+ const html=read('frontend/screenshot.html');assert.match(html,/id="as-file"/);assert.match(html,/Screenshot as file/);assert.match(html,/In Code, save as PNG/);assert.match(html,/In Chat and Work, paste directly/);assert.doesNotMatch(html,/Pasting in Code may fail/);
  assert.doesNotMatch(read('src-tauri/src/paste_composer.js'),/return fail\('code-editor'\)/);
 });
