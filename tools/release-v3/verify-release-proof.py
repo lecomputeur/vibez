@@ -9,21 +9,21 @@ def command(*args):return subprocess.check_output(args,cwd=ROOT,text=True).strip
 def verify():
     proof=json.loads((ROOT/'tools/release-v3/release-proof.json').read_text())
     source=proof['source'];head=proof['workflow_head'];run_id=proof['run_id']
-    assert proof['version']=='3.0.2'
+    assert proof['version']=='3.0.3'
     assert re.fullmatch(r'[0-9a-f]{40}',source) and re.fullmatch(r'[0-9a-f]{40}',head)
     assert type(run_id) is int and run_id>0
     assert os.environ.get('GITHUB_REPOSITORY',REPO)==REPO
     run=json.loads(command('gh','api',f'repos/{REPO}/actions/runs/{run_id}'))
     assert run['repository']['full_name']==REPO and run['head_sha']==head
-    assert run['path']=='.github/workflows/vibez-v3.yml'
-    assert run['head_branch']=='vibe/release-3.0.2-7e2b46'
+    assert run['path']=='.github/workflows/release-approved-303.yml'
+    assert run['head_branch']=='vibe/release-3.0.3-a73d19'
     assert run['status']=='completed' and run['conclusion']=='success'
     jobs=json.loads(command('gh','api',f'repos/{REPO}/actions/runs/{run_id}/jobs?per_page=100'))['jobs']
     assert len(jobs)==9 and {j['name'] for j in jobs}==NAMES
     assert all(j['status']=='completed' and j['conclusion']=='success' for j in jobs)
     command('git','merge-base','--is-ancestor',head,source)
     command('git','merge-base','--is-ancestor',source,'HEAD')
-    command('git','diff','--exit-code',source,'HEAD','--','desktop','icon.png','shell.css','i18n.js','locales','tools/release-v3',':(exclude)tools/release-v3/release-proof.json','.github/workflows/vibez-v3.yml')
+    command('git','diff','--exit-code',source,'HEAD','--','desktop','icon.png','shell.css','i18n.js','locales','tools/release-v3',':(exclude)tools/release-v3/release-proof.json','.github/workflows/release-approved-303.yml')
     # The source preparation job can commit its frozen lockfile after the initial
     # workflow event. Verify its actual emitted commit rather than pretending
     # the event head was necessarily the compiled source.
