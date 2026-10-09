@@ -48,7 +48,7 @@ struct PreviewState {
     auth_active: AtomicBool,
 }
 fn err(e: impl std::fmt::Display) -> String { e.to_string() }
-fn title() -> String { format!("{APP_NAME} v{} · test 5", env!("CARGO_PKG_VERSION")) }
+fn title() -> String { format!("{APP_NAME} v{} · test 6", env!("CARGO_PKG_VERSION")) }
 fn require_local(webview: &Webview) -> Result<(), String> {
     if policy::trusted_caller(webview.label(), &webview.url().map_err(err)?) { Ok(()) }
     else { Err("Native commands are restricted to the bundled preview controls".into()) }
@@ -100,10 +100,12 @@ async fn get_state(webview: Webview, app: AppHandle) -> Result<Value, String> {
     }
     let raw_status = state.status.lock().map_err(err)?.text().to_owned();
     let status = desktop_ui::status(&app, &raw_status);
-    Ok(json!({"settings": settings, "revision": revision, "version": env!("CARGO_PKG_VERSION"), "build_label": "test 5", "os_locale": os_locale(), "platform": std::env::consts::OS,
+    let screenshot_mode=if webview.label()=="screenshot" {screenshot_dialog::selected_mode(&app).await} else {"unknown".into()};
+    Ok(json!({"settings": settings, "revision": revision, "version": env!("CARGO_PKG_VERSION"), "build_label": "test 6", "os_locale": os_locale(), "platform": std::env::consts::OS,
         "can_go_back": back, "can_go_forward": forward, "loading": loading,
         "tray_ready": state.tray_ready.load(Ordering::Relaxed), "status": status,
-        "screenshot_code_context": webview.label() == "screenshot" && screenshot_dialog::code_context(&app).await}))
+        "screenshot_code_context": webview.label()=="screenshot" && !matches!(screenshot_mode.as_str(),"chat"|"work"),
+        "screenshot_mode": screenshot_mode}))
 }
 #[tauri::command]
 async fn navigate(webview: Webview, app: AppHandle, action: String) -> Result<(), String> {

@@ -12,16 +12,16 @@ use tauri::{AppHandle,Manager,WebviewUrl,WebviewWindowBuilder};
 #[path="screenshot_screen_other.rs"] mod screen_other;
 #[path="screenshot_release_probe.rs"] mod release_probe;
 pub async fn release_smoke_check(app:&AppHandle)->Result<(),String>{release_probe::run(app).await}
-/// An advisory, not a capability check. A route is not the selected UI mode.
-/// Keep the Code note visible when the page is unrecognized or not ready.
-pub async fn code_context(app:&AppHandle)->bool {
-    let Some(view)=app.get_webview("vibe") else{return true;};
-    let Ok(url)=view.url() else{return true;};
-    if !(policy::auth_return_url(&url)||(app.state::<PreviewState>().smoke&&policy::local_url(&url))){return true;}
+/// Read only the selected mode. Unknown never hides the file alternative.
+pub async fn selected_mode(app:&AppHandle)->String {
+    let Some(view)=app.get_webview("vibe") else{return "unknown".into();};
+    let Ok(url)=view.url() else{return "unknown".into();};
+    if !(policy::auth_return_url(&url)||(app.state::<PreviewState>().smoke&&policy::local_url(&url))){return "unknown".into();}
     let observed=tokio::time::timeout(std::time::Duration::from_millis(400),
         screenshots::eval_value(&view,include_str!("screenshot_context.js"))).await;
-    match observed {Ok(Ok(mode))=>notice_required(&mode),_=>true}
+    match observed {Ok(Ok(mode)) if matches!(mode.as_str(),"code"|"chat"|"work")=>mode,_=>"unknown".into()}
 }
+pub async fn code_context(app:&AppHandle)->bool {notice_required(&selected_mode(app).await)}
 fn notice_required(mode:&str)->bool { !matches!(mode,"chat"|"work") }
 #[cfg(test)] mod context_tests {
     use super::notice_required;
@@ -57,9 +57,9 @@ pub async fn open(app:&AppHandle)->Result<(),String> {
     let builder=builder.visible(false);
     #[cfg(not(target_os="linux"))]
     let builder=builder.visible(false);
-    // The optional two/three-line Code notice needs a little more vertical
+    // The file option and explanation need a little more vertical
     // room. Normal dialogs stay 280 x 184; positioning remains unchanged.
-    let builder=if show_hint{builder.inner_size(280.,236.)}else{builder};
+    let builder=if show_hint{builder.inner_size(280.,318.)}else{builder};
     let window=builder.build().map_err(err)?;
     #[cfg(target_os="linux")]
     show_on_parent(app,&window).await?;

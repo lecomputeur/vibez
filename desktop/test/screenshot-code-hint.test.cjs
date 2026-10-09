@@ -1,69 +1,79 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
-const hints=require('../screenshot-hints-i18n.json'),languages=require('../../i18n.js').TRANSLATIONS;
+const labels={window:{}};vm.runInNewContext(read('frontend/screenshot-file-translations.js'),labels);
+const hints=require('../screenshot-hints-i18n.json'),files=labels.window.VIBEZ_SCREENSHOT_FILES,languages=require('../../i18n.js').TRANSLATIONS;
 const flush=()=>new Promise(r=>setImmediate(r));
-function dialog({code=true,language='nl',capture}={}){
- let state={screenshot_code_context:code,platform:'linux',settings:{language},os_locale:'nl'};
- const elements=new Map(),calls=[],timers=[];let current='en';
- function el(id){if(!elements.has(id))elements.set(id,{id,dataset:{},hidden:false,disabled:false,checked:true,textContent:'',listeners:{},focus(){},setAttribute(){},removeAttribute(name){delete this[name];},addEventListener(n,f){this.listeners[n]=f;}});return elements.get(id);}
- el('code-hint').hidden=true;el('result').hidden=true;
+function dialog({mode='code',language='nl',capture,save={saved:true}}={}){
+ let state={screenshot_mode:mode,platform:'linux',settings:{language},os_locale:'nl'};
+ const elements=new Map(),calls=[],timers=[];let current='en',saveResult=save;
+ function el(id){if(!elements.has(id))elements.set(id,{id,dataset:{},hidden:false,disabled:false,checked:id==='auto-paste',textContent:'',listeners:{},focus(){},setAttribute(){},removeAttribute(name){delete this[name];},addEventListener(n,f){this.listeners[n]=f;}});return elements.get(id);}
+ el('result').hidden=true;
  const modes=['visible','full','selection'].map(mode=>{const e=el(mode);e.dataset.mode=mode;return e;});
- const buttons=[...modes,...['paste','copy','save','again','close','auto-paste'].map(el)];
+ const buttons=[...modes,...['paste','copy','save','save-file','again','close','auto-paste','as-file'].map(el)];
  const document={getElementById:el,querySelector:()=>modes[0],querySelectorAll:q=>q==='[data-mode]'?modes:q==='button,input'?buttons:[],addEventListener(){}};
- const preview={resolve:s=>s,currentLanguage:()=>current,localize(s){current=s.settings.language;return languages[current];},extra:k=>k==='screenshotCodeHint'?hints[current]:k,errorText:e=>String(e),invoke:async(c,a)=>{
+ const preview={resolve:s=>s,currentLanguage:()=>current,localize(s){current=s.settings.language;return languages[current];},extra:k=>({screenshotCodeHint:hints[current],screenshotAsFile:files[current][0],screenshotFileSaved:files[current][1]})[k]||k,errorText:e=>String(e),invoke:async(c,a)=>{
   calls.push([c,a]);if(c==='get_state')return state;
   if(c==='capture_screenshot')return capture||{copied:true,dataUrl:'data:image/png;base64,AAAA',width:100,height:120};
+  if(a?.action==='save'){if(saveResult instanceof Error)throw saveResult;return saveResult;}
   return {copied:true};
  }};
- vm.runInNewContext(read('frontend/screenshot.js'),{document,preview,window:{addEventListener(){}},setInterval:f=>timers.push(f),clearInterval(){}});
- return {el,calls,modes,timers,buttons,update:patch=>{state={...state,...patch};}};
+ vm.runInNewContext(read('frontend/screenshot.js'),{document,preview,window:{VIBEZ_SCREENSHOT_FILES:files,addEventListener(){}},setInterval:f=>timers.push(f),clearInterval(){}});
+ return {el,calls,modes,timers,buttons,setSave:s=>saveResult=s,update:patch=>{state={...state,...patch};}};
 }
-test('Code notice is visible immediately, before capture or a manual paste',async()=>{
- const u=dialog();await flush();assert.equal(u.el('code-hint').hidden,false);assert.equal(u.el('code-hint').textContent,hints.nl);
- assert.ok(u.calls.every(([c])=>c==='get_state'));assert.ok(u.buttons.every(b=>!b.disabled));
- assert.equal(u.el('auto-paste').checked,true);assert.equal(u.el('result').hidden,true);
+test('Code immediately offers checked Screenshot as file with binary-versus-text explanation',async()=>{
+ const u=dialog();await flush();assert.equal(u.el('file-option').hidden,false);assert.equal(u.el('code-hint').textContent,hints.nl);
+ assert.match(hints.nl,/binaire data/);assert.match(hints.nl,/app.py/);assert.match(hints.nl,/index.js/);assert.doesNotMatch(hints.nl,/kan mislukken/);
+ assert.equal(u.el('as-file').checked,true);assert.equal(u.el('as-file').disabled,true);assert.equal(u.el('auto-choice').hidden,true);
+ assert.ok(u.calls.every(([c])=>c==='get_state'));assert.equal(u.el('result').hidden,true);
 });
-test('notice is not shown in normal Chat/Work and does not claim a failed attachment before an attempt',async()=>{
- const u=dialog({code:false});await flush();assert.equal(u.el('code-hint').hidden,true);
- assert.doesNotMatch(hints.nl,/niet bevestigd|log in|ondersteunt geen/i);
+for(const kind of ['visible','full','selection'])test(`${kind} in Code captures once, never pastes, then opens Save exactly once`,async()=>{
+ const u=dialog();await flush();await u.modes.find(m=>m.dataset.mode===kind).listeners.click();
+ const caps=u.calls.filter(([c])=>c==='capture_screenshot');assert.equal(caps.length,1);assert.equal(caps[0][1].paste,false);
+ assert.equal(u.calls.filter(([,a])=>a?.action==='save').length,1);assert.ok(!u.calls.some(([,a])=>a?.action==='paste'));
+ assert.equal(u.el('paste').hidden,true);assert.equal(u.el('save-file').hidden,false);assert.equal(u.el('feedback').textContent,files.nl[1]);
+ await u.timers[0]();assert.equal(u.calls.filter(([,a])=>a?.action==='save').length,1,'polling reopened Save');
 });
-test('capture from Code still requests auto-paste unchanged; copy-only still respects the checkbox',async()=>{
- for(const auto of [true,false]){const u=dialog();await flush();u.el('auto-paste').checked=auto;await u.modes[0].listeners.click();
-  assert.equal(u.calls.find(([c])=>c==='capture_screenshot')[1].paste,auto);assert.equal(u.el('code-hint').hidden,false);assert.equal(u.el('result').hidden,false);
- }
+test('cancelled Save preserves the PNG and retries saving without recapture or paste',async()=>{
+ const u=dialog({save:{cancelled:true}});await flush();await u.modes[0].listeners.click();
+ assert.equal(u.el('image').src,'data:image/png;base64,AAAA');assert.equal(u.el('result').hidden,false);assert.notEqual(u.el('feedback').textContent,files.nl[1]);
+ u.setSave({saved:true});await u.el('save-file').listeners.click();assert.equal(u.calls.filter(([c])=>c==='capture_screenshot').length,1);
+ assert.equal(u.calls.filter(([,a])=>a?.action==='save').length,2);assert.equal(u.el('feedback').textContent,files.nl[1]);
 });
-test('a successful Code paste still closes normally; notice never blocks paste',async()=>{
- const u=dialog({capture:{pasted:true}});await flush();await u.modes[0].listeners.click();
- assert.ok(u.calls.some(([c,a])=>c==='screenshot_action'&&a.action==='close'));
+test('Save error does not fake success, discard the PNG or switch to paste',async()=>{
+ const u=dialog({save:new Error('Disk full')});await flush();await u.modes[0].listeners.click();
+ assert.equal(u.el('result').hidden,false);assert.match(u.el('feedback').textContent,/Disk full/);assert.equal(u.el('feedback').dataset.kind,'error');assert.equal(u.el('paste').hidden,true);
+ u.setSave({});await u.el('save-file').listeners.click();assert.equal(u.el('feedback').dataset.kind,'error');
 });
-test('a real failure replaces the advisory without duplicate warnings or losing the screenshot',async()=>{
- const u=dialog({capture:{copied:true,dataUrl:'data:image/png;base64,AAAA',width:100,height:120,pasteError:'Bijlage niet bevestigd'}});
- await flush();await u.modes[0].listeners.click();
- assert.equal(u.el('feedback').textContent,'Bijlage niet bevestigd');assert.equal(u.el('feedback').dataset.kind,'error');
- assert.equal(u.el('code-hint').textContent,hints.nl);assert.equal(u.el('code-hint').hidden,true);assert.equal(u.el('image').src,'data:image/png;base64,AAAA');
+test('cancelled selection never opens Save or pastes',async()=>{
+ const u=dialog({capture:{cancelled:true}});await flush();await u.modes[2].listeners.click();assert.ok(!u.calls.some(([,a])=>['save','paste'].includes(a?.action)));assert.equal(u.el('result').hidden,true);
 });
-test('language and page changes update the advisory without resetting PNG, paste checkbox or feedback',async()=>{
- const u=dialog();await flush();u.el('auto-paste').checked=false;u.el('image').src='existing-png';u.el('feedback').textContent='existing-feedback';
- u.update({settings:{language:'de'}});await u.timers[0]();assert.equal(u.el('code-hint').textContent,hints.de);
- u.update({screenshot_code_context:false});await u.timers[0]();assert.equal(u.el('code-hint').hidden,true);
- assert.equal(u.el('auto-paste').checked,false);assert.equal(u.el('image').src,'existing-png');assert.equal(u.el('feedback').textContent,'existing-feedback');
+for(const mode of ['chat','work'])test(`${mode} keeps the accepted auto-paste and copy-only paths`,async()=>{
+ for(const auto of [true,false]){const u=dialog({mode});await flush();assert.equal(u.el('file-option').hidden,true);assert.equal(u.el('auto-choice').hidden,false);
+ u.el('auto-paste').checked=auto;await u.modes[0].listeners.click();assert.equal(u.calls.find(([c])=>c==='capture_screenshot')[1].paste,auto);assert.ok(!u.calls.some(([,a])=>a?.action==='save'));}
+ const u=dialog({mode,capture:{pasted:true}});await flush();await u.modes[0].listeners.click();assert.ok(u.calls.some(([,a])=>a?.action==='close'));
 });
-test('all 34 hint languages render, with no key or English fallback',async()=>{
- assert.deepEqual(Object.keys(hints).sort(),Object.keys(languages).sort());
- for(const language of Object.keys(languages)){assert.ok(hints[language]?.trim(),language);const u=dialog({language});await flush();assert.equal(u.el('code-hint').textContent,hints[language]);}
+test('unrecognized mode still offers the file option without breaking ordinary paste',async()=>{
+ for(const mode of [undefined,null,'unknown']){const u=dialog({mode:mode||'unknown'});await flush();assert.equal(u.el('file-option').hidden,false);assert.equal(u.el('as-file').disabled,false);
+ u.el('as-file').checked=true;u.el('as-file').listeners.change();await u.modes[1].listeners.click();assert.equal(u.calls.find(([c])=>c==='capture_screenshot')[1].paste,false);assert.ok(u.calls.some(([,a])=>a?.action==='save'));}
+ const u=dialog({mode:'unknown'});await flush();await u.modes[0].listeners.click();assert.equal(u.calls.find(([c])=>c==='capture_screenshot')[1].paste,true);
 });
-test('advisory data is read-only and does not add a native permission or page-wide paste guard',()=>{
- assert.match(read('src-tauri/src/main.rs'),/webview\.label\(\) == "screenshot" && screenshot_dialog::code_context/);
- const source=read('src-tauri/src/paste_composer.js');assert.doesNotMatch(source,/return fail\('code-editor'\)/);
- assert.match(read('frontend/screenshot.html'),/id="code-hint" role="status" aria-live="polite">/);
+test('mode changed to Code after opening is rechecked at capture, with no URL dependency',async()=>{
+ const u=dialog({mode:'chat'});await flush();u.update({screenshot_mode:'code'});await u.modes[0].listeners.click();assert.equal(u.calls.find(([c])=>c==='capture_screenshot')[1].paste,false);assert.ok(u.calls.some(([,a])=>a?.action==='save'));
 });
-
-test('an absent, pending or unrecognized mode does not silently hide the Code note',async()=>{
- for(const code of [null,'unknown',true]){const u=dialog({code});await flush();assert.equal(u.el('code-hint').hidden,false);assert.ok(!u.calls.some(([c])=>c==='capture_screenshot'));}
- const u=dialog();u.update({screenshot_code_context:undefined});await flush();assert.equal(u.el('code-hint').hidden,false);
+test('Code result never invokes a hidden manual paste action',async()=>{
+ const u=dialog();await flush();await u.modes[0].listeners.click();await u.el('paste').listeners.click();assert.ok(!u.calls.some(([,a])=>a?.action==='paste'));
 });
-test('the initial HTML includes the Code note before any native response',()=>{
- const html=read('frontend/screenshot.html');assert.match(html,/<div id="code-hint"[^>]*>Pasting in Code/);
- assert.doesNotMatch(html,/<div id="code-hint"[^>]*hidden/);
+test('file result and user choices survive language/mode refresh without a second save',async()=>{
+ const u=dialog({mode:'unknown'});await flush();u.el('auto-paste').checked=false;u.el('as-file').checked=true;u.el('as-file').listeners.change();await u.modes[0].listeners.click();
+ u.update({settings:{language:'de'},screenshot_mode:'chat'});await u.timers[0]();assert.equal(u.el('code-hint').textContent,hints.de);assert.equal(u.el('feedback').textContent,files.de[1]);assert.equal(u.el('image').src,'data:image/png;base64,AAAA');assert.equal(u.el('auto-paste').checked,false);assert.equal(u.el('save-file').hidden,false);
+ assert.equal(u.calls.filter(([,a])=>a?.action==='save').length,1);
+});
+test('all 34 languages include option, exact image/text explanation and share-separately success',async()=>{
+ assert.deepEqual(Object.keys(hints).sort(),Object.keys(languages).sort());assert.deepEqual(Object.keys(files).sort(),Object.keys(languages).sort());
+ for(const language of Object.keys(languages)){assert.ok(hints[language]?.trim());assert.equal(files[language].length,2);assert.ok(files[language].every(s=>s.trim()));assert.match(hints[language],/app.py/);assert.match(hints[language],/index.js/);assert.match(hints[language],/PNG/);const u=dialog({language});await flush();assert.equal(u.el('code-hint').textContent,hints[language]);}
+});
+test('initial HTML includes a real file option and explanation, not a may-fail notice',()=>{
+ const html=read('frontend/screenshot.html');assert.match(html,/id="as-file"/);assert.match(html,/Screenshot as file/);assert.match(html,/binary data/);assert.doesNotMatch(html,/Pasting in Code may fail/);
+ assert.doesNotMatch(read('src-tauri/src/paste_composer.js'),/return fail\('code-editor'\)/);
 });
