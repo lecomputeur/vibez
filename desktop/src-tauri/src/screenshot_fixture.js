@@ -5,6 +5,18 @@
   for(const el of document.body.querySelectorAll('[style]')){const style=el.getAttribute('style');el.removeAttribute('style');el.style.cssText=style;}
   const canvas=document.getElementById('shot-canvas'),c=canvas.getContext('2d');c.fillStyle='rgb(160,40,190)';c.fillRect(0,0,100,80);
   const meta=document.createElement('meta');meta.setAttribute('data-vibez-test-csp','');meta.httpEquiv='Content-Security-Policy';meta.content="default-src 'none'; style-src 'self'; img-src 'self'; script-src 'self'";document.head.append(meta);
+  // The coordinate-based UI regression fixture represents a known Chat mode.
+  // Make that state explicit in its actual controls. The separate native mode
+  // tests use /, /code, /work etc. and install their own selected/unknown state.
+  if(/(?:^|\/)offline\.html$/.test(location.pathname)){
+    const modes=document.createElement('div');modes.setAttribute('role','tablist');
+    modes.style.cssText='position:fixed;right:10px;top:5px;z-index:30';
+    for(const mode of ['Chat','Work','Code']){
+      const button=document.createElement('button');button.textContent=mode;
+      button.setAttribute('role','tab');button.setAttribute('aria-selected',String(mode==='Chat'));modes.append(button);
+    }
+    document.body.append(modes);
+  }
 })();
 (() => {
   window.__shotPasteEvents=[];
