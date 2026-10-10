@@ -8,6 +8,11 @@ static BUSY:AtomicBool=AtomicBool::new(false);
 static CANCEL:AtomicBool=AtomicBool::new(false);
 #[derive(Default)]
 struct State {phase:&'static str,release:Option<Release>,received:u64,total:u64,error:String,ready:Option<(PathBuf,Asset)>}
+impl State {
+    fn begin_check(&mut self) {
+        *self = Self { phase: "checking", ..Default::default() };
+    }
+}
 fn state()->&'static Mutex<State>{static S:OnceLock<Mutex<State>>=OnceLock::new();S.get_or_init(||Mutex::new(State{phase:"idle",..Default::default()}))}
 struct Guard;impl Drop for Guard{fn drop(&mut self){BUSY.store(false,Ordering::SeqCst);}}
 #[cfg(target_os="windows")]
@@ -22,6 +27,18 @@ pub fn snapshot()->Result<Value,String>{
         "fileName":s.ready.as_ref().map(|(_,a)|&a.name),"current":env!("CARGO_PKG_VERSION"),"busy":BUSY.load(Ordering::SeqCst)}))
 }
 fn set_phase(phase:&'static str){if let Ok(mut s)=state().lock(){s.phase=phase;s.error.clear();}}
+#[cfg(test)] mod state_tests {
+    use super::*;
+    #[test] fn new_check_discards_old_release_and_download_state() {
+        let mut s=State {phase:"error",release:Some(Release {version:"3.0.4".into(),assets:vec![]}),
+            received:100,total:200,error:"Old download error".into(),ready:None};
+        s.begin_check();
+        assert_eq!(s.phase,"checking");assert!(s.release.is_none());assert!(s.ready.is_none());
+        assert_eq!((s.received,s.total),(0,0));assert!(s.error.is_empty());
+        // Discovery errors retain no stale assets, so the UI offers a new check.
+        s.phase="error";s.error="Metadata failed".into();assert!(s.release.is_none());
+    }
+}
 pub async fn show(app:&AppHandle)->Result<(),String>{
     if let Some(w)=app.get_webview_window("updates"){w.show().map_err(err)?;return w.set_focus().map_err(err);}
     let window=WebviewWindowBuilder::new(app,"updates",WebviewUrl::App("updates.html".into()))
@@ -49,7 +66,7 @@ pub fn check(app:AppHandle,manual:bool){
         let already_ready=state().lock().map(|s|s.phase=="ready").unwrap_or(false);
         if already_ready{if manual{let _=show(&app).await;}return;}
         if store_packaged(){set_phase("store");if manual{let _=show(&app).await;}return;}
-        set_phase("checking");if manual{let _=show(&app).await;}
+        if let Ok(mut s)=state().lock(){s.begin_check();}if manual{let _=show(&app).await;}
         match update_download::discover().await{
             Ok(Some(release)) if semver::Version::parse(&release.version).ok()>semver::Version::parse(env!("CARGO_PKG_VERSION")).ok()=>{
                 if let Ok(mut s)=state().lock(){s.phase="available";s.release=Some(release);s.received=0;s.total=0;}
@@ -86,9 +103,17 @@ pub async fn action(app:&AppHandle,action:&str,name:Option<String>)->Result<Valu
         "reveal"|"open"=>{
             if store_packaged()||BUSY.load(Ordering::SeqCst){return Err("Update cannot be opened now".into());}
             let(path,asset)=state().lock().map_err(err)?.ready.clone().ok_or("No verified download")?;
-            let p=path.clone();tauri::async_runtime::spawn_blocking(move||update_download::verify_file(&p,&asset)).await.map_err(err)??;
+            let p=path.clone();let checked=asset.clone();tauri::async_runtime::spawn_blocking(move||update_download::verify_file(&p,&checked)).await.map_err(err)??;
             // No command arguments, elevation, silent flags, profile deletion, or restart.
-            if action=="open"{app.opener().open_path(path.to_string_lossy().into_owned(),None::<&str>).map_err(err)?;}
+            if action=="open"{
+                #[cfg(target_os="linux")]
+                if asset.kind=="AppImage" {
+                    update_download::prepare_appimage(&path)?;
+                    std::process::Command::new(&path).spawn().map_err(err)?;
+                    return snapshot();
+                }
+                app.opener().open_path(path.to_string_lossy().into_owned(),None::<&str>).map_err(err)?;
+            }
             else{app.opener().reveal_item_in_dir(&path).map_err(err)?;}
         },
         _=>return Err("Unsupported update action".into()),

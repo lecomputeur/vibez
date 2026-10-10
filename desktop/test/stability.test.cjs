@@ -26,7 +26,7 @@ function environment(b, opts = {}) {
       translations: { nl: { updateStarted: 'Updatecontrole gestart.' }, en: { updateStarted: 'Update check started.' } } },
       localize(){}, resolve: (s, os) => s === 'system' ? os.split('-')[0] : s, extra: k => k, errorText: e => String(e), currentLanguage: () => 'nl',
       invoke: async (command, args) => {
-        if (command === 'get_state') { if (held) { const h = held; held = null; return h.promise; } return snapshot(b); }
+        if (command === 'get_state') { if (opts.initialStateError) { opts.initialStateError = false; throw Error('temporary state failure'); } if (held) { const h = held; held = null; return h.promise; } return snapshot(b); }
         if (command === 'get_diagnostics') { if (opts.diagnosticsError) throw Error('diagnostics offline'); return 'diagnostics'; }
         if (command === 'show_screenshot' || command === 'capture_screenshot') { captureCalls.push(structuredClone(args)); if(opts.captureError)throw Error('capture failed'); return true; }
         if (command === 'save_settings') {
@@ -84,6 +84,28 @@ test('settings refresh follows new untouched fields but keeps a dirty field', as
   panel.get('zoom').value = '1.25'; b.settings.language = 'en'; ++b.revision;
   await panel.intervals[0]();
   assert.equal(panel.get('language').value, 'en'); assert.equal(panel.get('zoom').value, '1.25');
+});
+test('successful polling after an initial failure enables saving', async () => {
+  const b = backend(), panel = environment(b, {initialStateError:true});
+  await panel.run(settings);
+  assert.equal(panel.get('save').disabled, true);
+  await panel.intervals[0]();
+  assert.equal(panel.get('save').disabled, false);
+  panel.get('zoom').value = '1.25';
+  await panel.get('preferences').listeners.submit({preventDefault(){}});
+  assert.equal(b.settings.zoom_factor, 1.25);
+});
+test('conflict refresh preserves independent edits and rebases the next save', async () => {
+  const b = backend(), panel = environment(b); await panel.run(settings);
+  panel.get('language').value = 'de'; panel.get('zoom').value = '1.25';
+  b.settings.language = 'en'; ++b.revision;
+  await panel.get('preferences').listeners.submit({preventDefault(){}});
+  assert.equal(panel.get('language').value, 'en');
+  assert.equal(panel.get('zoom').value, '1.25');
+  assert.equal(b.settings.zoom_factor, 1);
+  await panel.get('preferences').listeners.submit({preventDefault(){}});
+  assert.deepEqual(panel.calls[1], {patch:{zoom_factor:1.25},expected:{zoom_factor:1}});
+  assert.equal(b.settings.language, 'en'); assert.equal(b.settings.zoom_factor, 1.25);
 });
 test('automatic update preference is editable and Check now invokes the native checker', async () => {
   const b = backend(), panel = environment(b); await panel.run(settings); await flush();

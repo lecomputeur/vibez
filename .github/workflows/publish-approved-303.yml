@@ -1,8 +1,5 @@
 name: Publish approved VibeZ 3.0.3
 on:
-  push:
-    branches: [main]
-    paths: ['.github/workflows/publish-approved-303.yml', 'tools/release-v3/release-proof.json']
   workflow_dispatch:
 permissions:
   contents: read

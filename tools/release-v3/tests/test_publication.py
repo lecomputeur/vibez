@@ -2,11 +2,14 @@ import contextlib
 import hashlib
 import importlib.util
 import io
+import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[3]
+os.environ.setdefault('VIBEZ_RELEASE_VERSION', json.loads((ROOT / 'desktop/package.json').read_text())['version'])
 spec = importlib.util.spec_from_file_location('verify_assets', ROOT / 'tools/release-v3/verify-published-assets.py')
 verify = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(verify)
