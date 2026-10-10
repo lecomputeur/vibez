@@ -5,7 +5,25 @@ use crate::{PreviewState, policy::TOOLBAR_HEIGHT};
 fn evaluate(view: &tauri::Webview, js: &str) -> Result<String, String> {
     let (tx,rx) = mpsc::channel();
     view.eval_with_callback(js, move |result| { let _ = tx.send(result); }).map_err(crate::err)?;
-    rx.recv_timeout(Duration::from_secs(5)).map_err(crate::err)
+    rx.recv_timeout(Duration::from_secs(5)).map_err(|error| format!("Offline evaluation in {} ({js}): {error}", view.label()))
+}
+fn wait_popup_document(view: &tauri::Webview) -> Result<(), String> {
+    let deadline = Instant::now() + Duration::from_secs(12);
+    // Wry/WebKitGTK queues scripts before the first document commit without
+    // retaining eval callbacks. Retry only this read, never window.open/close
+    // or the IPC permission probe. Require the fixture, not initial about:blank.
+    let script = "document.readyState === 'complete' && document.title === 'Offline test content (not Mistral)'";
+    loop {
+        let observed = match evaluate(view, script) {
+            Ok(value) if value == "true" => return Ok(()),
+            Ok(value) => value,
+            Err(error) => error,
+        };
+        if Instant::now() >= deadline {
+            return Err(format!("Popup document {} did not become ready: {observed}", view.label()));
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
 }
 fn check_layout(app: &AppHandle) -> Result<(), String> {
     let window = app.get_window("main").ok_or("Missing main window")?;
@@ -65,8 +83,8 @@ fn popup_checks(app: &AppHandle) -> Result<(), String> {
                 else { "location.href='tauri://localhost/offline.html';" };
             popup_view.eval(target).map_err(crate::err)?;
         }
-        thread::sleep(Duration::from_millis(600));
         let popup_view = app.get_webview(popup.label()).ok_or("Missing popup view")?;
+        wait_popup_document(&popup_view)?;
         if view.url().map_err(crate::err)? != initial { return Err("Popup replaced the main page".into()); }
         if crate::require_local(&popup_view).is_ok() { return Err("Popup was granted native command access".into()); }
         if !evaluate(&popup_view, "Boolean(window.opener)")?.contains("true") { return Err("Popup lost window.opener".into()); }
@@ -84,8 +102,8 @@ fn popup_checks(app: &AppHandle) -> Result<(), String> {
             if Instant::now() > nested_deadline { return Err("Nested OAuth popup did not open".into()); }
             thread::sleep(Duration::from_millis(100));
         };
-        thread::sleep(Duration::from_millis(400));
         let nested_view = app.get_webview(nested.label()).ok_or("Missing nested popup view")?;
+        wait_popup_document(&nested_view)?;
         if !evaluate(&nested_view, "Boolean(window.opener)")?.contains("true") { return Err("Nested popup lost window.opener".into()); }
         if crate::require_local(&nested_view).is_ok() { return Err("Nested popup was granted native command access".into()); }
         nested_view.eval("window.__probe='pending'; if(window.__TAURI__){window.__TAURI__.core.invoke('get_state').then(()=>window.__probe='UNSAFE',()=>window.__probe='denied');}else{window.__probe='denied';}").map_err(crate::err)?;

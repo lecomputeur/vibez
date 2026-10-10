@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Fixed
+- Wait for loaded popup documents in native integration checks instead of fixed delays, avoiding dropped WebKitGTK evaluation callbacks during startup.
 - Preserve independent unsaved settings when another window changes a conflicting preference, and re-enable saving after a temporary initial state failure.
 - Clear stale release and download information before retrying an update check.
 - Make verified Linux AppImage downloads executable only when the user explicitly opens them.
