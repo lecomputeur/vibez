@@ -55,13 +55,13 @@ jobs:
           PY
           if gh release view v3.0.4 --repo "$GITHUB_REPOSITORY" --json tagName,targetCommitish,isDraft,isPrerelease > /tmp/release.json 2>/tmp/release-error; then
             python3 - <<'PY'
-            import json,os
-            r=json.load(open('/tmp/release.json'))
-            assert r['tagName']=='v3.0.4' and not r['isPrerelease']
-            assert r['targetCommitish']==os.environ['SOURCE']
-            with open(os.environ['GITHUB_OUTPUT'],'a') as out:
-                out.write(f"public={str(not r['isDraft']).lower()}\nexists=true\n")
-            PY
+          import json,os
+          r=json.load(open('/tmp/release.json'))
+          assert r['tagName']=='v3.0.4' and not r['isPrerelease']
+          assert r['targetCommitish']==os.environ['SOURCE']
+          with open(os.environ['GITHUB_OUTPUT'],'a') as out:
+              out.write(f"public={str(not r['isDraft']).lower()}\nexists=true\n")
+          PY
           else
             grep -Fx 'release not found' /tmp/release-error
             echo 'public=false' >> "$GITHUB_OUTPUT"
