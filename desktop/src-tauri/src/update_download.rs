@@ -87,6 +87,12 @@ pub fn verify_file(path:&Path,asset:&Asset)->Result<(),String>{
     loop{let n=file.read(&mut buf).map_err(err)?;if n==0{break;}count+=n as u64;if count>asset.size{return Err("Update grew during validation".into());}hasher.update(&buf[..n]);}
     verify_count_hash(count,&format!("{:x}",hasher.finalize()),asset)
 }
+// Called only after verification and the user's explicit Open action.
+#[cfg(target_os="linux")]
+pub fn prepare_appimage(path:&Path)->Result<(),String>{
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::set_permissions(path,std::fs::Permissions::from_mode(0o700)).map_err(err)
+}
 pub async fn download<F:Fn(u64)>(root:&Path,asset:&Asset,cancel:&AtomicBool,progress:F)->Result<PathBuf,String>{
     let parsed=url::Url::parse(&asset.url).map_err(err)?;
     if !allowed_download_url(&parsed)||asset.name.contains(['/', '\\'])||asset.name.contains("..")||asset.size==0||asset.size>MAX_PACKAGE{return Err("Invalid update asset".into());}
@@ -125,6 +131,20 @@ pub async fn download<F:Fn(u64)>(root:&Path,asset:&Asset,cancel:&AtomicBool,prog
 }
 #[cfg(test)] mod tests{
     use super::*;
+    #[cfg(target_os="linux")]
+    #[test] fn appimage_open_permissions_are_private_and_executable() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir=std::env::temp_dir().join(format!("vibez-appimage-test-{}",std::process::id()));
+        std::fs::create_dir(&dir).unwrap();let path=dir.join("test.AppImage");
+        std::fs::write(&path,b"#!/bin/sh\nexit 0\n").unwrap();
+        std::fs::set_permissions(&path,std::fs::Permissions::from_mode(0o600)).unwrap();
+        assert!(std::process::Command::new(&path).status().is_err());
+        prepare_appimage(&path).unwrap();
+        assert_eq!(std::fs::metadata(&path).unwrap().permissions().mode()&0o777,0o700);
+        assert!(std::process::Command::new(&path).status().unwrap().success());
+        assert_eq!(std::fs::read(&path).unwrap(),b"#!/bin/sh\nexit 0\n");
+        std::fs::remove_dir_all(dir).unwrap();
+    }
     fn fixture()->Value{serde_json::json!({"draft":false,"prerelease":false,"tag_name":"v3.0.4","assets":[{"state":"uploaded","name":"VibeZ-3.0.4-Windows-x64-Setup.exe","size":3,"digest":format!("sha256:{}","a".repeat(64)),"browser_download_url":"https://github.com/lecomputeur/vibez/releases/download/v3.0.4/VibeZ-3.0.4-Windows-x64-Setup.exe"}]})}
     #[test] fn no_preview_or_wrong_channel_or_unknown_hash(){
         assert!(candidate(&fixture(),"Windows-x64").is_some());assert!(candidate(&fixture(),"macOS-arm64").is_none());

@@ -22,7 +22,7 @@ test('the new update commands are generated and only local controls have access'
  const manifest=read('src-tauri/build.rs');for(const name of ['check_for_updates','update_state','update_action'])assert.ok(manifest.includes('"'+name+'"'),name);
  assert.ok(JSON.parse(read('src-tauri/capabilities/local-shell.json')).permissions.includes('allow-check-for-updates'));
  const cap=JSON.parse(read('src-tauri/capabilities/local-updates.json'));assert.deepEqual(cap.webviews,['updates']);assert.equal(cap.local,true);assert.equal(cap.remote,undefined);assert.ok(!cap.permissions.some(p=>/shell:|fs:|http:/.test(p)));
- assert.match(read('src-tauri/src/release_updates.rs'),/verify_file\(&p,&asset\)/);
+ assert.match(read('src-tauri/src/release_updates.rs'),/verify_file\(&p,&checked\)/);
 });
 test('update availability shows a clear download action without auto installation',async()=>{
  const u=ui('available');await flush();assert.equal(u.el('download').hidden,false);assert.equal(u.el('open').hidden,true);assert.match(u.el('status').textContent,/nieuwe versie/);
@@ -47,6 +47,15 @@ test('a received paste event alone is not an attachment confirmation',()=>{
  assert.match(source,/receipt\["attached"\]==true/);assert.match(source,/confirmed\(&view/);
  const js=read('src-tauri/src/paste_file_input.js');new vm.Script(js);assert.doesNotMatch(js,/\.submit\(|requestSubmit|fetch\(|\.click\(|__TAURI__|invoke\(/);
  const observer=read('src-tauri/src/paste_composer.js');assert.match(observer,/initial\.get\(el\)===signature\(el\)/);assert.match(observer,/site-alert/);
+});
+test('metadata check failure offers Check again without stale download choices',async()=>{
+ const u=ui('available');await flush();
+ u.set({phase:'checking',release:null,received:0,total:0});await u.timers[0]();
+ assert.equal(u.el('download').hidden,true);
+ u.set({phase:'error',error:'Metadata request failed'});await u.timers[0]();
+ assert.equal(u.el('retry').hidden,false);assert.equal(u.el('download').hidden,true);
+ assert.equal(u.el('package').hidden,true);assert.match(u.el('error').textContent,/Metadata/);
+ u.el('retry').listeners.click();await flush();assert.ok(u.calls.some(c=>c[1]?.action==='check'));
 });
 
 test('native action failure stays visible after status refresh',async()=>{

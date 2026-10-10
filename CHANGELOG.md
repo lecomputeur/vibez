@@ -10,6 +10,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+- Preserve independent unsaved settings when another window changes a conflicting preference, and re-enable saving after a temporary initial state failure.
+- Clear stale release and download information before retrying an update check.
+- Make verified Linux AppImage downloads executable only when the user explicitly opens them.
+
 ## [2.0.2] - 2026-09-30
 
 ### Fixed

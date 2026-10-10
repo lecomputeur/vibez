@@ -8,18 +8,21 @@
     for (const [key, [id, prop]] of Object.entries(fields)) result[key] = $(id)[prop];
     result.zoom_factor = Number(result.zoom_factor); return result;
   }
-  function accept(incoming, force = false) {
+  function accept(incoming, force = false, reconcile = false) {
     if (state && incoming.revision < state.revision) return;
     const edited = state ? values() : {};
     for (const [key, [id, prop]] of Object.entries(fields)) {
-      if (force || !state || edited[key] === baseline[key]) {
+      const conflict = reconcile && incoming.settings[key] !== baseline[key] && incoming.settings[key] !== edited[key];
+      if (force || !state || edited[key] === baseline[key] || conflict) {
         $(id)[prop] = prop === 'value' ? String(incoming.settings[key]) : incoming.settings[key];
         baseline[key] = incoming.settings[key];
       }
+      if (reconcile) baseline[key] = incoming.settings[key];
     }
     state = incoming; preview.localize(state);
     $('version').textContent = `v${state.version} · Rust / Tauri`;
     $('close-to-tray').disabled = saving || !state.tray_ready;
+    $('save').disabled = saving;
   }
   async function refresh(force = false) {
     if (polling || saving) return;
@@ -73,7 +76,7 @@
       $('close-to-tray').disabled = !state.tray_ready;
     }
     if (conflict) {
-      try { accept(await preview.invoke('get_state'), true); }
+      try { accept(await preview.invoke('get_state'), false, true); }
       catch (error) { $('result').textContent = preview.errorText(error); }
     }
   });
