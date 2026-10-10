@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Canonical v3 names; fail closed when any requested format is absent."""
 from pathlib import Path
-import json, shutil, sys, hashlib, subprocess, re
+import json, shutil, sys, hashlib, subprocess, re, io, tarfile
 ROOT=Path(__file__).resolve().parents[2]; DESK=ROOT/'desktop'; OUT=ROOT/'release-assets';OUT.mkdir(exist_ok=True)
 v=json.loads((DESK/'package.json').read_text())['version']; assert re.fullmatch(r'3\.\d+\.\d+',v)
 platform=sys.argv[1]
@@ -17,6 +17,12 @@ if platform=='linux':
     values=subprocess.check_output(['dpkg-deb','-f',str(deb),'Package','Version','Architecture'],text=True)
     assert 'vibe-z-3' in values and v in values and 'amd64' in values,values
     (OUT/'linux-package.txt').write_text(values)
+    control=subprocess.check_output(['dpkg-deb','--ctrl-tarfile',str(deb)])
+    with tarfile.open(fileobj=io.BytesIO(control)) as archive:
+        preinst=archive.extractfile(next(m for m in archive.getmembers() if m.name.lstrip('./')=='preinst')).read()
+    assert preinst==(DESK/'src-tauri/linux/preinst.sh').read_bytes(),'DEB is missing the exact installer shutdown hook'
+    rpm=next(OUT.glob('*.rpm'))
+    assert "installed='/usr/bin/vibez3'" in subprocess.check_output(['rpm','-qp','--scripts',str(rpm)],text=True),'RPM is missing the installer shutdown hook'
     app=next(OUT.glob('*.AppImage'));app.chmod(0o755)
     temp=ROOT/'appimage-check';temp.mkdir(exist_ok=True)
     subprocess.run([str(app),'--appimage-extract'],cwd=temp,check=True,stdout=subprocess.DEVNULL)

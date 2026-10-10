@@ -101,18 +101,13 @@ pub async fn action(app:&AppHandle,action:&str,name:Option<String>)->Result<Valu
             });
         },
         "reveal"|"open"=>{
-            if store_packaged()||BUSY.load(Ordering::SeqCst){return Err("Update cannot be opened now".into());}
+            if store_packaged(){return Err("Microsoft Store manages this installation".into());}
+            if BUSY.swap(true,Ordering::SeqCst){return Err("Update cannot be opened now".into());}
+            let _guard=Guard;
             let(path,asset)=state().lock().map_err(err)?.ready.clone().ok_or("No verified download")?;
             let p=path.clone();let checked=asset.clone();tauri::async_runtime::spawn_blocking(move||update_download::verify_file(&p,&checked)).await.map_err(err)??;
-            // No command arguments, elevation, silent flags, profile deletion, or restart.
             if action=="open"{
-                #[cfg(target_os="linux")]
-                if asset.kind=="AppImage" {
-                    update_download::prepare_appimage(&path)?;
-                    std::process::Command::new(&path).spawn().map_err(err)?;
-                    return snapshot();
-                }
-                app.opener().open_path(path.to_string_lossy().into_owned(),None::<&str>).map_err(err)?;
+                crate::update_install::open(app,&path,&asset)?;
             }
             else{app.opener().reveal_item_in_dir(&path).map_err(err)?;}
         },

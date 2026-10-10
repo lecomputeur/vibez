@@ -20,6 +20,7 @@ mod desktop_ui;
 mod screenshots;
 mod screenshot_dialog;
 mod update_download;
+mod update_install;
 #[path = "release_updates.rs"]
 mod preview_updates;
 
@@ -240,6 +241,11 @@ async fn get_diagnostics(webview: Webview, app: AppHandle) -> Result<String, Str
 }
 fn create_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> { desktop_ui::create_tray(app) }
 fn main() {
+    #[cfg(target_os = "linux")]
+    if let Some(result) = update_install::appimage::run_helper() {
+        if let Err(error) = result { eprintln!("Update handoff failed: {error}"); std::process::exit(1); }
+        return;
+    }
     if std::env::args().any(|a| a == "--version") { println!("{}", title()); return; }
     let link_probe_only = std::env::args().any(|a| a == "--link-probe-only");
     let icon_probe = std::env::args().any(|a| a == "--icon-smoke-test");

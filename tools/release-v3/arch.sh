@@ -3,6 +3,11 @@ set -euo pipefail
 mkdir -p arch-stage release-assets
 version="$(python3 -c 'import json; print(json.load(open("desktop/package.json"))["version"])')"
 cp release-assets/*Linux-x64.deb arch-stage/app.deb
+{
+  printf 'pre_upgrade() { (\nset -- upgrade\n'
+  cat desktop/src-tauri/linux/preinst.sh
+  printf '\n); }\npre_install() { pre_upgrade install; }\n'
+} > arch-stage/vibez3.install
 # A real Pacman package, not a renamed Debian archive.
 docker run --rm -e VIBEZ_PACKAGE_VERSION="$version" -v "$PWD/arch-stage:/work" archlinux:base-devel bash -eu -c '
  pacman -Syu --noconfirm --needed libarchive zstd
@@ -18,6 +23,7 @@ pkgdesc="VibeZ 3 — Rust/Tauri client for Mistral Vibe"
 arch=(x86_64)
 url="https://github.com/lecomputeur/vibez"
 license=(MIT)
+install=vibez3.install
 depends=(gtk3 webkit2gtk-4.1 libayatana-appindicator xdg-desktop-portal)
 options=(!strip !debug)
 package() { cp -a "$startdir/payload/usr" "$pkgdir/"; }

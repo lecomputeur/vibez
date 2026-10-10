@@ -36,6 +36,14 @@ test('ready state offers separate explicit open and show-file actions',async()=>
  const u=ui('ready');await flush();assert.equal(u.el('open').hidden,false);assert.equal(u.el('reveal').hidden,false);assert.ok(!u.calls.some(c=>c[1]?.action==='open'));
  u.el('open').listeners.click();await flush();assert.ok(u.calls.some(c=>c[1]?.action==='open'));
 });
+test('verified updates explain automatic shutdown and Show file only reveals the download',async()=>{
+ assert.match(labels.en[5],/closes automatically/);
+ assert.match(labels.nl[5],/sluit automatisch af/);
+ const u=ui('ready');await flush();
+ u.el('reveal').listeners.click();await flush();
+ assert.ok(u.calls.some(c=>c[1]?.action==='reveal'));
+ assert.ok(!u.calls.some(c=>c[1]?.action==='open'));
+});
 test('Store updates do not show a GitHub download button',async()=>{
  const u=ui('store');await flush();assert.equal(u.el('download').hidden,true);assert.equal(u.el('store').hidden,false);assert.match(u.el('status').textContent,/Microsoft Store/);
 });
