@@ -9,15 +9,15 @@ def command(*args):return subprocess.check_output(args,cwd=ROOT,text=True).strip
 def verify():
     proof=json.loads((ROOT/'tools/release-v3/release-proof.json').read_text())
     source=proof['source'];head=proof['workflow_head'];run_id=proof['run_id']
-    assert proof['version']=='3.0.4'
+    assert proof['version']=='3.0.5'
     assert re.fullmatch(r'[0-9a-f]{40}',source) and re.fullmatch(r'[0-9a-f]{40}',head)
     assert type(run_id) is int and run_id>0
     assert os.environ.get('GITHUB_REPOSITORY',REPO)==REPO
     run=json.loads(command('gh','api',f'repos/{REPO}/actions/runs/{run_id}'))
     assert run['repository']['full_name']==REPO and run['head_sha']==head
     assert head==source, 'Validation must build its immutable event commit'
-    assert run['path']=='.github/workflows/v3.0.4-validation.yml'
-    assert run['head_branch']=='release/v3.0.4-validation'
+    assert run['path']=='.github/workflows/v3.0.5-validation.yml'
+    assert run['head_branch']=='fix/install-and-close'
     assert run['status']=='completed' and run['conclusion']=='success'
     jobs=json.loads(command('gh','api',f'repos/{REPO}/actions/runs/{run_id}/jobs?per_page=100'))['jobs']
     assert len(jobs)==9 and {j['name'] for j in jobs}==NAMES
@@ -28,7 +28,7 @@ def verify():
     # Application code, tests, dependencies and all native packaging inputs stay frozen.
     command('git','diff','--exit-code',source,'HEAD','--',
             'desktop','icon.png','shell.css','i18n.js','locales','tools/release-v3',
-            '.github/workflows/v3.0.4-validation.yml',
+            '.github/workflows/v3.0.5-validation.yml',
             ':(exclude)desktop/README.md',
             ':(exclude)tools/release-v3/release-proof.json',
             ':(exclude)tools/release-v3/verify-release-proof.py',

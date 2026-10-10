@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.0.5 — 2026-10-10
+
+Small fixes and stability improvements. VibeZ closes automatically when starting an update installer. Linux package upgrades close the installed app before replacing files, and AppImage updates replace the original file and wait for the old instance to exit.
+
 ## 3.0.4 — 2026-10-10
 
 Small fixes and stability improvements for Linux, Windows and macOS.
