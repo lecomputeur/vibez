@@ -1,8 +1,8 @@
 {
   "name": "vibez3",
-  "version": "3.0.4",
+  "version": "3.0.5",
   "private": true,
-  "description": "VibeZ 3 — Rust/Tauri desktop client for Mistral Vibe",
+  "description": "VibeZ 3 \u2014 Rust/Tauri desktop client for Mistral Vibe",
   "scripts": {
     "prepare:assets": "node scripts/prepare.cjs",
     "test": "node --test test/*.test.cjs",

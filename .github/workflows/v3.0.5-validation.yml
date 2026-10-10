@@ -1,0 +1,325 @@
+name: VibeZ 3.0.5 — all formats validation
+on:
+  push:
+    branches: ['fix/install-and-close']
+    paths: ['desktop/**', 'tools/release-v3/**', '.github/workflows/v3.0.5-validation.yml', '!tools/release-v3/release-proof.json']
+  workflow_dispatch:
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+concurrency:
+  group: vibez-305-validation-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  source:
+    name: Track v3 source and freeze dependencies
+    runs-on: ubuntu-24.04
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+      rust: ${{ steps.source.outputs.rust }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Verify immutable 3.0.5 build inputs
+        id: source
+        run: |
+          test "$GITHUB_REF" = refs/heads/fix/install-and-close
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          python3 - <<'PYCODE'
+          import json, pathlib, tomllib
+          expected = '3.0.5'
+          for name in ['desktop/package.json', 'desktop/package-lock.json', 'desktop/src-tauri/tauri.conf.json']:
+              assert json.loads(pathlib.Path(name).read_text())['version'] == expected, name
+          assert tomllib.loads(pathlib.Path('desktop/src-tauri/Cargo.toml').read_text())['package']['version'] == expected
+          assert next(p for p in tomllib.loads(pathlib.Path('desktop/src-tauri/Cargo.lock').read_text())['package'] if p['name'] == 'vibez3')['version'] == expected
+          PYCODE
+          git diff --exit-code
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "rust=$(sed -n 's/^channel = "\(.*\)"/\1/p' desktop/rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
+          git archive --format=tar.gz HEAD > "$RUNNER_TEMP/v3-source.tar.gz"
+          git rev-parse HEAD > "$RUNNER_TEMP/source-commit.txt"
+      - uses: actions/upload-artifact@v5
+        with:
+          name: v3-source
+          path: |
+            ${{ runner.temp }}/v3-source.tar.gz
+            ${{ runner.temp }}/source-commit.txt
+  audit:
+    name: Dependency security gate
+    needs: source
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.source.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: rustup toolchain install '${{ needs.source.outputs.rust }}' --profile minimal
+      - name: JavaScript and Rust advisories
+        working-directory: desktop
+        run: |
+          npm ci --ignore-scripts
+          npm audit --audit-level=high
+          cargo install cargo-audit --version 0.22.2 --locked
+          cargo audit --file src-tauri/Cargo.lock
+  linux:
+    name: Linux — AppImage, DEB and RPM
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      CARGO_BUILD_JOBS: 2
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      WEBKIT_DISABLE_DMABUF_RENDERER: '1'
+      APPIMAGE_EXTRACT_AND_RUN: '1'
+      NO_STRIP: '1'
+      VIBEZ_CI_UPDATE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      VIBEZ_SCREENSHOT_ARTIFACT_DIR: '${{ github.workspace }}/desktop/artifacts/native-pixels'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.source.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Native build and test dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf rpm libfuse2t64 xvfb openbox dbus-x11 imagemagick desktop-file-utils python3-gi python3-gi-cairo python3-pil python3-xlib gir1.2-gtk-3.0 gstreamer1.0-tools gstreamer1.0-plugins-good gstreamer1.0-plugins-base gstreamer1.0-plugins-bad libgdk-pixbuf2.0-bin squashfs-tools zsync xdg-utils xdotool xserver-xorg-core xserver-xorg-video-dummy x11-xserver-utils > /tmp/dependencies.log 2>&1 || { tail -80 /tmp/dependencies.log; exit 1; }
+          rustup toolchain install '${{ needs.source.outputs.rust }}' --profile minimal
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+          key: vibez-v3-linux
+          cache-on-failure: true
+      - name: Frontend and Rust tests
+        working-directory: desktop
+        run: |
+          mkdir -p artifacts
+          npm ci --ignore-scripts
+          npm test 2>&1 | tee artifacts/frontend.log
+          cargo test --release --locked --manifest-path src-tauri/Cargo.toml 2>&1 | tee artifacts/rust.log
+      - name: Package native DEB and RPM
+        working-directory: desktop
+        run: npm run build -- --bundles deb,rpm -- --locked 2>&1 | tee artifacts/build.log
+      - name: Installer shutdown and AppImage replacement regression
+        run: python3 desktop/tests/update-install.py desktop/src-tauri/target/release/vibez3 2>&1 | tee desktop/artifacts/update-install.log
+      - name: Native history, language, layout and installed icon tests
+        run: bash tools/release-v3/linux-smoke.sh 2>&1 | tee desktop/artifacts/native.log
+      - name: Screenshot, actual paste and two-monitor regression
+        run: |
+          bash desktop/tests/screenshot-e2e.sh 2>&1 | tee desktop/artifacts/screenshot-e2e.log
+          bash desktop/tests/screenshot-monitors.sh 2>&1 | tee desktop/artifacts/monitors.log
+      - name: Package standalone AppImage
+        working-directory: desktop
+        run: npm run build -- --verbose --bundles appimage -- --locked 2>&1 | tee artifacts/appimage.log
+      - name: Inspect and name installable packages
+        run: python3 tools/release-v3/collect.py linux
+      - uses: actions/upload-artifact@v5
+        with:
+          name: v3-linux
+          path: release-assets/*
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: v3-linux-validation
+          path: desktop/artifacts/
+          if-no-files-found: warn
+  arch:
+    name: Linux — Arch/Pacman
+    needs: [source, linux]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.source.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v5
+        with:
+          name: v3-linux
+          path: release-assets
+      - run: bash tools/release-v3/arch.sh
+      - uses: actions/upload-artifact@v5
+        with:
+          name: v3-arch
+          path: release-assets/*.pkg.tar.zst
+          if-no-files-found: error
+  flatpak:
+    name: Linux — Flatpak
+    needs: [source, linux]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.source.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v5
+        with:
+          name: v3-linux
+          path: release-assets
+      - name: Install Flatpak tools and runtime
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y flathub org.gnome.Platform//50 org.gnome.Sdk//50
+      - run: python3 tools/release-v3/flatpak.py
+      - uses: actions/upload-artifact@v5
+        with:
+          name: v3-flatpak
+          path: release-assets/*.flatpak
+          if-no-files-found: error
+  windows:
+    name: Windows — EXE, MSI and Store MSIX
+    needs: source
+    runs-on: windows-2025
+    timeout-minutes: 45
+    env:
+      VIBEZ_CI_UPDATE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      VIBEZ_SCREENSHOT_ARTIFACT_DIR: '${{ github.workspace }}/desktop/artifacts/native-pixels'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.source.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: rustup toolchain install '${{ needs.source.outputs.rust }}' --profile minimal
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+          key: vibez-v3-windows
+          cache-on-failure: true
+      - name: Test and build native Windows app
+        working-directory: desktop
+        run: |
+          mkdir -p artifacts
+          npm ci --ignore-scripts
+          npm test 2>&1 | tee artifacts/frontend.log
+          cargo test --release --locked --manifest-path src-tauri/Cargo.toml 2>&1 | tee artifacts/rust.log
+          npm run build -- --bundles nsis,msi -- --locked 2>&1 | tee artifacts/build.log
+      - name: Validate Windows desktop-selector compilation
+        shell: pwsh
+        run: |
+          $source = Get-Content desktop/src-tauri/src/screenshot_screen_windows.ps1 -Raw
+          $source = $source.Replace('[Console]::Write([VibeZScreenSelection]::Select())', '[Console]::Write("WINDOWS_SELECTOR_COMPILED")')
+          $script = Join-Path $env:RUNNER_TEMP selector-check.ps1
+          Set-Content $script $source
+          & powershell.exe -NoProfile -NonInteractive -STA -File $script
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Actual WebView2 capture, image paste, history and popup tests
+        run: python tools/release-v3/native-smoke.py desktop/src-tauri/target/release/vibez3.exe desktop/artifacts/native.log
+      - name: Build approved-identity Store package without submitting it
+        shell: pwsh
+        run: ./desktop/scripts/build-store.ps1 -OutputDirectory "$PWD/release-assets"
+      - run: python tools/release-v3/collect.py windows
+      - uses: actions/upload-artifact@v5
+        with:
+          name: v3-windows
+          path: release-assets/*
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: v3-windows-validation
+          path: desktop/artifacts/
+          if-no-files-found: warn
+  macos:
+    name: macOS — ${{ matrix.arch }} signed DMG and ZIP
+    needs: source
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15-intel
+            arch: x64
+          - runner: macos-15
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 110
+    env:
+      VIBEZ_CI_UPDATE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      VIBEZ_SCREENSHOT_ARTIFACT_DIR: '${{ github.workspace }}/desktop/artifacts/native-pixels'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.source.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: rustup toolchain install '${{ needs.source.outputs.rust }}' --profile minimal
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+          key: vibez-v3-macos-${{ matrix.arch }}
+          cache-on-failure: true
+      - name: Test and build WKWebView application
+        working-directory: desktop
+        run: |
+          mkdir -p artifacts
+          npm ci --ignore-scripts
+          npm test 2>&1 | tee artifacts/frontend.log
+          cargo test --release --locked --manifest-path src-tauri/Cargo.toml 2>&1 | tee artifacts/rust.log
+          npm run build -- --bundles app --no-sign -- --locked 2>&1 | tee artifacts/build.log
+      - name: Actual WKWebView capture, paste, history, language and window tests
+        env:
+          RUST_BACKTRACE: '1'
+        run: python3 tools/release-v3/native-smoke.py desktop/src-tauri/target/release/vibez3 desktop/artifacts/native.log
+      - name: Developer ID signing, notarization and DMG creation
+        env:
+          MAC_CERTIFICATE_P12_BASE64: ${{ secrets.MAC_CERTIFICATE_P12_BASE64 }}
+          MAC_CERTIFICATE_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+          APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: bash tools/release-v3/sign-macos.sh '${{ matrix.arch }}'
+      - uses: actions/upload-artifact@v5
+        with:
+          name: v3-macos-${{ matrix.arch }}
+          path: release-assets/*
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: v3-macos-${{ matrix.arch }}-validation
+          path: desktop/artifacts/
+          if-no-files-found: warn
+  release-gate:
+    name: All twelve formats and checksums verified
+    needs: [source, audit, linux, arch, flatpak, windows, macos]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.source.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: v3-*
+          path: downloads
+      - name: Collect all twelve required deliverables
+        run: |
+          mkdir -p release-assets
+          find downloads -type f -name 'VibeZ-3.0.5-*' -exec cp '{}' release-assets/ \;
+          printf '%s\n' '${{ needs.source.outputs.sha }}' > release-assets/source-commit.txt
+          python3 tools/release-v3/collect.py all
+          VIBEZ_RELEASE_VERSION=3.0.5 VIBEZ_RELEASE_SOURCE='${{ needs.source.outputs.sha }}' python3 tools/release-v3/verify-published-assets.py release-assets
+      - name: Report build validation without publication
+        run: echo 'All twelve 3.0.5 packages, platform tests, dependency audit and macOS signing/notarization passed. No release or Store submission was created.' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v5
+        with:
+          name: v3-complete-release
+          path: release-assets/
+          if-no-files-found: error

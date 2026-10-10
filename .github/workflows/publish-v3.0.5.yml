@@ -1,11 +1,14 @@
-name: Publish verified VibeZ 3.0.4
+name: Publish verified VibeZ 3.0.5
 on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/publish-v3.0.5.yml', 'tools/release-v3/release-proof.json']
   workflow_dispatch:
 permissions:
   contents: read
   actions: read
 concurrency:
-  group: publish-verified-vibez-304
+  group: publish-verified-vibez-305
   cancel-in-progress: false
 defaults:
   run:
@@ -19,7 +22,7 @@ jobs:
       actions: read
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      VIBEZ_RELEASE_VERSION: '3.0.4'
+      VIBEZ_RELEASE_VERSION: '3.0.5'
     steps:
       - uses: actions/checkout@v5
         with:
@@ -48,13 +51,13 @@ jobs:
           import json,re
           latest=json.load(open('/tmp/latest.json'))
           match=re.fullmatch(r'v(\d+)\.(\d+)\.(\d+)',latest['tag_name'])
-          assert match and tuple(map(int,match.groups()))<=(3,0,4), 'A newer release is already Latest'
+          assert match and tuple(map(int,match.groups()))<=(3,0,5), 'A newer release is already Latest'
           PY
-          if gh release view v3.0.4 --repo "$GITHUB_REPOSITORY" --json tagName,targetCommitish,isDraft,isPrerelease > /tmp/release.json 2>/tmp/release-error; then
+          if gh release view v3.0.5 --repo "$GITHUB_REPOSITORY" --json tagName,targetCommitish,isDraft,isPrerelease > /tmp/release.json 2>/tmp/release-error; then
             python3 - <<'PY'
           import json,os
           r=json.load(open('/tmp/release.json'))
-          assert r['tagName']=='v3.0.4' and not r['isPrerelease']
+          assert r['tagName']=='v3.0.5' and not r['isPrerelease']
           assert r['targetCommitish']==os.environ['SOURCE']
           with open(os.environ['GITHUB_OUTPUT'],'a') as out:
               out.write(f"public={str(not r['isDraft']).lower()}\nexists=true\n")
@@ -64,8 +67,8 @@ jobs:
             echo 'public=false' >> "$GITHUB_OUTPUT"
             echo 'exists=false' >> "$GITHUB_OUTPUT"
           fi
-          if git show-ref --verify --quiet refs/tags/v3.0.4; then
-            test "$(git rev-parse 'v3.0.4^{commit}')" = "$SOURCE"
+          if git show-ref --verify --quiet refs/tags/v3.0.5; then
+            test "$(git rev-parse 'v3.0.5^{commit}')" = "$SOURCE"
           fi
       - name: Preserve archived Electron update compatibility
         if: steps.state.outputs.public != 'true'
@@ -82,28 +85,28 @@ jobs:
           EXISTS: ${{ steps.state.outputs.exists }}
         run: |
           if [ "$EXISTS" != true ]; then
-            gh release create v3.0.4 --repo "$GITHUB_REPOSITORY" --target "$SOURCE" --draft --title 'VibeZ 3.0.4 — Small fixes and stability improvements' --notes-file V3-RELEASE.md
+            gh release create v3.0.5 --repo "$GITHUB_REPOSITORY" --target "$SOURCE" --draft --title 'VibeZ 3.0.5 — Small fixes and stability improvements' --notes-file V3-RELEASE.md
           fi
-          gh release upload v3.0.4 verified-assets/* legacy-feed/latest.yml legacy-feed/latest-linux.yml legacy-feed/latest-mac.yml --clobber --repo "$GITHUB_REPOSITORY"
+          gh release upload v3.0.5 verified-assets/* legacy-feed/latest.yml legacy-feed/latest-linux.yml legacy-feed/latest-mac.yml --clobber --repo "$GITHUB_REPOSITORY"
       - name: Verify uploaded packages before publication
         run: |
-          gh release download v3.0.4 --repo "$GITHUB_REPOSITORY" --dir uploaded-assets --pattern 'VibeZ-3.0.4-*' --pattern SHA256SUMS --pattern source-commit.txt
+          gh release download v3.0.5 --repo "$GITHUB_REPOSITORY" --dir uploaded-assets --pattern 'VibeZ-3.0.5-*' --pattern SHA256SUMS --pattern source-commit.txt
           VIBEZ_RELEASE_SOURCE="$SOURCE" python3 tools/release-v3/verify-published-assets.py uploaded-assets
           diff verified-assets/SHA256SUMS uploaded-assets/SHA256SUMS
-          gh release view v3.0.4 --repo "$GITHUB_REPOSITORY" --json assets > /tmp/assets.json
+          gh release view v3.0.5 --repo "$GITHUB_REPOSITORY" --json assets > /tmp/assets.json
           python3 - <<'PY'
           import json,pathlib
           expected={p.name for p in pathlib.Path('verified-assets').iterdir()} | {'latest.yml','latest-linux.yml','latest-mac.yml'}
           assets=json.load(open('/tmp/assets.json'))['assets']
           assert len(assets)==len(expected) and {a['name'] for a in assets}==expected
           PY
-      - name: Publish VibeZ 3.0.4 as Latest
+      - name: Publish VibeZ 3.0.5 as Latest
         if: steps.state.outputs.public != 'true'
         run: |
-          gh release edit v3.0.4 --repo "$GITHUB_REPOSITORY" --target "$SOURCE" --draft=false --latest --title 'VibeZ 3.0.4 — Small fixes and stability improvements' --notes-file V3-RELEASE.md
-          test "$(gh api repos/$GITHUB_REPOSITORY/releases/latest --jq .tag_name)" = v3.0.4
-          test "$(gh api repos/$GITHUB_REPOSITORY/git/ref/tags/v3.0.4 --jq .object.sha)" = "$SOURCE"
-          echo 'VibeZ 3.0.4 is public and Latest. All twelve packages match the validated immutable source. Store package and listing text are ready for separate Partner Center submission.' >> "$GITHUB_STEP_SUMMARY"
+          gh release edit v3.0.5 --repo "$GITHUB_REPOSITORY" --target "$SOURCE" --draft=false --latest --title 'VibeZ 3.0.5 — Small fixes and stability improvements' --notes-file V3-RELEASE.md
+          test "$(gh api repos/$GITHUB_REPOSITORY/releases/latest --jq .tag_name)" = v3.0.5
+          test "$(gh api repos/$GITHUB_REPOSITORY/git/ref/tags/v3.0.5 --jq .object.sha)" = "$SOURCE"
+          echo 'VibeZ 3.0.5 is public and Latest. All twelve packages match the validated immutable source. Store package and listing text are ready for separate Partner Center submission.' >> "$GITHUB_STEP_SUMMARY"
       - name: Report verified existing release
         if: steps.state.outputs.public == 'true'
-        run: echo 'VibeZ 3.0.4 is already public; source and every package checksum verified.' >> "$GITHUB_STEP_SUMMARY"
+        run: echo 'VibeZ 3.0.5 is already public; source and every package checksum verified.' >> "$GITHUB_STEP_SUMMARY"
