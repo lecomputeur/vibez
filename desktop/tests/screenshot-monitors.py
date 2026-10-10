@@ -1,11 +1,13 @@
 """Real two-output X11 regression: chooser placement, manual move, cancel, paste."""
-import os, time, subprocess, json, base64, io
+import os, time, subprocess, json, base64, io, re
 from pathlib import Path
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk
 from PIL import Image
 OUT = Path(os.environ['SHOT_OUTPUT'])
+CONFIG=json.loads((Path(__file__).resolve().parents[1]/'src-tauri/tauri.conf.json').read_text())
+MAIN_TITLE='^'+re.escape(f"{CONFIG['productName']} v{CONFIG['version']}")+'$'
 clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
 def xd(*args):
     return subprocess.check_output(['xdotool', *map(str, args)], text=True, stderr=subprocess.DEVNULL).strip()
@@ -82,7 +84,7 @@ try:
         r=display.get_monitor(i).get_geometry();monitors.append([r.x,r.y,r.width,r.height])
     (OUT/'gdk-monitors.json').write_text(json.dumps(monitors))
     assert sorted(r[0] for r in monitors)==[0,1280],monitors
-    main=window('VibeZ 3 v3.0.3');sleep(4)
+    main=window(MAIN_TITLE);sleep(4)
     # The previous generic center() opened on the primary (left) output here.
     move_main(main,1400);dialog=open_chooser(main,50)
     d=check_monitor(main,dialog,'right-nonprimary-first-open')

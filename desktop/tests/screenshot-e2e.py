@@ -1,11 +1,13 @@
 """Actual toolbar -> capture -> native WebKit paste -> file received by composer."""
-import os,time,subprocess,json,base64,io
+import os,time,subprocess,json,base64,io,re
 from pathlib import Path
 import gi
 gi.require_version('Gtk','3.0')
 from gi.repository import Gtk,Gdk
 from PIL import Image
 S=int(os.environ.get('GDK_SCALE','1'));OUT=Path(os.environ['SHOT_OUTPUT']);OUT.mkdir(parents=True,exist_ok=True)
+CONFIG=json.loads((Path(__file__).resolve().parents[1]/'src-tauri/tauri.conf.json').read_text())
+MAIN_TITLE='^'+re.escape(f"{CONFIG['productName']} v{CONFIG['version']}")+'$'
 def xd(*args):return subprocess.check_output(['xdotool',*map(str,args)],stderr=subprocess.DEVNULL,text=True).strip()
 def pump():
     while Gtk.events_pending():Gtk.main_iteration_do(False)
@@ -94,7 +96,7 @@ def start_capture(main,mode,copy_only=False):
         window('^VibeZ screen selection$');sleep(.4);xd('mousemove','--window',main,224*S,178*S);xd('mousedown',1)
         xd('mousemove','--sync','--window',main,104*S,78*S);xd('mouseup',1)
 try:
-    main=window('VibeZ 3 v3.0.3');sleep(4);n=0
+    main=window(MAIN_TITLE);sleep(4);n=0
     for mode in ['visible','full','selection']:
         start_capture(main,mode);im=await_png(mode+'.png');n+=1;await_paste(n,im,mode)
         assert count(im,(230,30,40))>5000,(mode,'red missing',im.size)
