@@ -1,5 +1,6 @@
 node_modules/
 dist/
+__pycache__/
 
 # Local Electron Builder output
 .electron-builder/

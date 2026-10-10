@@ -3,6 +3,8 @@
 from pathlib import Path
 import json
 import subprocess
+import os
+from datetime import date
 
 APP = 'nl.lecomputeur.vibez3'
 SHARED_REVISION = 'cb9ec602a1ece1c76d5a4f8aa1d87c4a6bf99c3e'
@@ -32,6 +34,8 @@ def fix_cmake_libdirs(module):
 
 def main():
     root = Path.cwd()
+    expected_version = json.loads((root / 'desktop/package.json').read_text())['version']
+    release_date = date.fromisoformat(os.environ.get('VIBEZ_RELEASE_DATE', '2026-10-10')).isoformat()
     out = root / 'release-assets'
     stage = root / 'flatpak-stage'
     stage.mkdir(exist_ok=True)
@@ -55,7 +59,7 @@ def main():
         f'[Desktop Entry]\nName=VibeZ 3\nType=Application\nExec=vibez3\nIcon={APP}\n'
         f'Terminal=false\nCategories=Development;\nStartupWMClass={APP}\n')
     (stage / 'metainfo.xml').write_text(f'''<?xml version="1.0" encoding="UTF-8"?>
-<component type="desktop-application"><id>{APP}</id><metadata_license>CC0-1.0</metadata_license><project_license>MIT</project_license><name>VibeZ 3</name><summary>Desktop client for Mistral Vibe</summary><description><p>A dedicated Rust/Tauri desktop window for Mistral Vibe, with language selection and screenshot tools.</p></description><launchable type="desktop-id">{APP}.desktop</launchable><url type="homepage">https://github.com/lecomputeur/vibez</url><releases><release version="3.0.3" date="2026-10-09"/></releases><content_rating type="oars-1.1"/></component>''')
+<component type="desktop-application"><id>{APP}</id><metadata_license>CC0-1.0</metadata_license><project_license>MIT</project_license><name>VibeZ 3</name><summary>Desktop client for Mistral Vibe</summary><description><p>A dedicated Rust/Tauri desktop window for Mistral Vibe, with language selection and screenshot tools.</p></description><launchable type="desktop-id">{APP}.desktop</launchable><url type="homepage">https://github.com/lecomputeur/vibez</url><releases><release version="{expected_version}" date="{release_date}"/></releases><content_rating type="oars-1.1"/></component>''')
     manifest = {
         'app-id': APP, 'runtime': 'org.gnome.Platform', 'runtime-version': '50',
         'sdk': 'org.gnome.Sdk', 'command': 'vibez3',
@@ -80,10 +84,10 @@ def main():
                     '--repo=repo', 'build', f'{APP}.json'], cwd=stage, check=True)
     version = subprocess.check_output(['flatpak', 'run', APP, '--version'], text=True)
     print(version, end='')
-    if '3.0.3' not in version:
-        raise SystemExit('Installed Flatpak does not report version 3.0.3')
+    if version.strip() != f'VibeZ 3 v{expected_version}':
+        raise SystemExit(f'Installed Flatpak does not report version {expected_version}: {version}')
     subprocess.run(['flatpak', 'build-bundle', 'repo',
-                    str(out / 'VibeZ-3.0.3-Linux-x64.flatpak'), APP,
+                    str(out / f'VibeZ-{expected_version}-Linux-x64.flatpak'), APP,
                     '--runtime-repo=https://flathub.org/repo/flathub.flatpakrepo'],
                    cwd=stage, check=True)
 

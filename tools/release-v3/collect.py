@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Canonical v3 names; fail closed when any requested format is absent."""
 from pathlib import Path
-import json, shutil, sys, hashlib, subprocess
+import json, shutil, sys, hashlib, subprocess, re
 ROOT=Path(__file__).resolve().parents[2]; DESK=ROOT/'desktop'; OUT=ROOT/'release-assets';OUT.mkdir(exist_ok=True)
-v=json.loads((DESK/'package.json').read_text())['version']; assert v=='3.0.3'
+v=json.loads((DESK/'package.json').read_text())['version']; assert re.fullmatch(r'3\.\d+\.\d+',v)
 platform=sys.argv[1]
 patterns={'linux': [('deb','deb'),('rpm','rpm'),('appimage','AppImage')], 'windows':[('nsis','exe'),('msi','msi')]}
 for folder,ext in patterns.get(platform,[]):
