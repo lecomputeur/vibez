@@ -2,7 +2,7 @@
 
 Rust/Tauri 3.0.6 source for Linux AppImage/DEB/RPM/Arch/Flatpak, Windows EXE/MSI/MSIX and macOS Intel/Apple Silicon app/DMG/ZIP.
 
-The `vibe/linux-scroll-306-7c3e91` branch runs `.github/workflows/v3.0.6-validation.yml` against one immutable source commit. It requires all platform tests, dependency auditing, all twelve packages and macOS signing/notarization. After all gates pass, the packages will be published in the [VibeZ 3.0.6 release](https://github.com/lecomputeur/vibez/releases/tag/v3.0.6). Publication checks the exact tested source and package checksums. Microsoft Store submission and certification remain separate.
+The `vibe/linux-scroll-306-7c3e91` branch runs `.github/workflows/v3.0.6-validation.yml` against one immutable source commit. All platform tests, dependency auditing, all twelve packages and macOS signing/notarization passed in the [verified build](https://github.com/lecomputeur/vibez/actions/runs/38454538226). The packages are published in the [VibeZ 3.0.6 release](https://github.com/lecomputeur/vibez/releases/tag/v3.0.6). Publication checks the exact tested source and package checksums. Microsoft Store submission and certification remain separate.
 
 App identity: `nl.lecomputeur.vibez3`. Existing Electron and preview profiles are not silently copied or deleted. See ../V3-RELEASE.md for compatibility and release gates.
 
