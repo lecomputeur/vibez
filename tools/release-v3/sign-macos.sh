@@ -17,6 +17,27 @@ for env,name in [('MAC_CERTIFICATE_P12_BASE64','v3-cert.p12'),('APPLE_API_KEY_P8
 PY
 keychain="$RUNNER_TEMP/v3-signing.keychain-db"
 password="$(openssl rand -hex 24)"
+staple_and_validate() {
+  local staple_target="$1" staple_attempt staple_status staple_log
+  for staple_attempt in 1 2 3; do
+    staple_log="$RUNNER_TEMP/v3-stapler-$arch-$staple_attempt.log"
+    if xcrun stapler staple "$staple_target" > "$staple_log" 2>&1; then
+      cat "$staple_log"
+      xcrun stapler validate "$staple_target" || return $?
+      return 0
+    else
+      staple_status=$?
+      cat "$staple_log"
+    fi
+    # Retry only the observed CloudKit connection loss. A missing approval,
+    # invalid signature or failed validation must still stop publication.
+    if [ "$staple_status" -ne 68 ] || ! grep -Fq 'The network connection was lost.' "$staple_log" || [ "$staple_attempt" -eq 3 ]; then
+      return "$staple_status"
+    fi
+    printf '%s\n' 'STAPLER_RETRY: transient Apple connection loss; retrying in 20 seconds'
+    sleep 20
+  done
+}
 # Preserve the runner's search list, adding only this job's temporary keychain.
 # Merely passing -k during import does not make the identity discoverable to
 # subsequent Security.framework operations on every runner image.
@@ -61,7 +82,7 @@ ditto -c -k --sequesterRsrc --keepParent "$app" "$zip"
 printf '%s\n' 'SIGNING_STAGE: notarize application'
 xcrun notarytool submit "$zip" --key "$RUNNER_TEMP/v3-notary.p8" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER" --wait --timeout 40m --output-format json > "release-assets/notary-app-$arch.json"
 python3 -c 'import json,sys; assert json.load(open(sys.argv[1]))["status"] == "Accepted"' "release-assets/notary-app-$arch.json"
-xcrun stapler staple "$app";xcrun stapler validate "$app"
+staple_and_validate "$app"
 spctl --assess --type execute --verbose=4 "$app"
 rm "$zip";ditto -c -k --sequesterRsrc --keepParent "$app" "$zip"
 stage="$RUNNER_TEMP/v3-dmg";mkdir -p "$stage";ditto "$app" "$stage/VibeZ 3.app";ln -s /Applications "$stage/Applications"
@@ -71,5 +92,5 @@ codesign --force --timestamp --keychain "$keychain" --sign "$identity" "$dmg"
 printf '%s\n' 'SIGNING_STAGE: notarize disk image'
 xcrun notarytool submit "$dmg" --key "$RUNNER_TEMP/v3-notary.p8" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER" --wait --timeout 40m --output-format json > "release-assets/notary-dmg-$arch.json"
 python3 -c 'import json,sys; assert json.load(open(sys.argv[1]))["status"] == "Accepted"' "release-assets/notary-dmg-$arch.json"
-xcrun stapler staple "$dmg";xcrun stapler validate "$dmg"
+staple_and_validate "$dmg"
 printf '%s\n' 'SIGNING_OK: Developer ID, notarization and stapled tickets verified'

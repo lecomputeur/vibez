@@ -7,7 +7,7 @@ from gi.repository import Gtk,Gdk
 from PIL import Image
 S=int(os.environ.get('GDK_SCALE','1'));OUT=Path(os.environ['SHOT_OUTPUT']);OUT.mkdir(parents=True,exist_ok=True)
 CONFIG=json.loads((Path(__file__).resolve().parents[1]/'src-tauri/tauri.conf.json').read_text())
-MAIN_TITLE='^'+re.escape(f"{CONFIG['productName']} v{CONFIG['version']}")+'$'
+MAIN_TITLE='^'+re.escape(f"VibeZ V{CONFIG['version']}")+'$'
 def xd(*args):return subprocess.check_output(['xdotool',*map(str,args)],stderr=subprocess.DEVNULL,text=True).strip()
 def pump():
     while Gtk.events_pending():Gtk.main_iteration_do(False)

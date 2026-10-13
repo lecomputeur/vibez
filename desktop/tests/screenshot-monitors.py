@@ -7,7 +7,7 @@ from gi.repository import Gtk, Gdk
 from PIL import Image
 OUT = Path(os.environ['SHOT_OUTPUT'])
 CONFIG=json.loads((Path(__file__).resolve().parents[1]/'src-tauri/tauri.conf.json').read_text())
-MAIN_TITLE='^'+re.escape(f"{CONFIG['productName']} v{CONFIG['version']}")+'$'
+MAIN_TITLE='^'+re.escape(f"VibeZ V{CONFIG['version']}")+'$'
 clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
 def xd(*args):
     return subprocess.check_output(['xdotool', *map(str, args)], text=True, stderr=subprocess.DEVNULL).strip()
