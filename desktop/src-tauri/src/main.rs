@@ -32,7 +32,7 @@ use tauri::webview::{WebviewBuilder, NewWindowResponse, PermissionResponse};
 use tauri_plugin_autostart::ManagerExt as AutostartExt;
 use tauri_plugin_opener::OpenerExt;
 #[cfg(target_os = "linux")]
-use webkit2gtk::WebViewExt;
+use webkit2gtk::{SettingsExt, WebViewExt};
 
 struct PreviewState {
     settings: Mutex<Settings>,
@@ -49,7 +49,7 @@ struct PreviewState {
     auth_active: AtomicBool,
 }
 fn err(e: impl std::fmt::Display) -> String { e.to_string() }
-fn title() -> String { format!("{APP_NAME} v{}", env!("CARGO_PKG_VERSION")) }
+fn title() -> String { format!("VibeZ V{}", env!("CARGO_PKG_VERSION")) }
 fn require_local(webview: &Webview) -> Result<(), String> {
     if policy::trusted_caller(webview.label(), &webview.url().map_err(err)?) { Ok(()) }
     else { Err("Native commands are restricted to the bundled preview controls".into()) }
@@ -318,6 +318,14 @@ fn main() {
                     link_trace::record(if created { "main-popup-created" } else { "main-popup-not-created" }, &target); response
                 });
             let vibe = window.add_child(content, LogicalPosition::new(0., TOOLBAR_HEIGHT), LogicalSize::new(1280., 840. - TOOLBAR_HEIGHT))?;
+            #[cfg(target_os = "linux")]
+            vibe.with_webview(|platform| {
+                if let Some(settings) = platform.inner().settings() {
+                    // Native wheel animation repaints large conversations on
+                    // every frame. Keep wheel scrolling immediate on Linux.
+                    settings.set_enable_smooth_scrolling(false);
+                }
+            })?;
             auth::attach_errors(app.handle(), &vibe).map_err(std::io::Error::other)?;
             vibe.set_zoom(settings.zoom_factor)?;
             // Prepare language on a neutral page; no delayed redirect during OAuth.

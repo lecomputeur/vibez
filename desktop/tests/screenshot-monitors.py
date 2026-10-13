@@ -7,7 +7,8 @@ from gi.repository import Gtk, Gdk
 from PIL import Image
 OUT = Path(os.environ['SHOT_OUTPUT'])
 CONFIG=json.loads((Path(__file__).resolve().parents[1]/'src-tauri/tauri.conf.json').read_text())
-MAIN_TITLE='^'+re.escape(f"{CONFIG['productName']} v{CONFIG['version']}")+'$'
+MAIN_TITLE='^'+re.escape(f"VibeZ V{CONFIG['version']}")+'$'
+DIALOG_TITLE='^'+re.escape(f"VibeZ V{CONFIG['version']} · ")+'.*'
 clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
 def xd(*args):
     return subprocess.check_output(['xdotool', *map(str, args)], text=True, stderr=subprocess.DEVNULL).strip()
@@ -49,7 +50,7 @@ def open_chooser(main,other_x):
     y=(min(p[1] for p in orange)+max(p[1] for p in orange))//2
     # Move the pointer away too: this must be parent centering, not mouse placement.
     xd('mousemove',x,y,'click',1,'mousemove',other_x,50)
-    dialog=window('VibeZ · .*');sleep(.65)
+    dialog=window(DIALOG_TITLE);sleep(.65)
     return dialog
 
 def check_monitor(main,dialog,label):
@@ -102,7 +103,7 @@ try:
     # Returning from a cancelled desktop capture must not reopen on the other output.
     clipboard.set_text('monitor-test-sentinel',-1);sleep(.1)
     click(dialog,150,123);window('^VibeZ screen selection$');sleep(.25);key('Escape')
-    dialog=window('VibeZ · .*');sleep(.5)
+    dialog=window(DIALOG_TITLE);sleep(.5)
     check_monitor(main,dialog,'right-after-cancel')
     assert clipboard.wait_for_image() is None and not paste_events(),'Cancel captured or pasted'
     # Real screenshot and automatic paste on the second monitor, with exact pixels.

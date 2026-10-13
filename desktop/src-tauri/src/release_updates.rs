@@ -42,7 +42,7 @@ fn set_phase(phase:&'static str){if let Ok(mut s)=state().lock(){s.phase=phase;s
 pub async fn show(app:&AppHandle)->Result<(),String>{
     if let Some(w)=app.get_webview_window("updates"){w.show().map_err(err)?;return w.set_focus().map_err(err);}
     let window=WebviewWindowBuilder::new(app,"updates",WebviewUrl::App("updates.html".into()))
-        .title(format!("VibeZ · {}",desktop_ui::text(app,"updates")))
+        .title(format!("{} · {}",crate::title(),desktop_ui::text(app,"updates")))
         .inner_size(400.,300.).min_inner_size(340.,260.).visible(false).resizable(true)
         .data_directory(app.path().app_data_dir().map_err(err)?.join("controls"))
         .data_store_identifier([118,105,98,101,122,51,0,0,0,0,0,0,0,0,0,1])

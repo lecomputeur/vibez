@@ -84,7 +84,7 @@ def main():
                     '--repo=repo', 'build', f'{APP}.json'], cwd=stage, check=True)
     version = subprocess.check_output(['flatpak', 'run', APP, '--version'], text=True)
     print(version, end='')
-    if version.strip() != f'VibeZ 3 v{expected_version}':
+    if version.strip() != f'VibeZ V{expected_version}':
         raise SystemExit(f'Installed Flatpak does not report version {expected_version}: {version}')
     subprocess.run(['flatpak', 'build-bundle', 'repo',
                     str(out / f'VibeZ-{expected_version}-Linux-x64.flatpak'), APP,

@@ -33,7 +33,7 @@ PKG
  su builder -c "cd /work && makepkg --nodeps --noconfirm"
  pacman -Qip /work/*.pkg.tar.zst
  pacman -U --noconfirm /work/*.pkg.tar.zst
- test "$(vibez3 --version)" = "VibeZ 3 v$VIBEZ_PACKAGE_VERSION"
+ test "$(vibez3 --version)" = "VibeZ V$VIBEZ_PACKAGE_VERSION"
  if ldd /usr/bin/vibez3 | grep "not found"; then exit 1; fi
 '
 cp arch-stage/*.pkg.tar.zst "release-assets/VibeZ-$version-Linux-x64.pkg.tar.zst"

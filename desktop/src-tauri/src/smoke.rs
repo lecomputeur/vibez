@@ -44,7 +44,8 @@ fn check_layout(app: &AppHandle) -> Result<(), String> {
         || (sw-safe_width).abs()>2. || (sh-TOOLBAR_HEIGHT).abs()>2. {
         return Err(format!("Viewport mismatch: window={size:?}, content=({x},{y},{width},{height}), toolbar=({sx},{sy},{sw},{sh})"));
     }
-    if window.title().map_err(crate::err)? != crate::title() { return Err("Title does not match preview version".into()); }
+    if window.title().map_err(crate::err)? != crate::title() { return Err("Title does not match packaged version".into()); }
+    println!("TITLE_OK: {}", window.title().map_err(crate::err)?);
     println!("LAYOUT_OK: {}x{} content {}x{} at {},{}", size.width,size.height,width,height,x,y);
     Ok(())
 }
@@ -128,9 +129,25 @@ fn popup_checks(app: &AppHandle) -> Result<(), String> {
     }
     Ok(())
 }
+#[cfg(target_os = "linux")]
+fn check_native_scrolling(app: &AppHandle) -> Result<(), String> {
+    use webkit2gtk::{SettingsExt, WebViewExt};
+    let view = app.get_webview("vibe").ok_or("Missing content view")?;
+    let (tx, rx) = mpsc::channel();
+    view.with_webview(move |platform| {
+        let _ = tx.send(platform.inner().settings().map(|s| s.enables_smooth_scrolling()));
+    }).map_err(crate::err)?;
+    match rx.recv_timeout(Duration::from_secs(5)).map_err(crate::err)? {
+        Some(false) => { println!("SCROLLING_OK: native Linux smooth scrolling is disabled"); Ok(()) },
+        Some(true) => Err("Native Linux smooth scrolling is still enabled".into()),
+        None => Err("Content WebKit settings are unavailable".into()),
+    }
+}
 fn checks(app: &AppHandle) -> Result<(), String> {
     thread::sleep(Duration::from_secs(4));
     if !app.state::<PreviewState>().shell_ready.load(Ordering::Relaxed) { return Err("Bundled toolbar did not complete native IPC handshake".into()); }
+    #[cfg(target_os = "linux")]
+    check_native_scrolling(app)?;
     crate::desktop_ui::smoke_check(app)?;
     tauri::async_runtime::block_on(crate::site_language::smoke_check(app))?;
     tauri::async_runtime::block_on(crate::screenshots::smoke_check(app))?;
@@ -142,6 +159,8 @@ fn checks(app: &AppHandle) -> Result<(), String> {
     let probe = evaluate(&view, "window.__probe")?;
     if !probe.contains("denied") { return Err(format!("Untrusted content IPC was not rejected: {probe}")); }
     history_check(app)?;
+    #[cfg(target_os = "linux")]
+    check_native_scrolling(app)?;
     popup_checks(app)?;
     // No test-only layout repair: test the actual production popup cleanup.
     thread::sleep(Duration::from_millis(250)); check_layout(app)?;

@@ -14,7 +14,7 @@ for scale in 1 2; do
     pid=$!; sleep 6; import -window root "$PREVIEW_ARTIFACTS/native-$GDK_SCALE.png" || true; wait "$pid"
   ' || { cat "artifacts/native-$scale.log"; exit 1; }
   cat "artifacts/native-$scale.log"
-  for mark in SMOKE_OK: LANGUAGE_BOOTSTRAP_OK: HISTORY_OK: HIDDEN_OK: RELEASE_SCREENSHOT_OK: UPDATE_DOWNLOAD_OK:; do grep -F "$mark" "artifacts/native-$scale.log"; done
+  for mark in SCROLLING_OK: TITLE_OK: SMOKE_OK: LANGUAGE_BOOTSTRAP_OK: HISTORY_OK: HIDDEN_OK: RELEASE_SCREENSHOT_OK: UPDATE_DOWNLOAD_OK:; do grep -F "$mark" "artifacts/native-$scale.log"; done
   test "$(grep -c RESIZE_OK: "artifacts/native-$scale.log")" -ge 8
 done
 unset GDK_SCALE XDG_CONFIG_HOME XDG_DATA_HOME XDG_CACHE_HOME
