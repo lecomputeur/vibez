@@ -8,6 +8,7 @@ from PIL import Image
 S=int(os.environ.get('GDK_SCALE','1'));OUT=Path(os.environ['SHOT_OUTPUT']);OUT.mkdir(parents=True,exist_ok=True)
 CONFIG=json.loads((Path(__file__).resolve().parents[1]/'src-tauri/tauri.conf.json').read_text())
 MAIN_TITLE='^'+re.escape(f"VibeZ V{CONFIG['version']}")+'$'
+DIALOG_TITLE='^'+re.escape(f"VibeZ V{CONFIG['version']} · ")+'.*'
 def xd(*args):return subprocess.check_output(['xdotool',*map(str,args)],stderr=subprocess.DEVNULL,text=True).strip()
 def pump():
     while Gtk.events_pending():Gtk.main_iteration_do(False)
@@ -61,7 +62,7 @@ def await_paste(number,expected,name):
             # Never repeat capture/click here or count timeout as success.
             close_deadline=time.monotonic()+8
             while True:
-                try:remaining=xd('search','--name','^VibeZ · ').splitlines()
+                try:remaining=xd('search','--name',DIALOG_TITLE).splitlines()
                 except subprocess.CalledProcessError:remaining=[]
                 if not remaining:break
                 if time.monotonic()>=close_deadline:
@@ -82,7 +83,7 @@ def open_chooser(main):
             if r>180 and 65<bg<155 and b<90:pts.append((x,y))
     assert len(pts)>100,'Cannot find screenshot toolbar button'
     x=(min(p[0] for p in pts)+max(p[0] for p in pts))//2;y=(min(p[1] for p in pts)+max(p[1] for p in pts))//2
-    xd('mousemove',x,y);xd('click',1);w=window('VibeZ · .*');xd('mousemove','--window',w,25*S,25*S);sleep(1)
+    xd('mousemove',x,y);xd('click',1);w=window(DIALOG_TITLE);xd('mousemove','--window',w,25*S,25*S);sleep(1)
     # GTK imposes a 200px webview minimum even when 184px is requested.
     # Accept that native floor, not the old 340x290 dialog.
     d=geom(w);assert d['WIDTH']/S<=282 and d['HEIGHT']/S<=202,('Chooser oversized',d)
@@ -112,10 +113,10 @@ try:
     g=geom(main);click(main,320,g['HEIGHT']/S-50);key('ctrl+v');n+=1;await_paste(n,im,'manual-ctrl-v')
     # Deliberately unavailable composer must not lose the PNG or fake success.
     click(main,770,g['HEIGHT']/S-45);start_capture(main,'visible');im=await_png('no-composer.png')
-    window('VibeZ · .*');sleep(1);assert len(events())==n,'Pasted into read-only composer'
+    window(DIALOG_TITLE);sleep(1);assert len(events())==n,'Pasted into read-only composer'
     shot('no-composer-fallback.png');key('Escape');click(main,770,g['HEIGHT']/S-45)
     # Opt-out yields a small preview, retains clipboard and allows Save.
-    start_capture(main,'visible',copy_only=True);im=await_png('copy-only.png');dialog=window('VibeZ · .*');sleep(.5)
+    start_capture(main,'visible',copy_only=True);im=await_png('copy-only.png');dialog=window(DIALOG_TITLE);sleep(.5)
     assert len(events())==n,'Copy-only unexpectedly pasted';shot('copy-only-preview.png')
     # Copy has focus, Tab -> Save. Replace entire GTK filename including extension.
     key('Tab');key('Return');window('PNG opslaan|Save PNG');sleep(.4)
@@ -137,7 +138,7 @@ try:
     im=await_png('other-application.png');n+=1;await_paste(n,im,'other-application')
     assert im.size==(120,80) and count(im,(10,150,240))>8000,'Wrong desktop pixels';external.hide()
     dialog=open_chooser(main);clear_clip();click(dialog,150,123);window('^VibeZ screen selection$');key('Escape')
-    window('VibeZ · .*');sleep(.4);assert clipboard.wait_for_image() is None and len(events())==n,'Cancel pasted'
+    window(DIALOG_TITLE);sleep(.4);assert clipboard.wait_for_image() is None and len(events())==n,'Cancel pasted'
     key('Return');im=await_png('after-cancel.png');n+=1;await_paste(n,im,'after-cancel')
     # After another application replaces the clipboard, do not paste the old PNG.
     clear_clip();g=geom(main);click(main,320,g['HEIGHT']/S-50);key('ctrl+v');sleep(.5)
