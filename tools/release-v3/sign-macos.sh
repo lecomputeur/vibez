@@ -18,24 +18,25 @@ PY
 keychain="$RUNNER_TEMP/v3-signing.keychain-db"
 password="$(openssl rand -hex 24)"
 staple_and_validate() {
-  local staple_target="$1" staple_attempt staple_status staple_log
-  for staple_attempt in 1 2 3; do
+  local staple_target="$1" staple_attempt staple_status staple_log staple_delay
+  for staple_attempt in 1 2 3 4 5; do
     staple_log="$RUNNER_TEMP/v3-stapler-$arch-$staple_attempt.log"
-    if xcrun stapler staple "$staple_target" > "$staple_log" 2>&1; then
+    if xcrun stapler staple "$staple_target" > "$staple_log" 2>&1 &&
+       xcrun stapler validate "$staple_target" >> "$staple_log" 2>&1; then
       cat "$staple_log"
-      xcrun stapler validate "$staple_target" || return $?
       return 0
     else
       staple_status=$?
       cat "$staple_log"
     fi
-    # Retry only the observed CloudKit connection loss. A missing approval,
-    # invalid signature or failed validation must still stop publication.
-    if [ "$staple_status" -ne 68 ] || ! grep -Fq 'The network connection was lost.' "$staple_log" || [ "$staple_attempt" -eq 3 ]; then
+    # Both commands contact CloudKit. Retry only its observed connection loss;
+    # a missing approval, invalid signature or invalid ticket still fails.
+    if [ "$staple_status" -ne 68 ] || ! grep -Fq 'The network connection was lost.' "$staple_log" || [ "$staple_attempt" -eq 5 ]; then
       return "$staple_status"
     fi
-    printf '%s\n' 'STAPLER_RETRY: transient Apple connection loss; retrying in 20 seconds'
-    sleep 20
+    staple_delay=$((20 * (1 << (staple_attempt - 1))))
+    printf 'STAPLER_RETRY: transient Apple connection loss; retrying in %s seconds\n' "$staple_delay"
+    sleep "$staple_delay"
   done
 }
 # Preserve the runner's search list, adding only this job's temporary keychain.
