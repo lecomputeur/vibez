@@ -61,7 +61,7 @@ pub async fn open(app:&AppHandle)->Result<(),String> {
     let show_login=login_required(app).await;
     #[cfg(target_os="linux")] install_clipboard_bridge(app)?;
     let builder=WebviewWindowBuilder::new(app,"screenshot",WebviewUrl::App("screenshot.html".into()))
-        .title(format!("VibeZ · {}",desktop_ui::text(app,"screenshot")))
+        .title(format!("{} · {}",crate::title(),desktop_ui::text(app,"screenshot")))
         .inner_size(280.,184.).min_inner_size(280.,184.).resizable(false).maximizable(false)
         .data_directory(app.path().app_data_dir().map_err(err)?.join("controls"))
         .data_store_identifier([118,105,98,101,122,51,0,0,0,0,0,0,0,0,0,1])

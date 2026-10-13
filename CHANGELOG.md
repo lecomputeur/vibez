@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.6 — 2026-10-13
+
+- Use immediate native wheel scrolling on Linux to reduce animation overhead in long conversations. Applies to AppImage, DEB, RPM, Arch/Pacman and Flatpak; Windows and macOS scrolling behavior is unchanged.
+- Show `VibeZ V3.0.6` in the main window title on Linux, Windows and macOS, and retain the version in settings, update, screenshot and sign-in window titles.
+- Update release notes, download pages and Microsoft Store submission text for 3.0.6. Existing app identities, settings and profiles are retained.
+
 ## 3.0.5 — 2026-10-10
 
 Small fixes and stability improvements. VibeZ closes automatically when starting an update installer. Linux package upgrades close the installed app before replacing files, and AppImage updates replace the original file and wait for the old instance to exit.

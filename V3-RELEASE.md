@@ -1,11 +1,11 @@
-# VibeZ 3.0.5 — Small fixes and stability improvements
+# VibeZ 3.0.6 — Linux scrolling improvements and consistent window titles
 
-Small fixes and stability improvements for Linux, Windows and macOS.
+Linux now uses immediate wheel scrolling to reduce native animation overhead in long conversations. The adjustment applies to AppImage, DEB, RPM, Arch/Pacman and Flatpak. Page-controlled animations can still cause CPU activity.
 
-Open the downloaded installer inside VibeZ 3.0.5 and the app closes automatically so installation can continue. Linux DEB, RPM and Arch upgrades also close the running installed copy before replacing its files. AppImage updates replace the original file and start the new version after the old instance exits.
+Every platform shows **VibeZ V3.0.6** in the main window title. Settings, update, screenshot and sign-in windows also retain the current version. Windows and macOS scrolling behavior is unchanged.
 
-All twelve download formats are available, including signed, notarized and stapled macOS packages. Downloads include SHA-256 checksums. Existing VibeZ 3 profiles are retained; Microsoft Store installations use Store delivery.
+Publication is pending the complete all-platform build. All twelve download formats must pass their tests and packaging checks, including macOS signing, notarization and stapling. Downloads include SHA-256 checksums. Existing VibeZ 3 settings and profiles are retained. Microsoft Store installations use Store delivery; the 3.0.6.0 MSIX is prepared for separate Partner Center submission and certification.
 
-Native Linux packages require glibc 2.39+ and WebKitGTK 4.1; Linux desktop selection requires X11. macOS requires version 14 or later, and Windows requires WebView2.
+Verified update installers continue to close VibeZ automatically after handoff. Native Linux packages require glibc 2.39+ and WebKitGTK 4.1; Linux desktop selection requires X11. macOS requires version 14 or later, and Windows requires WebView2.
 
-[The verified all-platform build](https://github.com/lecomputeur/vibez/actions/runs/38058365601) passed all nine platform, dependency and packaging gates. The Store MSIX is version 3.0.5.0; Microsoft Store submission and certification remain separate from this GitHub release.
+The scroll improvement was measured with large synthetic offline chats. It is not a claim that every live Mistral conversation or Linux graphics configuration has been tested.

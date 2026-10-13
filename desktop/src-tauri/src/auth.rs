@@ -121,7 +121,7 @@ fn create_auth_window(app: &AppHandle, url: Url, features: NewWindowFeatures, tr
     let label = format!("{PREFIX}{}", NEXT_ID.fetch_add(1, Ordering::Relaxed));
     let navigation_app = app.clone(); let nested_app = app.clone();
     let builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::External("about:blank".parse().expect("constant URL")))
-        .data_directory(data).data_store_identifier([118,105,98,101,122,51,0,0,0,0,0,0,0,0,0,2]).window_features(features).title(format!("VibeZ 3 · {}", origin(&url)))
+        .data_directory(data).data_store_identifier([118,105,98,101,122,51,0,0,0,0,0,0,0,0,0,2]).window_features(features).title(format!("{} · {}", crate::title(), origin(&url)))
         .inner_size(560., 760.).min_inner_size(400., 400.).center().prevent_overflow().visible(true).focused(true)
         .on_permission_request(|_, _| tauri::webview::PermissionResponse::Deny)
         .on_navigation(move |next| {
@@ -131,7 +131,7 @@ fn create_auth_window(app: &AppHandle, url: Url, features: NewWindowFeatures, tr
         .on_new_window(move |next, nested_features| { create_auth_window(&nested_app, next, nested_features, true) })
         .on_page_load(|window, payload| {
             page(payload.url(), matches!(payload.event(), tauri::webview::PageLoadEvent::Finished));
-            let _ = window.set_title(&format!("VibeZ 3 · {}", origin(payload.url())));
+            let _ = window.set_title(&format!("{} · {}", crate::title(), origin(payload.url())));
         });
     match builder.build() {
         Ok(window) => {
