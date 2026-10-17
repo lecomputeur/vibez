@@ -1,14 +1,14 @@
 # Changelog
 
-## 3.0.7 — candidate, not released
+## 3.0.7 — 2026-10-17
 
 - Refresh the shared Rust TLS dependency to rustls 0.23.46 for its [upstream security fixes](https://github.com/rustls/rustls/releases/tag/v/0.23.46); application APIs and app identity are unchanged.
-
 - Reduce Linux layout and painting work for recognized long assistant replies, with bounded height refreshes and temporary expansion for native Find and page screenshots. Streaming replies remain expanded while they change.
 - Use normal GTK container allocation on Linux to prevent a transient 1×1 content viewport during window resizing.
+- Add native Find on Linux with safe close/reopen handling, and restore rendering after screenshot cancellation, timeout and page lifecycle changes.
 - Retain the existing chat/code header appearance and normal Mistral startup, application identity, profile and update flow.
 - Show `VibeZ V3.0.7` in the window title on every platform. Windows and macOS rendering behavior is unchanged.
-- Offline Mint experiments measured lower scrolling CPU usage and faster resize recovery. Candidate package validation and current hosted Mistral markup checks must complete before a stable release; the measurements do not guarantee every conversation or graphics setup.
+- Validate rich-chat scrolling, streaming, resizing, searching and screenshots using synthetic conversations without login or private data. These tests do not establish that the original reported private conversation is resolved or guarantee low CPU usage in every conversation.
 
 ## 3.0.6 — 2026-10-13
 

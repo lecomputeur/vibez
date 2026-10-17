@@ -153,7 +153,8 @@ jobs:
         with:
           name: v3-linux
           path: release-assets
-      - run: bash tools/release-v3/arch.sh
+      - name: Build and verify Arch/Pacman package
+        run: bash tools/release-v3/arch.sh
       - uses: actions/upload-artifact@v5
         with:
           name: v3-arch
@@ -179,7 +180,8 @@ jobs:
           sudo apt-get install -y flatpak flatpak-builder
           flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
           flatpak install --user -y flathub org.gnome.Platform//50 org.gnome.Sdk//50
-      - run: VIBEZ_RELEASE_DATE=2026-10-17 python3 tools/release-v3/flatpak.py
+      - name: Build and verify Flatpak package
+        run: VIBEZ_RELEASE_DATE=2026-10-17 python3 tools/release-v3/flatpak.py
       - uses: actions/upload-artifact@v5
         with:
           name: v3-flatpak
