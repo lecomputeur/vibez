@@ -20,6 +20,8 @@
 
 > **Current release:** [VibeZ 3.0.6](https://github.com/lecomputeur/vibez/releases/tag/v3.0.6). All twelve formats passed the [same-source validation build](https://github.com/lecomputeur/vibez/actions/runs/38454538226); Microsoft Store delivery remains separate.
 
+> **3.0.7 candidate:** Linux rich-chat rendering and window-resize improvements are being integrated on `vibe/linux-rich-render-307`. The ordinary app identity, profile and update flow are retained. This candidate is not published; the downloads below remain 3.0.6. See [candidate notes and required validation](V3-RELEASE.md).
+
 **VibeZ 3.0.6 improves Linux scrolling and shows `VibeZ V3.0.6` in the window title on every platform.**
 
 Linux wheel scrolling now moves immediately, reducing the overhead of native smooth-scroll animations in long conversations. This applies to AppImage, DEB, RPM, Arch/Pacman and Flatpak. Windows and macOS receive the version and title update; their scrolling behavior is unchanged. Page-controlled animations can still cause CPU activity.

@@ -1,5 +1,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod policy;
+#[cfg(target_os = "linux")]
+mod rich_render;
+#[cfg(target_os = "linux")]
+mod native_find;
+#[cfg(target_os = "linux")]
+#[path = "../../test-tools/rich-chat/probe.rs"]
+mod rich_offline_probe;
 mod browser;
 #[cfg(target_os = "linux")]
 mod linux_identity;
@@ -234,12 +241,44 @@ async fn get_diagnostics(webview: Webview, app: AppHandle) -> Result<String, Str
     let auth_mode = auth::active(&app);
     let auto_updates = app.state::<PreviewState>().settings.lock().map(|s| s.auto_updates).unwrap_or(false);
     let site_language = site_language::inspect(&app).await;
-    Ok(format!("{}\nApplication ID: {}\nEngine: {}\nOS: {} {}\nSystem/UI locale: {}\nSession: {}\nDesktop: {}\nConfig: {}\nData: {}\n{}\nAutomatic update checks: {}; downloads: in-app with SHA-256 verification; automatic installation: disabled\nMicrophone/camera: not enabled in this version\nGlobal shortcut: not registered (does not conflict with Electron)\nSign-in popups: related webview; provider restrictions still apply\nAuthentication routing mode: {}\nMistral site language: {}\nAutomatic JS link interception: disabled\nRecent navigation (origins only, no credentials or tokens):\n{}\nLink routing (current process, origins only):\n{}",
+    #[cfg(target_os = "linux")]
+    let rich_status = if let Some(view) = app.get_webview("vibe") {
+        format!("\nLinux conversation rendering: {}", rich_render::diagnostics(&view).await)
+    } else { "\nLinux conversation rendering: unavailable".into() };
+    #[cfg(not(target_os = "linux"))]
+    let rich_status = String::new();
+    Ok(format!("{}\nApplication ID: {}\nEngine: {}\nOS: {} {}\nSystem/UI locale: {}\nSession: {}\nDesktop: {}\nConfig: {}\nData: {}\n{}\nAutomatic update checks: {}; downloads: in-app with SHA-256 verification; automatic installation: disabled\nMicrophone/camera: not enabled in this version\nGlobal shortcut: not registered (does not conflict with Electron)\nSign-in popups: related webview; provider restrictions still apply\nAuthentication routing mode: {}\nMistral site language: {}{}\nAutomatic JS link interception: disabled\nRecent navigation (origins only, no credentials or tokens):\n{}\nLink routing (current process, origins only):\n{}",
         title(), APP_ID, engine, os_name, std::env::consts::ARCH, os_locale(), session, desktop,
         app.path().app_config_dir().map_err(err)?.display(), app.path().app_data_dir().map_err(err)?.display(),
-        update_text, if auto_updates { "enabled" } else { "disabled" }, if auth_mode { "active" } else { "inactive" }, site_language, auth::diagnostics(), link_trace::diagnostics()))
+        update_text, if auto_updates { "enabled" } else { "disabled" }, if auth_mode { "active" } else { "inactive" }, site_language, rich_status, auth::diagnostics(), link_trace::diagnostics()))
 }
 fn create_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> { desktop_ui::create_tray(app) }
+/// Require an explicit mode and a dedicated, existing profile before starting
+/// the synthetic harness. This check runs before the single-instance plugin.
+#[cfg(target_os = "linux")]
+fn rich_test_mode() -> Result<Option<String>, String> {
+    if !std::env::args().any(|a| a == "--rich-offline-test") { return Ok(None); }
+    let mode = std::env::var("VIBEZ_RICH_TEST_MODE").map_err(|_| "Rich test mode is required")?;
+    if !matches!(mode.as_str(), "lifecycle" | "resize" | "wheel" | "fullscreen" | "mistral") {
+        return Err("Unknown rich test mode".into());
+    }
+    let profile = PathBuf::from(std::env::var("VIBEZ_RICH_TEST_PROFILE").map_err(|_| "An isolated rich test profile is required")?);
+    if !profile.is_absolute() { return Err("Rich test profile must be absolute".into()); }
+    let root = profile.canonicalize().map_err(err)?;
+    for key in ["XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME"] {
+        let path = PathBuf::from(std::env::var(key).map_err(|_| format!("{key} is required for the offline test"))?);
+        let path = path.canonicalize().map_err(err)?;
+        if path == root || !path.starts_with(&root) {
+            return Err(format!("{key} must be a directory inside the isolated rich test profile"));
+        }
+    }
+    // D-Bus single-instance names do not depend on the XDG profile. A separate
+    // session bus prevents test startup from activating a user's live client.
+    if std::env::var_os("VIBEZ_RICH_TEST_BUS").is_none() {
+        return Err("Run rich tests through the isolated session launcher".into());
+    }
+    Ok(Some(mode))
+}
 fn main() {
     #[cfg(target_os = "linux")]
     if let Some(result) = update_install::appimage::run_helper() {
@@ -247,10 +286,14 @@ fn main() {
         return;
     }
     if std::env::args().any(|a| a == "--version") { println!("{}", title()); return; }
+    #[cfg(target_os = "linux")]
+    let rich_test = rich_test_mode().unwrap_or_else(|error| { eprintln!("Offline test refused: {error}"); std::process::exit(2); });
+    #[cfg(not(target_os = "linux"))]
+    let rich_test: Option<String> = None;
     let link_probe_only = std::env::args().any(|a| a == "--link-probe-only");
     let icon_probe = std::env::args().any(|a| a == "--icon-smoke-test");
     let screenshot_ui_test = std::env::args().any(|a| a == "--screenshot-ui-test");
-    let smoke = screenshot_ui_test || icon_probe || link_probe_only || std::env::args().any(|a| a == "--smoke-test");
+    let smoke = rich_test.is_some() || screenshot_ui_test || icon_probe || link_probe_only || std::env::args().any(|a| a == "--smoke-test");
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| show_main(app)))
         .plugin(tauri_plugin_opener::Builder::new().open_js_links_on_click(false).build())
@@ -279,6 +322,8 @@ fn main() {
                 .icon(tauri::image::Image::from_bytes(include_bytes!("../icons/128x128.png"))?)?.build()?;
             #[cfg(target_os = "linux")]
             linux_identity::prepare_window(&window).map_err(std::io::Error::other)?;
+            #[cfg(target_os = "linux")]
+            if rich_test.is_some() { native_layout::place_offline_test(app.handle()).map_err(std::io::Error::other)?; }
             let controls = WebviewBuilder::new("shell", WebviewUrl::App("index.html".into()))
                 .data_directory(data.join("controls")).data_store_identifier([118,105,98,101,122,51,0,0,0,0,0,0,0,0,0,1]).on_navigation(policy::local_url).on_new_window(|_, _| NewWindowResponse::Deny);
             window.add_child(controls, LogicalPosition::new(0., 0.), LogicalSize::new(1280., TOOLBAR_HEIGHT))?;
@@ -310,6 +355,8 @@ fn main() {
                     link_trace::record(if finished { "main-load-finished" } else { "main-load-started" }, payload.url());
                     auth::page(payload.url(), finished);
                     site_language::loaded(view.app_handle(), payload.url(), finished);
+                    #[cfg(target_os = "linux")]
+                    if finished { rich_render::loaded(&view); }
                 })
                 .on_new_window(move |url, features| {
                     link_trace::record("main-popup-request", &url);
@@ -327,6 +374,8 @@ fn main() {
                 }
             })?;
             auth::attach_errors(app.handle(), &vibe).map_err(std::io::Error::other)?;
+            #[cfg(target_os = "linux")]
+            native_find::attach(app.handle(), &vibe).map_err(std::io::Error::other)?;
             vibe.set_zoom(settings.zoom_factor)?;
             // Prepare language on a neutral page; no delayed redirect during OAuth.
             if !smoke { site_language::request(app.handle()); }
@@ -343,7 +392,9 @@ fn main() {
             if !start_hidden { window.show()?; }
             if !smoke { preview_updates::schedule(app.handle().clone()); }
             // The external icon probe inspects a real, offline running app.
-            if smoke && !icon_probe && !screenshot_ui_test { link_probe::start(app.handle().clone(), link_probe_only); }
+            #[cfg(target_os = "linux")]
+            if let Some(mode) = rich_test.as_deref() { rich_offline_probe::start(app.handle().clone(), mode); }
+            if smoke && rich_test.is_none() && !icon_probe && !screenshot_ui_test { link_probe::start(app.handle().clone(), link_probe_only); }
             if screenshot_ui_test {
                 let handle=app.handle().clone();
                 tauri::async_runtime::spawn(async move {

@@ -51,9 +51,13 @@ class PublicationTests(unittest.TestCase):
             self.assertIn('VibeZ 3', text)
             self.assertNotIn('/download/v2.', text)
             self.assertNotIn('Latest stable release: <strong>VibeZ 2', text)
-    def test_readme_has_all_twelve_direct_downloads(self):
+    def test_readme_has_all_twelve_published_direct_downloads(self):
         text = (ROOT / 'README.md').read_text()
-        for name in verify.REQUIRED: self.assertIn(name, text)
+        # A candidate must not redirect readers to download assets that do not
+        # exist yet. The published release's immutable proof remains historical.
+        published = json.loads((ROOT / 'tools/release-v3/release-proof.json').read_text())['version']
+        for suffix in verify.SUFFIXES:
+            self.assertIn(f'VibeZ-{published}-{suffix}', text)
 
 if __name__ == '__main__':
     unittest.main()

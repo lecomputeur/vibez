@@ -121,7 +121,13 @@ pub async fn capture_preview(app:&AppHandle,mode:&str)->Result<Value,String> {
     let _busy=Busy(&state.capture_busy);
     crate::screenshot_dialog::clear();
     message(app,"screenshot_working");
+    #[cfg(target_os="linux")]
+    let render_view=app.get_webview("vibe").ok_or("Vibe view is not ready")?;
+    #[cfg(target_os="linux")]
+    let render_pause=crate::rich_render::CapturePause::new(&render_view);
     let result:Result<Value,String>=async {
+        #[cfg(target_os="linux")]
+        render_pause.begin().await?;
         let view=app.get_webview("vibe").ok_or("Vibe view is not ready")?;
         let url=view.url().map_err(err)?;
         let id=begin(&view,mode,&desktop_ui::preview(app,"screenshotDrag")).await?;
@@ -139,6 +145,8 @@ pub async fn capture_preview(app:&AppHandle,mode:&str)->Result<Value,String> {
             _=>Err(payload["message"].as_str().unwrap_or("Screenshot failed").into())
         }
     }.await;
+    #[cfg(target_os="linux")]
+    drop(render_pause);
     match &result {
         Ok(value) if value["cancelled"]==true=>message(app,"screenshot_cancelled"),
         Ok(value) if value["copied"]==true=>message(app,"screenshot_copied"),

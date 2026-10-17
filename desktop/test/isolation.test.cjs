@@ -87,7 +87,8 @@ test('Windows system locale still means the Windows display language', () => {
 });
 test('Linux layout never raises the parent minimum or shows hidden windows', () => {
   const source=read('src-tauri/src/native_layout.rs');
-  assert.match(source,/gtk::Layout/); assert.doesNotMatch(source,/window\.show\(|surface\.set_size_request\(/);
+  assert.match(source,/gtk::Box::new\(gtk::Orientation::Vertical/);
+  assert.doesNotMatch(source,/gtk::Layout|widget\.size_allocate\(|window\.show\(|surface\.set_size_request\(/);
   assert.match(read('src-tauri/src/smoke.rs'),/RESIZE_OK: requested=/);
   assert.match(read('src-tauri/src/smoke.rs'),/HIDDEN_OK:/);
 });
