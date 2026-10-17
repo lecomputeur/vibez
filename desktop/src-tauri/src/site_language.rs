@@ -161,6 +161,15 @@ pub fn request(app: &AppHandle) {
     state.site_language.generation.fetch_add(1, Ordering::SeqCst);
     start(app.clone());
 }
+/// Exercise the normal language/bootstrap path from the isolated anonymous
+/// integration probe. The launcher validates the profile before app startup.
+#[cfg(target_os = "linux")]
+pub(crate) fn request_anonymous_probe(app: &AppHandle) {
+    let state = app.state::<PreviewState>();
+    if !state.smoke || std::env::var("VIBEZ_RICH_TEST_MODE").as_deref() != Ok("mistral") { return; }
+    state.site_language.generation.fetch_add(1, Ordering::SeqCst);
+    start(app.clone());
+}
 pub fn loaded(app: &AppHandle, url: &url::Url, finished: bool) {
     let state = app.state::<PreviewState>();
     state.site_language.loading.store(!finished, Ordering::SeqCst);

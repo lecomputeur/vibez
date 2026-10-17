@@ -51,9 +51,12 @@ class PublicationTests(unittest.TestCase):
             self.assertIn('VibeZ 3', text)
             self.assertNotIn('/download/v2.', text)
             self.assertNotIn('Latest stable release: <strong>VibeZ 2', text)
-    def test_readme_has_all_twelve_direct_downloads(self):
+    def test_readme_has_all_twelve_current_release_downloads(self):
         text = (ROOT / 'README.md').read_text()
-        for name in verify.REQUIRED: self.assertIn(name, text)
+        # Check the staged publication text against this build's package names.
+        # File availability and signed-build proof are separate publication gates.
+        for name in verify.REQUIRED:
+            self.assertIn(name, text)
 
 if __name__ == '__main__':
     unittest.main()

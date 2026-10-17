@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Verify the exact VibeZ 3 release asset set without executing installers."""
 import hashlib
+import json
 import os
 from pathlib import Path
 import re
 import sys
 
-VERSION = os.environ.get('VIBEZ_RELEASE_VERSION', '3.0.3')
+VERSION = os.environ.get('VIBEZ_RELEASE_VERSION') or json.loads(
+    (Path(__file__).resolve().parents[2] / 'desktop/package.json').read_text())['version']
 if not re.fullmatch(r'3\.\d+\.\d+', VERSION):
     raise ValueError('Invalid expected VibeZ 3 release version')
 # Deterministic default for unit tests. Real publication supplies VIBEZ_RELEASE_SOURCE.
