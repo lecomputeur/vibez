@@ -102,6 +102,13 @@ pub fn close_popups(app: &AppHandle) {
     for (label, window) in app.webview_windows() { if label.starts_with(PREFIX) { let _ = window.close(); } }
 }
 fn create_auth_window(app: &AppHandle, url: Url, features: NewWindowFeatures, trusted_chain: bool) -> NewWindowResponse<tauri::Wry> {
+    #[cfg(target_os = "linux")]
+    if policy::cloudflare_challenge_target(&url) {
+        // Turnstile frames must keep their embedding context. A standalone
+        // challenge popup cannot complete that flow and must not spawn tabs.
+        record("challenge-popup-blocked", &url);
+        return NewWindowResponse::Deny;
+    }
     record(if trusted_chain { "auth-chain-popup-request" } else { "popup-request" }, &url);
     let smoke = app.state::<PreviewState>().smoke;
     let permitted = if trusted_chain { auth_chain_allowed(&url, smoke) } else { initial_allowed(&url, smoke) };

@@ -335,6 +335,12 @@ fn main() {
                 .on_navigation(move |url| {
                     if url.as_str() == "about:blank" && handle.state::<PreviewState>().site_language.bootstrap.load(Ordering::SeqCst) { return true; }
                     if smoke && policy::local_url(url) { link_trace::record("main-allow-local-test", url); return true; }
+                    #[cfg(target_os = "linux")]
+                    if policy::cloudflare_challenge_target(url) {
+                        let allowed = policy::embedded_challenge_url(url);
+                        link_trace::record(if allowed { "main-allow-challenge" } else { "main-block-challenge" }, url);
+                        return allowed;
+                    }
                     if policy::auth_entry_url(url) { auth::begin(&handle); }
                     if auth::active(&handle) && policy::auth_chain_url(url) {
                         if policy::auth_return_url(url) { auth::end(&handle); link_trace::record("auth-mode-end", url); }

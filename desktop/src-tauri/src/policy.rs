@@ -30,6 +30,21 @@ pub fn embedded_url(url: &Url) -> bool {
         || matches!(host, "accounts.google.com" | "login.microsoftonline.com" | "appleid.apple.com")
 }
 
+/// WebKitGTK also reports iframe navigations through the URL-only navigation
+/// callback. A challenge belongs in that webview, not in the system browser.
+/// Recognition is broader than permission so malformed challenge URLs and
+/// challenge popups can be blocked without opening another browser tab.
+#[cfg(target_os = "linux")]
+pub fn cloudflare_challenge_target(url: &Url) -> bool {
+    url.host_str() == Some("challenges.cloudflare.com")
+        && url.path().starts_with("/cdn-cgi/challenge-platform/")
+}
+
+#[cfg(target_os = "linux")]
+pub fn embedded_challenge_url(url: &Url) -> bool {
+    safe_https(url) && cloudflare_challenge_target(url)
+}
+
 /// Origins that can legitimately START a sign-in flow. This is intentionally
 /// small. After entry, the redirect chain is handled generically by
 /// auth_chain_url instead of maintaining an endless provider-domain allowlist.
@@ -152,6 +167,56 @@ mod tests {
             "https://user:password@accounts.google.com/",
         ] {
             assert!(!auth_entry_url(&u(value)), "Unsafe auth entry: {value}");
+        }
+    }
+    #[cfg(target_os = "linux")]
+    #[test] fn cloudflare_challenge_frames_stay_in_the_existing_webview() {
+        for value in [
+            "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/turnstile/normal",
+            "https://challenges.cloudflare.com:443/cdn-cgi/challenge-platform/h/g/turnstile/normal?lang=auto#widget",
+            "https://CHALLENGES.CLOUDFLARE.COM/cdn-cgi/challenge-platform/h/g/normal",
+        ] {
+            let url = u(value);
+            assert!(cloudflare_challenge_target(&url), "{value}");
+            assert!(embedded_challenge_url(&url), "{value}");
+            assert!(!auth_entry_url(&url), "A challenge must not start authentication");
+            assert!(!embedded_url(&url), "The ordinary embedded allowlist stays unchanged");
+            for label in ["vibe", "shell", "settings", "auth-popup-1"] {
+                assert!(!trusted_caller(label, &url), "Challenge content must not get native commands");
+            }
+        }
+    }
+    #[cfg(target_os = "linux")]
+    #[test] fn malformed_challenge_targets_are_blockable_but_not_permitted() {
+        for value in [
+            "http://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/normal",
+            "https://challenges.cloudflare.com:444/cdn-cgi/challenge-platform/h/g/normal",
+            "https://user:secret@challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/normal",
+        ] {
+            let url = u(value);
+            assert!(cloudflare_challenge_target(&url), "{value}");
+            assert!(!embedded_challenge_url(&url), "{value}");
+        }
+    }
+    #[cfg(target_os = "linux")]
+    #[test] fn challenge_exception_rejects_other_hosts_and_paths() {
+        for value in [
+            "https://challenges.cloudflare.com.evil.example/cdn-cgi/challenge-platform/h/g/normal",
+            "https://sub.challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/normal",
+            "https://challenges.cloudflare.com./cdn-cgi/challenge-platform/h/g/normal",
+            "https://evil.example/?next=https://challenges.cloudflare.com/cdn-cgi/challenge-platform/",
+            "https://challenges.cloudflare.com/",
+            "https://challenges.cloudflare.com/cdn-cgi/challenge-platform",
+            "https://challenges.cloudflare.com/cdn-cgi/challenge-platform-evil/h/g/normal",
+            "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/../other",
+            "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/%2e%2e/other",
+            "https://challenges.cloudflare.com/cdn-cgi/%63hallenge-platform/h/g/normal",
+            "https://example.org/cdn-cgi/challenge-platform/h/g/normal",
+            "file:///cdn-cgi/challenge-platform/h/g/normal",
+        ] {
+            let url = u(value);
+            assert!(!cloudflare_challenge_target(&url), "{value}");
+            assert!(!embedded_challenge_url(&url), "{value}");
         }
     }
     #[test] fn active_auth_chain_is_https_origin_generic_not_provider_specific() {
