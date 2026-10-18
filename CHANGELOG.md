@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.8 — 2026-10-18
+
+- Fix Linux navigation routing that opened embedded Cloudflare verification frames as external browser links. Keep the required frame requests in the embedded webview while retaining normal external-link behavior.
+- Apply the routing fix to Linux AppImage, DEB, RPM, Arch/Pacman and Flatpak. Retain the rich-chat rendering and resize improvements from 3.0.7.
+- Show `VibeZ V3.0.8` in window titles and version metadata on every platform. Windows and macOS navigation and rendering behavior is unchanged.
+- Update download pages, release notes and Microsoft Store package text for 3.0.8. Creating the Store MSIX remains separate from submission and certification.
+- Reproduce the original routing defect with controlled synthetic frames in the published Linux executable. A genuine Turnstile solve and the complete openSUSE failure remain unverified.
+
 ## 3.0.7 — 2026-10-17
 
 - Refresh the shared Rust TLS dependency to rustls 0.23.46 for its [upstream security fixes](https://github.com/rustls/rustls/releases/tag/v/0.23.46); application APIs and app identity are unchanged.

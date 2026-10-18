@@ -9,7 +9,7 @@
 <p>Rewritten from the ground up for VibeZ 3. A rebuilt language engine that directly addresses the earlier language-selection and startup issues.<br>Windows, macOS and Linux — one version, twelve release files.</p>
 
 <p>
-<a href="https://github.com/lecomputeur/vibez/releases/tag/v3.0.7"><strong>Explore VibeZ 3.0.7</strong></a> ·
+<a href="https://github.com/lecomputeur/vibez/releases/tag/v3.0.8"><strong>Explore VibeZ 3.0.8</strong></a> ·
 <a href="https://lecomputeur.github.io/vibez/">Website & installation guides</a> ·
 <a href="V3-RELEASE.md">What's new</a>
 </p>
@@ -18,13 +18,13 @@
 
 </div>
 
-> **VibeZ 3.0.7:** Linux rich-chat scrolling and window-resize improvements, the updated version in every platform's titlebar, and a shared TLS dependency security update. [Release downloads](https://github.com/lecomputeur/vibez/releases/tag/v3.0.7) · [Release notes and validation](V3-RELEASE.md). Microsoft Store delivery remains separate.
+> **VibeZ 3.0.8:** Fix Linux routing of embedded Cloudflare verification frames, and update the version shown on every platform. [Release downloads](https://github.com/lecomputeur/vibez/releases/tag/v3.0.8) · [Release notes and validation](V3-RELEASE.md). Microsoft Store delivery remains separate.
 
-**Long formatted chats on Linux now use less rendering work outside the viewport, with bounded height updates while resizing.**
+**Cloudflare verification frames on Linux stay in the app instead of opening as external browser links.**
 
-The change applies to AppImage, DEB, RPM, Arch/Pacman and Flatpak. Streaming replies, Find and page screenshots remain supported; the existing code headers, settings, profiles and update flow are retained. Windows and macOS receive `VibeZ V3.0.7` in the titlebar and the shared rustls 0.23.46 dependency update; their rendering behavior is unchanged.
+The routing fix applies to AppImage, DEB, RPM, Arch/Pacman and Flatpak. Ordinary external links still open in your browser. Existing settings, profiles and the Linux rich-chat scrolling and resize improvements from 3.0.7 are retained. Windows and macOS receive the version/title update to `VibeZ V3.0.8`; their navigation and rendering behavior are unchanged.
 
-Local tests reproduced CPU saturation with a large synthetic chat and measured lower scrolling CPU with the improvement enabled. The original private conversation was not accessed or reproduced, and performance still depends on content, hardware and drivers. See the [measurements and limits](V3-RELEASE.md#measured-results-and-limits).
+The faulty routing was reproduced with controlled synthetic frames in the published 3.0.7 Linux executable. A genuine Turnstile verification and the complete reported openSUSE failure have not been reproduced. See the [validation and limits](V3-RELEASE.md#validation-and-limits).
 
 ## Not a new coat of paint. A new desktop foundation.
 
@@ -54,14 +54,14 @@ The rebuilt module also prevents stale settings windows from reverting a newer l
 
 ## One version. Every distribution format.
 
-The **VibeZ 3.0.7** release packaging targets all twelve files below from one frozen source commit. Check the release asset list for the available downloads.
+The **VibeZ 3.0.8** release packaging targets all twelve files below from one frozen source commit. Check the release asset list for the available downloads.
 
 | Platform | Downloads |
 |---|---|
-| **Linux x86-64** | [AppImage](https://github.com/lecomputeur/vibez/releases/download/v3.0.7/VibeZ-3.0.7-Linux-x64.AppImage) · [DEB](https://github.com/lecomputeur/vibez/releases/download/v3.0.7/VibeZ-3.0.7-Linux-x64.deb) · [RPM](https://github.com/lecomputeur/vibez/releases/download/v3.0.7/VibeZ-3.0.7-Linux-x64.rpm) · [Arch/Pacman](https://github.com/lecomputeur/vibez/releases/download/v3.0.7/VibeZ-3.0.7-Linux-x64.pkg.tar.zst) · [Flatpak](https://github.com/lecomputeur/vibez/releases/download/v3.0.7/VibeZ-3.0.7-Linux-x64.flatpak) |
-| **Windows x64** | [Setup EXE](https://github.com/lecomputeur/vibez/releases/download/v3.0.7/VibeZ-3.0.7-Windows-x64-Setup.exe) · [MSI](https://github.com/lecomputeur/vibez/releases/download/v3.0.7/VibeZ-3.0.7-Windows-x64.msi) · [Store submission MSIX](https://github.com/lecomputeur/vibez/releases/download/v3.0.7/VibeZ-3.0.7-Windows-x64-Store.msix) |
-| **macOS Apple Silicon** | [DMG](https://github.com/lecomputeur/vibez/releases/download/v3.0.7/VibeZ-3.0.7-macOS-arm64.dmg) · [ZIP](https://github.com/lecomputeur/vibez/releases/download/v3.0.7/VibeZ-3.0.7-macOS-arm64.zip) |
-| **macOS Intel** | [DMG](https://github.com/lecomputeur/vibez/releases/download/v3.0.7/VibeZ-3.0.7-macOS-x64.dmg) · [ZIP](https://github.com/lecomputeur/vibez/releases/download/v3.0.7/VibeZ-3.0.7-macOS-x64.zip) |
+| **Linux x86-64** | [AppImage](https://github.com/lecomputeur/vibez/releases/download/v3.0.8/VibeZ-3.0.8-Linux-x64.AppImage) · [DEB](https://github.com/lecomputeur/vibez/releases/download/v3.0.8/VibeZ-3.0.8-Linux-x64.deb) · [RPM](https://github.com/lecomputeur/vibez/releases/download/v3.0.8/VibeZ-3.0.8-Linux-x64.rpm) · [Arch/Pacman](https://github.com/lecomputeur/vibez/releases/download/v3.0.8/VibeZ-3.0.8-Linux-x64.pkg.tar.zst) · [Flatpak](https://github.com/lecomputeur/vibez/releases/download/v3.0.8/VibeZ-3.0.8-Linux-x64.flatpak) |
+| **Windows x64** | [Setup EXE](https://github.com/lecomputeur/vibez/releases/download/v3.0.8/VibeZ-3.0.8-Windows-x64-Setup.exe) · [MSI](https://github.com/lecomputeur/vibez/releases/download/v3.0.8/VibeZ-3.0.8-Windows-x64.msi) · [Store submission MSIX](https://github.com/lecomputeur/vibez/releases/download/v3.0.8/VibeZ-3.0.8-Windows-x64-Store.msix) |
+| **macOS Apple Silicon** | [DMG](https://github.com/lecomputeur/vibez/releases/download/v3.0.8/VibeZ-3.0.8-macOS-arm64.dmg) · [ZIP](https://github.com/lecomputeur/vibez/releases/download/v3.0.8/VibeZ-3.0.8-macOS-arm64.zip) |
+| **macOS Intel** | [DMG](https://github.com/lecomputeur/vibez/releases/download/v3.0.8/VibeZ-3.0.8-macOS-x64.dmg) · [ZIP](https://github.com/lecomputeur/vibez/releases/download/v3.0.8/VibeZ-3.0.8-macOS-x64.zip) |
 
 macOS publication requires Developer ID signing, notarization and stapling. Direct Windows EXE/MSI installers are unsigned; Windows may show a reputation warning. The unsigned MSIX is for Partner Center submission, not the recommended direct installer. Building it does **not** mean Microsoft has certified or published the update.
 
@@ -83,7 +83,7 @@ Native Linux packages and AppImage require **glibc 2.39 or newer**; DEB targets 
 
 ## What the tests prove — and what they do not
 
-The [verified 3.0.7 build](https://github.com/lecomputeur/vibez/actions/runs/39012314243) passed all nine platform/security jobs: frontend/Rust tests, rich-chat regressions, native browser/windows, screenshots/paste, updates, all twelve packages and macOS signing/notarization. The [versioned release proof](tools/release-v3/release-proof-3.0.7.json) pins the exact build source and workflow. Local Linux results and remaining limits are recorded in the [release notes](V3-RELEASE.md); historical 3.0.6 evidence remains separate.
+The [3.0.8 validation workflow](.github/workflows/v3.0.8-validation.yml) checks dependencies, frontend/Rust tests, Linux frame routing, rich-chat regressions, native windows, screenshots/paste, updates, all twelve packages and macOS signing/notarization against one frozen source. Publication requires those checks to pass. See the [release notes](V3-RELEASE.md) for the reproduction and its limits. The [verified 3.0.7 build](https://github.com/lecomputeur/vibez/actions/runs/39012314243) and its [versioned proof](tools/release-v3/release-proof-3.0.7.json) remain historical evidence for 3.0.7 only.
 
 Automated native probes are offline tests. They are not a claim that every live sign-in provider, Linux distribution, Wayland session, fractional scale or website feature has been tested. Microphone/camera access, global screenshot shortcuts and unattended installer execution are not enabled in this version. Direct-download updates remain user-confirmed; Microsoft Store updates are delivered by the Store. Screenshots offer native visible-page, full-loaded-page and desktop-area capture, with optional direct paste into a draft. Downloaded updates are installed only after your confirmation.
 
