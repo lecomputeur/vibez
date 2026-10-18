@@ -11,9 +11,9 @@
 
 ## Build and validate
 
-Use the validation-only all-desktop workflow `.github/workflows/v3.0.8-validation.yml`. It builds the exact frozen source for every platform. The Windows job invokes `desktop/scripts/build-store.ps1`, packs the MSIX with MakeAppx and unpacks it to verify identity, display name and version. The output is `VibeZ-3.0.8-Windows-x64-Store.msix`. Require a successful Windows job and package validation before using that output; this document is not a build or certification record.
+The [verified 3.0.8 Windows build](https://github.com/lecomputeur/vibez/actions/runs/39112469853) successfully created and unpacked `VibeZ-3.0.8-Windows-x64-Store.msix`, version **3.0.8.0**. It invoked `desktop/scripts/build-store.ps1` and MakeAppx, validating the approved identity, publisher, x64 architecture, display name, version and `vibez3.exe` entry point.
 
-Validate the actual 3.0.8.0 package for the identity, publisher, x64 architecture and `vibez3.exe` entry point. A successful previous-version build is not proof for this update. Record the new validation run and checksums only after they exist.
+All nine jobs in the same-source run passed, producing all twelve packages, including signed/notarized Intel and Apple Silicon Mac downloads. The [3.0.8 release proof](tools/release-v3/release-proof-3.0.8.json) pins the frozen source and run. Verify the actual MSIX against the release's `SHA256SUMS`; a build success is not Microsoft Store certification.
 
 The Store upload package is intentionally unsigned; Microsoft signs delivered Store packages. Use the EXE or MSI for ordinary direct installation. Building the MSIX does not submit or certify the update.
 

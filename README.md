@@ -54,7 +54,7 @@ The rebuilt module also prevents stale settings windows from reverting a newer l
 
 ## One version. Every distribution format.
 
-The **VibeZ 3.0.8** release packaging targets all twelve files below from one frozen source commit. Check the release asset list for the available downloads.
+The **VibeZ 3.0.8** build produced and verified all twelve files below from one frozen source commit. Check the release asset list for the available downloads.
 
 | Platform | Downloads |
 |---|---|
@@ -83,7 +83,7 @@ Native Linux packages and AppImage require **glibc 2.39 or newer**; DEB targets 
 
 ## What the tests prove — and what they do not
 
-The [3.0.8 validation workflow](.github/workflows/v3.0.8-validation.yml) checks dependencies, frontend/Rust tests, Linux frame routing, rich-chat regressions, native windows, screenshots/paste, updates, all twelve packages and macOS signing/notarization against one frozen source. Publication requires those checks to pass. See the [release notes](V3-RELEASE.md) for the reproduction and its limits. The [verified 3.0.7 build](https://github.com/lecomputeur/vibez/actions/runs/39012314243) and its [versioned proof](tools/release-v3/release-proof-3.0.7.json) remain historical evidence for 3.0.7 only.
+The [verified 3.0.8 build](https://github.com/lecomputeur/vibez/actions/runs/39112469853) passed all nine required jobs, including dependency audits, frontend/Rust tests, native Linux Cloudflare frame and popup routing, rich-chat regressions, screenshots/paste, updates, all twelve packages and macOS signing/notarization. Its frozen source is [`b8fb3a3`](https://github.com/lecomputeur/vibez/commit/b8fb3a31692776ca8b903cab01397ab85c5e5304); the [versioned release proof](tools/release-v3/release-proof-3.0.8.json) pins the source and run. The Windows job created and validated the Store MSIX version **3.0.8.0**. See the [release notes](V3-RELEASE.md) for the reproduction and its limits. Earlier 3.0.7 and 3.0.6 evidence remains historical.
 
 Automated native probes are offline tests. They are not a claim that every live sign-in provider, Linux distribution, Wayland session, fractional scale or website feature has been tested. Microphone/camera access, global screenshot shortcuts and unattended installer execution are not enabled in this version. Direct-download updates remain user-confirmed; Microsoft Store updates are delivered by the Store. Screenshots offer native visible-page, full-loaded-page and desktop-area capture, with optional direct paste into a draft. Downloaded updates are installed only after your confirmation.
 
