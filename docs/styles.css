@@ -1,7 +1,7 @@
 :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0f121b; color: #f8f7f5; }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
-body { margin: 0; min-width: 320px; background: radial-gradient(circle at 20% 2%, #673228 0, transparent 35rem), #0f121b; }
+body { margin: 0; background: radial-gradient(circle at 20% 2%, #673228 0, transparent 35rem), #0f121b; }
 a { color: inherit; }
 .site-header { border-bottom: 1px solid #2a2e39; background: rgba(15,18,27,.92); }
 .site-header nav { width: min(1080px, calc(100% - 2rem)); margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem; }
@@ -13,10 +13,13 @@ main, footer { width: min(1080px, calc(100% - 2rem)); margin: 0 auto; }
 .hero { display: flex; align-items: center; gap: clamp(2rem, 7vw, 6rem); min-height: 540px; padding: 5rem 1rem; }
 .hero.compact { min-height: 390px; }
 .app-icon { width: min(270px, 34vw); height: auto; border-radius: 25%; box-shadow: 0 28px 65px rgba(239, 105, 67, .25); }
-.hero-copy { max-width: 650px; }
+.hero-copy { min-width: 0; max-width: 650px; }
 .eyebrow, .package-label { margin: 0; color: #ffbc61; font-size: .82rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
 h1, h2, h3, p, ul { margin-top: 0; }
 h1 { margin: .5rem 0; font-size: clamp(3.4rem, 9vw, 7.5rem); letter-spacing: -.075em; line-height: .92; }
+h1.search-heading { font-size: clamp(2.4rem, 4.8vw, 4.25rem); letter-spacing: -.045em; line-height: 1.08; overflow-wrap: anywhere; }
+pre { max-width: 100%; overflow-x: auto; }
+.package-grid.mac-packages { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 h2 { font-size: clamp(1.8rem, 3vw, 2.7rem); letter-spacing: -.04em; }
 h3 { margin: .7rem 0; font-size: 1.2rem; }
 .lead { max-width: 620px; margin-bottom: 1.5rem; color: #d8d5d0; font-size: clamp(1.25rem, 2vw, 1.55rem); line-height: 1.5; }
@@ -36,5 +39,5 @@ code { color: #ffcf8a; }
 .platform-summary { max-width: 820px; }
 footer { padding: 2rem 1rem 3rem; color: #9ea3ad; font-size: .9rem; }
 footer a { color: #ffbc61; }
-@media (max-width: 820px) { .package-grid, .feature-list { grid-template-columns: 1fr; } }
+@media (max-width: 820px) { .package-grid, .package-grid.mac-packages, .feature-list { grid-template-columns: 1fr; } }
 @media (max-width: 720px) { .site-header nav { align-items: flex-start; flex-direction: column; } .nav-links { gap: .7rem 1rem; } .hero { min-height: auto; flex-direction: column; align-items: flex-start; padding: 4rem 0; } .app-icon { width: 180px; } .packages, .details { padding-left: 0; padding-right: 0; } }
