@@ -12,7 +12,7 @@ const cap = JSON.parse(read('src-tauri/capabilities/local-shell.json'));
 test('preview identity and versions stay separate from Electron', () => {
   assert.equal(config.identifier,'nl.lecomputeur.vibez3');
   assert.equal(config.productName,'VibeZ 3'); assert.equal(config.mainBinaryName,'vibez3');
-  assert.match(config.version,/^3\.\d+\.\d+$/);
+  assert.match(config.version,/^3\.\d+\.\d+(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/);
   assert.equal(JSON.parse(read('package.json')).version,config.version);
   assert.ok(read('src-tauri/Cargo.toml').includes('version = "' + config.version + '"'));
 });

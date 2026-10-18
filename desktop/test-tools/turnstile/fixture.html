@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8">
+<title>VibeZ controlled Turnstile routing regression fixture</title>
+<style>body{font:16px sans-serif;max-width:760px;margin:24px auto;background:#fafafa;color:#18202a}aside{padding:16px;background:#fff2cc;border:2px solid #ad7400}iframe{display:block;width:420px;height:80px;margin:12px 0;border:2px dashed #ad7400}pre{white-space:pre-wrap}</style>
+<body><aside><strong>CONTROLLED SYNTHETIC ROUTING TEST</strong><p>This document replaces only the first public Mistral document in an isolated test process. Native application policy handlers remain unchanged. The deliberately nonexistent Cloudflare resource is not a real challenge or verification. External-open requests are recorded without starting a browser.</p></aside><button id="popup-button" disabled style="position:fixed;left:24px;top:200px;width:280px;height:40px;z-index:9999">Scoped native popup test click</button><pre id="status"></pre>
+<script>
+(() => {
+  const state = window.__vibezTurnstile = {
+    controlledFixture: true, assignments: [], frameLoadEvents: [], readyForPopup: false,
+    popupAttempted: false, popupEventTrusted: null, popupReturnedNull: null,
+    externalAttempted: false, finished: false
+  };
+  const challenge = 'https://challenges.cloudflare.com/cdn-cgi/challenge-platform/vibez-synthetic-routing-probe';
+  const report = () => document.getElementById('status').textContent = JSON.stringify(state, null, 2);
+  document.getElementById('popup-button').addEventListener('click', event => {
+    if (!state.readyForPopup || state.popupAttempted) return;
+    state.popupEventTrusted = event.isTrusted;
+    state.popupAttempted = true;
+    state.popupReturnedNull = window.open(challenge + '?vibez_case=challenge-popup', '_blank') === null;
+    report();
+    setTimeout(() => {
+      state.externalAttempted = true;
+      report();
+      location.href = 'https://example.com/vibez-synthetic-routing-probe?vibez_case=external-normal';
+    }, 600);
+    setTimeout(() => { state.finished = true; report(); }, 1400);
+  });
+  const assign = (frame, tag) => {
+    state.assignments.push({case: tag, atMs: Math.round(performance.now())});
+    frame.src = challenge + '?vibez_case=' + tag;
+    report();
+  };
+  const make = name => {
+    const frame = document.createElement('iframe');
+    if (name) frame.name = name;
+    frame.title = 'Synthetic frame routing probe';
+    frame.addEventListener('load', () => {
+      // A frame load event alone is NOT a network-success oracle.
+      state.frameLoadEvents.push({case: frame.src.split('vibez_case=')[1] || 'initial-blank', atMs: Math.round(performance.now())});
+      report();
+    });
+    document.body.appendChild(frame);
+    return frame;
+  };
+  setTimeout(() => {
+    const unnamed = make('');
+    assign(unnamed, 'unnamed');
+    setTimeout(() => assign(make('vibez-turnstile-named'), 'named'), 600);
+    setTimeout(() => assign(unnamed, 'unnamed-retry'), 1200);
+    setTimeout(() => {
+      state.readyForPopup = true;
+      document.getElementById('popup-button').disabled = false;
+      report();
+    }, 1800);
+  }, 600);
+  report();
+})();
+</script></body></html>
