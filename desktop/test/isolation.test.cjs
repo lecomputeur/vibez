@@ -56,10 +56,10 @@ test('system language resolution retains Dutch and Chinese behavior', () => {
 test('related OAuth popups keep opener callbacks without credential interception', () => {
   const auth=read('src-tauri/src/auth.rs'), smoke=read('src-tauri/src/smoke.rs');
   assert.match(auth,/\.window_features\(features\)/); assert.match(auth,/NewWindowResponse::Create/);
-  assert.match(auth,/create_auth_window\(&nested_app, next, nested_features, true\)/);
+  assert.match(auth,/create_auth_window\(&nested_app, next, nested_features, true, purpose\)/);
   assert.doesNotMatch(auth,/\.user_agent\(|\.initialization_script\(|\.cookies\(|\.set_cookie\(|ignore_certificate/);
   assert.match(smoke,/window\.opener\.postMessage/); assert.match(smoke,/Nested popup was granted native command access/);
-  assert.match(auth,/if auth_chain_allowed\(next, smoke\) \{ return true; \}/);
+  assert.match(auth,/if popup_navigation_allowed\(next, smoke, \*purpose\)/);
 });
 test('updates select published releases rather than CI artifacts', () => {
   const source=read('src-tauri/src/update_download.rs');

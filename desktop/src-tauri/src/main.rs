@@ -10,6 +10,8 @@ mod rich_offline_probe;
 mod browser;
 #[cfg(target_os = "linux")]
 mod linux_identity;
+#[cfg(target_os = "linux")]
+mod linux_navigation;
 mod settings_store;
 mod site_language;
 mod status;
@@ -37,6 +39,7 @@ use std::{fs, path::PathBuf, sync::{Mutex, atomic::{AtomicBool, AtomicU64, Order
 use tauri::{AppHandle, Manager, Webview, WebviewUrl, WebviewWindowBuilder, LogicalPosition, LogicalSize};
 use tauri::webview::{WebviewBuilder, NewWindowResponse, PermissionResponse};
 use tauri_plugin_autostart::ManagerExt as AutostartExt;
+#[cfg(not(target_os = "linux"))]
 use tauri_plugin_opener::OpenerExt;
 #[cfg(target_os = "linux")]
 use webkit2gtk::{SettingsExt, WebViewExt};
@@ -327,20 +330,20 @@ fn main() {
             let controls = WebviewBuilder::new("shell", WebviewUrl::App("index.html".into()))
                 .data_directory(data.join("controls")).data_store_identifier([118,105,98,101,122,51,0,0,0,0,0,0,0,0,0,1]).on_navigation(policy::local_url).on_new_window(|_, _| NewWindowResponse::Deny);
             window.add_child(controls, LogicalPosition::new(0., 0.), LogicalSize::new(1280., TOOLBAR_HEIGHT))?;
-            let handle = app.handle().clone(); let popup_handle = app.handle().clone();
+            #[cfg(not(target_os = "linux"))]
+            let handle = app.handle().clone();
+            let popup_handle = app.handle().clone();
             let content_url = if smoke { WebviewUrl::App("offline.html".into()) } else { WebviewUrl::External("about:blank".parse()?) };
             let content = WebviewBuilder::new("vibe", content_url)
                 .data_directory(data.join("webview")).data_store_identifier([118,105,98,101,122,51,0,0,0,0,0,0,0,0,0,2]).disable_drag_drop_handler()
                 .on_permission_request(|_, _| PermissionResponse::Deny)
                 .on_navigation(move |url| {
+                    #[cfg(target_os = "linux")]
+                    { let _ = url; true } // Native policy gate has frame/gesture metadata.
+                    #[cfg(not(target_os = "linux"))]
+                    {
                     if url.as_str() == "about:blank" && handle.state::<PreviewState>().site_language.bootstrap.load(Ordering::SeqCst) { return true; }
                     if smoke && policy::local_url(url) { link_trace::record("main-allow-local-test", url); return true; }
-                    #[cfg(target_os = "linux")]
-                    if policy::cloudflare_challenge_target(url) {
-                        let allowed = policy::embedded_challenge_url(url);
-                        link_trace::record(if allowed { "main-allow-challenge" } else { "main-block-challenge" }, url);
-                        return allowed;
-                    }
                     if policy::auth_entry_url(url) { auth::begin(&handle); }
                     if auth::active(&handle) && policy::auth_chain_url(url) {
                         if policy::auth_return_url(url) { auth::end(&handle); link_trace::record("auth-mode-end", url); }
@@ -355,6 +358,7 @@ fn main() {
                         }
                     } else { link_trace::record("main-block", url); }
                     false
+                    }
                 })
                 .on_page_load(|view, payload| {
                     let finished = matches!(payload.event(), tauri::webview::PageLoadEvent::Finished);
@@ -379,6 +383,8 @@ fn main() {
                     settings.set_enable_smooth_scrolling(false);
                 }
             })?;
+            #[cfg(target_os = "linux")]
+            linux_navigation::attach_main(app.handle(), &vibe).map_err(std::io::Error::other)?;
             auth::attach_errors(app.handle(), &vibe).map_err(std::io::Error::other)?;
             #[cfg(target_os = "linux")]
             native_find::attach(app.handle(), &vibe).map_err(std::io::Error::other)?;

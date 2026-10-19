@@ -45,6 +45,31 @@ pub fn embedded_challenge_url(url: &Url) -> bool {
     safe_https(url) && cloudflare_challenge_target(url)
 }
 
+/// Preview documents use a separate origin from the Mistral application.
+/// Recognize malformed versions too, so they are blocked before auth/external routing.
+#[cfg(target_os = "linux")]
+pub fn canvas_preview_target(url: &Url) -> bool {
+    url.host_str() == Some("canvas.mistralusercontent.com")
+}
+
+#[cfg(target_os = "linux")]
+pub fn embedded_canvas_url(url: &Url) -> bool {
+    safe_https(url) && canvas_preview_target(url)
+}
+
+/// WebKit reports document-backed iframe creation through its navigation callback.
+/// Permit only these exact internal documents; never arbitrary about/data/blob URLs.
+#[cfg(target_os = "linux")]
+pub fn embedded_internal_url(url: &Url) -> bool {
+    matches!(url.as_str(), "about:blank" | "about:srcdoc")
+}
+
+#[cfg(target_os = "linux")]
+pub fn canvas_window_url(url: &Url) -> bool {
+    embedded_canvas_url(url) || embedded_internal_url(url)
+        || embedded_challenge_url(url) || auth_return_url(url)
+}
+
 /// Origins that can legitimately START a sign-in flow. This is intentionally
 /// small. After entry, the redirect chain is handled generically by
 /// auth_chain_url instead of maintaining an endless provider-domain allowlist.
@@ -167,6 +192,56 @@ mod tests {
             "https://user:password@accounts.google.com/",
         ] {
             assert!(!auth_entry_url(&u(value)), "Unsafe auth entry: {value}");
+        }
+    }
+    #[cfg(target_os = "linux")]
+    #[test] fn canvas_origin_is_exact_https_and_does_not_grant_auth_or_native_access() {
+        for value in [
+            "https://canvas.mistralusercontent.com/preview/chart?version=2#sheet",
+            "https://CANVAS.MISTRALUSERCONTENT.COM:443/",
+        ] {
+            let url = u(value);
+            assert!(canvas_preview_target(&url));
+            assert!(embedded_canvas_url(&url));
+            assert!(!embedded_url(&url));
+            assert!(!auth_entry_url(&url));
+            for label in ["vibe", "auth-popup-1", "shell", "settings"] { assert!(!trusted_caller(label, &url)); }
+        }
+        for value in [
+            "http://canvas.mistralusercontent.com/",
+            "https://canvas.mistralusercontent.com:444/",
+            "https://user:secret@canvas.mistralusercontent.com/",
+        ] {
+            let url = u(value);
+            assert!(canvas_preview_target(&url), "Malformed target must be recognized before external/auth routing: {value}");
+            assert!(!embedded_canvas_url(&url));
+        }
+        for value in [
+            "https://canvas.mistralusercontent.com.evil.example/",
+            "https://sub.canvas.mistralusercontent.com/",
+            "https://other.mistralusercontent.com/",
+            "https://canvas.mistralusercontent.com./",
+            "https://evil.example/?next=https://canvas.mistralusercontent.com/",
+        ] { assert!(!canvas_preview_target(&u(value)), "{value}"); }
+    }
+    #[cfg(target_os = "linux")]
+    #[test] fn internal_frame_documents_do_not_admit_arbitrary_local_content() {
+        for value in ["about:blank", "about:srcdoc"] {
+            let url = u(value);
+            assert!(embedded_internal_url(&url));
+            for label in ["vibe", "auth-popup-1", "shell", "settings"] { assert!(!trusted_caller(label, &url)); }
+        }
+        for value in ["about:blank?token=x", "about:srcdoc#x", "about:config", "data:text/html,test", "blob:https://chat.mistral.ai/test", "file:///etc/passwd", "tauri://localhost/settings.html"] {
+            assert!(!embedded_internal_url(&u(value)), "{value}");
+        }
+    }
+    #[cfg(target_os = "linux")]
+    #[test] fn canvas_windows_retain_only_preview_frames_and_mistral_content_returns() {
+        for value in ["https://canvas.mistralusercontent.com/chart", "about:blank", "about:srcdoc", "https://chat.mistral.ai/chat/1", "https://vibe.mistral.ai/", "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/g/normal"] {
+            assert!(canvas_window_url(&u(value)), "{value}");
+        }
+        for value in ["https://example.com/", "https://accounts.google.com/", "https://auth.mistral.ai/", "https://other.mistralusercontent.com/", "http://canvas.mistralusercontent.com/", "https://canvas.mistralusercontent.com:444/", "https://challenges.cloudflare.com/"] {
+            assert!(!canvas_window_url(&u(value)), "{value}");
         }
     }
     #[cfg(target_os = "linux")]

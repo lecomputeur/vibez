@@ -1,0 +1,11 @@
+#!/usr/bin/env python3
+import json,os,sys,time
+from pathlib import Path
+from urllib.parse import urlsplit,parse_qs
+records=[]
+for raw in sys.argv[1:]:
+ if raw.startswith(('https://','http://')):
+  u=urlsplit(raw);tag=parse_qs(u.query).get('case',[None])[0]
+  records.append({'event':'opener','origin':u.scheme+'://'+str(u.hostname),'case':tag,'browserStarted':False,'monotonicNs':time.monotonic_ns()})
+with open(os.environ['VIBEZ_CANVAS_OPEN_LOG'],'a') as out:
+ for r in records:out.write(json.dumps(r)+'\n')
