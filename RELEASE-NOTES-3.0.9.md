@@ -7,6 +7,7 @@ Release candidate. Stable publication is conditional on the exact-source all-pla
 - Linux distinguishes embedded documents from main-window navigation using WebKit navigation and response metadata. Canvas/chart previews load inside the app instead of opening blank external tabs.
 - Automatic unknown popups are blocked; deliberate external hyperlinks retain browser delivery. Authentication windows have separate navigation state, including Microsoft sign-in redirects.
 - Production app identity, profiles and installer behavior are retained. This promotes the routing source tested as 3.0.9+test.2 and in the isolated Canvas Test 3.0.9+test.3, without promoting the test app's separate identity or disabled updates.
+- Update rustls-webpki to 0.103.16 and webpki-roots to 1.0.10 for the newly published certificate-trust advisories RUSTSEC-2026-0382 and RUSTSEC-2026-0381.
 - Windows/macOS receive version 3.0.9 and window title VibeZ V3.0.9. The routing hooks are Linux-only.
 
 ## Reporter evidence and remaining issue

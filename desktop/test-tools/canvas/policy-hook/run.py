@@ -17,7 +17,7 @@ def main():
   if not shutil.which(tool):p.error(f'Missing {tool}; no system changes were made')
  build=['cargo','build','--offline','--locked','--manifest-path',str(HERE/'Cargo.toml'),'--target-dir',str(target),'-j2']
  with (out/'build.log').open('w') as log:
-  subprocess.run(build,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=180)
+  subprocess.run(build,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=900)
  binary=target/'debug'/NAME
  env=os.environ.copy()
  for key in list(env):

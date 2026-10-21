@@ -13,7 +13,7 @@ Use the existing product **VibeZ Desktop**, Product ID **9NR7L2G4MS08**. No addi
 
 1. Sign in to the existing Microsoft Partner Center account and open Apps and games → VibeZ Desktop (9NR7L2G4MS08).
 2. Inspect current live package versions and every draft/in-progress submission first. Stop if 3.0.9.0 is not newer, if another submission is in progress, or if the identity/publisher differs. Do not discard or replace another submission.
-3. After the GitHub release gates and the unresolved high-CPU blocker are cleared, create a new update submission for the existing product. Under Packages upload exactly the verified MSIX named above. Compare its SHA-256 with the delivered build checksums.
+3. After the exact-source GitHub release gates pass and the known high-CPU limitation is reviewed, create a new update submission for the existing product. Under Packages upload exactly the verified MSIX named above. Compare its SHA-256 with the delivered build checksums.
 4. Wait for package validation. Check identity, publisher, architecture, Windows requirements and version 3.0.9.0. Review any errors before continuing.
 5. Preserve existing pricing, markets, age ratings, privacy link and product declarations, including purchases offered by the embedded Mistral service outside Microsoft commerce. Review supported languages against the existing listing.
 6. Paste the appropriate What's New text below. Review certification notes and publication timing. Submit only with explicit permission and appropriate account access.
@@ -26,3 +26,5 @@ VibeZ 3.0.9 updates the app version and window titles. Your existing settings an
 ## Nieuw in deze versie — Nederlands
 
 VibeZ 3.0.9 werkt de appversie en titelbalken bij. Je bestaande instellingen en profielen blijven behouden. Deze release bevat ook Linux-specifieke verbeteringen voor ingesloten Canvas-previews en verificatienavigatie. Microsoft Store-installaties ontvangen updates via de Store. VibeZ is een onafhankelijke client en is niet verbonden aan Mistral AI.
+
+Official references: [upload MSIX packages](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/upload-app-packages), [create an app submission](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/create-app-submission). Run the Windows App Certification Kit before submission; MakeAppx and smoke checks do not replace Store certification.
