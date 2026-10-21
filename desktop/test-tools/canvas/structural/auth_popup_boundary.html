@@ -1,0 +1,23 @@
+<!doctype html><meta charset="utf-8"><title>VibeZ auth popup boundary</title>
+<style>body{font:15px sans-serif;margin:24px;background:#eff3f7}button{position:fixed;left:24px;top:120px;width:280px;height:40px}iframe{margin-top:100px;height:100px;width:400px}</style>
+<h1>Controlled iframe login-popup boundary</h1><button id="open">Open related login popup from iframe</button><iframe id="frame" src="https://frame-a.vibez.test/content?case=popup-boundary-frame"></iframe><pre id="status"></pre>
+<script>
+(()=>{
+ const s=window.__structuralState={controlledFixture:true,scenario:'auth-popup-boundary',currentCase:'starting',messages:[],requestClick:false,clickSerial:1,finished:false,popupAliveBeforeMainAttempt:false};
+ const f=document.getElementById('frame'),show=()=>document.getElementById('status').textContent=JSON.stringify(s),sleep=ms=>new Promise(r=>setTimeout(r,ms));
+ window.addEventListener('message',e=>{if(e.source!==f.contentWindow)return;const m=e.data;if(m?.kind==='structural-ready')s.messages.push(m);if(m?.kind==='boundary-popup-status')s.popupAliveBeforeMainAttempt=m.open===true;show();});
+ const waitFor=async(predicate)=>{const end=performance.now()+2500;while(performance.now()<end&&!predicate())await sleep(25);if(!predicate())throw Error('Fixture readiness timed out at '+s.currentCase);};
+ document.getElementById('open').addEventListener('click',e=>{s.requestClick=false;s.trustedClick=e.isTrusted;f.contentWindow.postMessage({kind:'boundary-open'},'*');show();});
+ (async()=>{
+  await waitFor(()=>s.messages.some(m=>m.case==='popup-boundary-frame'));
+  s.currentCase='iframe-login-popup';s.requestClick=true;show();
+  await waitFor(()=>s.messages.some(m=>m.case==='login-live-boundary-popup-final'));
+  f.contentWindow.postMessage({kind:'boundary-status'},'*');await waitFor(()=>s.popupAliveBeforeMainAttempt);
+  s.currentCase='top-during-iframe-login-popup';show();
+  location.href='https://frame-b.vibez.test/content?case=top-during-iframe-login-popup';
+  await sleep(1400);
+  f.contentWindow.postMessage({kind:'boundary-close'},'*');await sleep(400);
+  s.currentCase='complete';s.finished=true;show();
+ })().catch(e=>{s.error=String(e);s.finished=true;show();});show();
+})();
+</script>

@@ -141,7 +141,12 @@ def check_report(events, opens, expected):
         and last.get('popupReturnedNull') is True)
     add('No additional own webview window during challenge fixture', bool(windows)
         and windows[0] == 1 and max(windows) == 1, {'first': windows[0] if windows else None, 'max': max(windows) if windows else None})
-    add('Normal external navigation still invokes the native opener once', len(external_opens) == 1, len(external_opens))
+    external_nav = [event for event in events if matching(event, 'policy-observed', 'external-normal')
+                    and event.get('type') == 'navigation-action' and event.get('origin') == 'https://example.com']
+    add('Automatic external navigation reached native policy', last.get('externalAttempted') is True
+        and len(external_nav) == 1, len(external_nav))
+    add('Automatic external navigation follows the expected old/fixed policy',
+        len(external_opens) == (0 if expected == 'fixed' else 1), len(external_opens))
     allowed_cases = {*FRAME_CASES, 'challenge-popup', 'external-normal'}
     add('No unexpected opener target and no actual browser launched', all(row.get('fixtureCase') in allowed_cases
         and row.get('browserStarted') is False for row in opens), len(opens))
@@ -190,7 +195,7 @@ def controlled(args, output):
                     opens = rows(output / 'opener.jsonl')
                     finished = any(event.get('ownFixtureState', {}).get('finished') is True for event in events)
                     # Always observe several seconds after requests, independently of expected pass/fail.
-                    if finished and any(row.get('fixtureCase') == 'external-normal' for row in opens):
+                    if finished and any(event.get('fixtureCase') == 'external-normal' and event.get('type') == 'navigation-action' for event in events):
                         if settled is None:
                             settled = time.monotonic()
                         if time.monotonic() - settled >= 5:

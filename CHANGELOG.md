@@ -1,3 +1,12 @@
+# 3.0.9 — 2026-10-21
+
+- Refresh TLS trust dependencies: rustls-webpki 0.103.16 and webpki-roots 1.0.10.
+- Linux native frame-aware navigation fixes Canvas previews and unwanted external tabs.
+- Isolate authentication-window state and block automatic unknown popups.
+- Version/title update for Windows and macOS; Store package version 3.0.9.0.
+- Known unresolved: original heavy conversation still consumes 100% CPU at idle (#42/#49).
+- See RELEASE-NOTES-3.0.9.md for evidence, release gates and delivery status.
+
 # Changelog
 
 ## 3.0.8 — 2026-10-18

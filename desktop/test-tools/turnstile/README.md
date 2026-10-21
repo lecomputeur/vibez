@@ -30,8 +30,10 @@ requests a Cloudflare popup through an explicit button. A native GDK button
 press/release is dispatched only to this fixture's own WebKit widget in its
 private display, and the DOM event must be trusted. A timer-only popup would be
 blocked by WebKit before the application's native popup callback, so it cannot
-test application policy. The fixture then requests a normal external navigation. The latter must
-still reach the application's native opener. A harmless PATH recorder handles
+test application policy. The fixture then requests an automatic external navigation from a timer. The
+3.0.9 contract requires native observation and zero opener requests for that
+automatic navigation. Deliberate link clicks must still open once and are
+independently required by the structural navigation harness in the same CI job. A harmless PATH recorder handles
 all browser-open requests without launching a browser. Only origins and known
 synthetic case labels are logged, never arbitrary paths, queries or credentials.
 
@@ -44,8 +46,9 @@ An iframe `load` event is not used as a network success oracle.
 
 The fixed contract requires zero challenge opener invocations, a resource start
 for each of the three frame cases, an actual native popup-create callback followed
-by a null `window.open` result, no additional own WebKit window, and one normal
-external opener invocation. The old control is expected to invoke the opener
+by a null `window.open` result, no additional own WebKit window, and zero automatic
+external opener invocations. Earlier versions opening that timer navigation are
+not the stronger 3.0.9 contract. The old control is expected to invoke the opener
 once for each of the three frames and once for the challenge popup. Its successful
 control result explicitly retains `fixedContractPassed: false`.
 

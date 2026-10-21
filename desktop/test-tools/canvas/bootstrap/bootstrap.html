@@ -1,0 +1,22 @@
+<!doctype html><meta charset="utf-8"><title>Controlled blank-popup bootstrap</title><style>body{font:16px sans-serif}button{position:fixed;left:24px;top:200px;width:280px;height:40px}</style><body><h1>Controlled blank-popup bootstrap</h1><p>Isolated synthetic test of blank → srcdoc + challenge iframe → Canvas/provider; no login.</p><button id="popup-button">Open controlled blank popup</button><pre id="status"></pre><script>
+(()=>{
+ const scenario='__SCENARIO__';
+ const state=window.__vibezCanvas={controlledFixture:true,scenario,readyForPopup:false,popupAttempted:false,popupEventTrusted:null,popupReturnedNull:null,bootstrapMessages:0,srcdocMessages:0,externalAttempted:false,finished:false};
+ const report=()=>document.getElementById('status').textContent=JSON.stringify(state);
+ window.addEventListener('message',e=>{if(e.data?.kind==='bootstrap-ready')state.bootstrapMessages++;if(e.data?.kind==='nested-srcdoc-ready')state.srcdocMessages++;report();});
+ document.getElementById('popup-button').addEventListener('click',event=>{
+  if(state.popupAttempted)return;state.popupAttempted=true;state.popupEventTrusted=event.isTrusted;
+  const child=window.open('about:blank','_blank');state.popupReturnedNull=child===null;report();
+  if(!child){state.finished=true;report();return;}
+  const target=scenario==='canvas'?'https://canvas.mistralusercontent.com/vibez-synthetic-routing-probe?vibez_case=preview-popup':'https://accounts.google.com/vibez-synthetic-routing-probe?vibez_case=preview-popup';
+  const challenge='https://challenges.cloudflare.com/cdn-cgi/challenge-platform/vibez-synthetic-routing-probe?vibez_case=unnamed';
+  const nested='<!doctype html><scr'+'ipt>top.opener.postMessage({kind:"nested-srcdoc-ready"},"*")</scr'+'ipt>';
+  const nestedLiteral=JSON.stringify(nested).replace(/</g,'\\u003c');
+  const inside='<!doctype html><body>Controlled bootstrap popup<div id="frames"></div><scr'+'ipt>(()=>{opener.postMessage({kind:"bootstrap-ready"},"*");const a=document.createElement("iframe");a.srcdoc='+nestedLiteral+';document.body.append(a);const b=document.createElement("iframe");document.body.append(b);setTimeout(()=>b.src='+JSON.stringify(challenge)+',300);setTimeout(()=>location.href='+JSON.stringify(target)+',1400);})()</scr'+'ipt>';
+  child.document.open();child.document.write(inside);child.document.close();
+  setTimeout(()=>{state.externalAttempted=true;child.location='https://example.com/vibez-synthetic-routing-probe?vibez_case=external-normal';report();},4000);
+  setTimeout(()=>{state.finished=true;report();},6500);
+ });
+ setTimeout(()=>{state.readyForPopup=true;report();},600);report();
+})();
+</script></body>

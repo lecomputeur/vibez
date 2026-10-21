@@ -1,78 +1,21 @@
-# VibeZ on Windows and macOS
+# VibeZ 3.0.9 on Windows and macOS
 
-VibeZ provides native desktop packages for Windows and macOS alongside the Linux packages. Public releases are built automatically from this GitHub repository by GitHub Actions and include SHA-256 checksums.
+The [verified 3.0.9 build](https://github.com/lecomputeur/vibez/actions/runs/39643498884) passed all nine required platform/security jobs. All twelve packages use frozen source `64dbf09e8a24b1d1859b3571cd3b83b87a39f14c`; the [release proof](tools/release-v3/release-proof-3.0.9.json) records the build. The packages are validated for GitHub publication. The [3.0.9 release asset list](https://github.com/lecomputeur/vibez/releases/tag/v3.0.9) records actual download availability; compare downloads with its `SHA256SUMS` and `source-commit.txt`.
 
-## Windows
+## Windows x64
 
-### Recommended installation route
+Use `VibeZ-3.0.9-Windows-x64-Setup.exe` or `VibeZ-3.0.9-Windows-x64.msi`. Direct installers are unsigned and may trigger SmartScreen or managed-device restrictions. Windows requires WebView2. The Store package targets Windows 10 build 17763 or newer.
 
-Install **[VibeZ Desktop from the Microsoft Store](https://apps.microsoft.com/detail/9NR7L2G4MS08)** for the recommended Windows installation. The Store version uses a separate MSIX package validated and signed by Microsoft. Alternatively, use the direct GitHub download described below.
+`VibeZ-3.0.9-Windows-x64-Store.msix`, version 3.0.9.0, is an unsigned Partner Center upload package for the existing VibeZ Desktop product. Use EXE/MSI for direct installation. The [Store listing](https://apps.microsoft.com/detail/9NR7L2G4MS08) has its own certification/delivery schedule; do not assume its current version is 3.0.9. See [upload steps and What's New](MICROSOFT-STORE-3.0.9.md). No Store submission was performed as part of this work.
 
-### Direct GitHub download
+## macOS 14 or newer
 
-- Windows x64: `VibeZ-<version>-Windows-x64.exe`
+Apple Silicon: `VibeZ-3.0.9-macOS-arm64.dmg` or `.zip`. Intel: `VibeZ-3.0.9-macOS-x64.dmg` or `.zip`. Both architectures passed Developer ID signing, Apple notarization and stapled-ticket validation in the exact-source build. Both native architectures, Info.plist requirements and Mach-O deployment targets were verified with a macOS 14 minimum. Open the matching DMG and copy VibeZ 3 to Applications.
 
-Download the installer and `SHA256SUMS` from the [official GitHub Releases page](https://github.com/lecomputeur/vibez/releases).
+## Updates and profiles
 
-The direct GitHub Windows installer is currently unsigned. Windows may therefore show **Windows protected your PC** or **Unknown publisher**.
+Direct VibeZ 3 installations use the app's published-release update flow with SHA-256 checks and user-confirmed installation. Store installations use Store delivery. Ordinary 3.x profiles/settings are retained; isolated Canvas Test, older Electron and preview profiles remain separate. No automatic profile migration or deletion is included.
 
-If you downloaded VibeZ from this official repository:
+This release adds TLS certificate-trust dependency updates on all platforms. The frame-aware Canvas/verification routing fix applies to Linux. The original heavy-conversation high-CPU report remains open in #49 and is not claimed fixed. Preserve the v3.0.8 assets and tag for rollback; close VibeZ, back up the ordinary profile and reinstall the matching 3.0.8 installer if needed. Do not delete or migrate profiles.
 
-1. Verify the installer's SHA-256 against `SHA256SUMS`.
-2. Open the VibeZ installer.
-3. If SmartScreen appears, choose **More info**.
-4. Confirm that the displayed app name and downloaded filename match the official release.
-5. Choose **Run anyway** and continue through the installer.
-
-On managed work or school PCs, administrator policy may block unsigned applications completely. VibeZ cannot bypass that policy.
-
-Submitting a file to Microsoft for malware analysis is appropriate only when Defender incorrectly detects it as malware or potentially unwanted software. It is not a manual consumer SmartScreen allow-list.
-
-## macOS
-
-### Which download?
-
-- Apple Silicon (M1, M2, M3, M4 and newer): `VibeZ-<version>-macOS-arm64.dmg`
-- Intel Mac: `VibeZ-<version>-macOS-x64.dmg`
-
-A ZIP build is also supplied for each architecture. For most users, the DMG is the easiest option.
-
-VibeZ 2 macOS packages are signed with an Apple Developer ID certificate and notarized by Apple. The release workflow verifies the signature, Gatekeeper acceptance, notarization and stapling before publication.
-
-Download VibeZ from the [official GitHub Releases page](https://github.com/lecomputeur/vibez/releases), open the DMG and drag **VibeZ** to **Applications**.
-
-### Screenshot permission on macOS
-
-The VibeZ Screenshot feature needs macOS screen-capture permission.
-
-The first time macOS blocks screen capture, open **System Settings → Privacy & Security → Screen & System Audio Recording** (called **Screen Recording** on some macOS versions), enable VibeZ, then restart VibeZ if macOS requests it.
-
-VibeZ only captures the screen when you explicitly start its Screenshot tool.
-
-## Verify a download
-
-Every VibeZ release publishes a `SHA256SUMS` file. Compare the checksum of your downloaded file with the value in that file.
-
-### Windows PowerShell
-
-```powershell
-Get-FileHash .\VibeZ-<version>-Windows-x64.exe -Algorithm SHA256
-```
-
-### macOS Terminal
-
-```bash
-shasum -a 256 VibeZ-<version>-macOS-arm64.dmg
-```
-
-The calculated value must exactly match the corresponding line in `SHA256SUMS` on the GitHub release.
-
-## Updates
-
-**Windows:** direct GitHub installations can use VibeZ's update flow where supported. A new unsigned installer can trigger SmartScreen again because each version starts with a new file reputation. The Microsoft Store manages updates for Store installations.
-
-**macOS:** starting with VibeZ 2.0.1, signed and notarized installations can download verified updates in the app. VibeZ selects the ZIP matching the Mac's processor and offers **Restart & update** or **Later**. Users of 2.0.0 must install 2.0.1 manually once to enable this update path.
-
-Only download VibeZ from **https://github.com/lecomputeur/vibez**, the project website linked from that repository, or the [official Microsoft Store listing](https://apps.microsoft.com/detail/9NR7L2G4MS08).
-
-See the public [code signing policy](https://lecomputeur.github.io/vibez/code-signing-policy.html) for the current Windows and macOS signing status.
+Installation guides: [Windows](https://lecomputeur.github.io/vibez/windows.html) · [macOS](https://lecomputeur.github.io/vibez/macos.html). [Code signing policy](https://lecomputeur.github.io/vibez/code-signing-policy.html).

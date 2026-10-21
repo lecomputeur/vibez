@@ -1,0 +1,63 @@
+<!doctype html><meta charset="utf-8"><title>VibeZ structural routing fixture</title>
+<style>body{font:15px sans-serif;background:#eff3f7;color:#17283b;margin:24px}#action-slot>*{position:fixed;left:24px;top:120px;box-sizing:border-box;width:280px;height:40px;padding:9px;border:1px solid #234;background:#def;z-index:9999}#frames{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:70px}iframe{height:70px;width:95%;border:1px solid #9ab}pre{white-space:pre-wrap;font-size:11px}</style>
+<h1>Controlled structural routing regression</h1><p>All HTTPS content is supplied by a private local fixture proxy. No account or public service is used.</p><div id="action-slot"></div><div id="frames"></div><pre id="status"></pre>
+<script>
+(()=>{
+ const resume=__RESUME__;
+ const s=window.__structuralState={controlledFixture:true,currentCase:'starting',assignments:[],messages:[],clicks:[],requestClick:false,clickSerial:resume?100:0,finished:false,popupErrors:[],autoPopupReturnedNull:null};
+ const refs=[];let clickHandler=null;
+ const show=()=>document.getElementById('status').textContent=JSON.stringify(s);
+ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+ const url=(host,tag,path='/content')=>'https://'+host+path+'?case='+tag;
+ window.addEventListener('message',e=>{if(e.data?.kind==='structural-ready'&&typeof e.data.case==='string'){s.messages.push({case:e.data.case,origin:e.origin,isTop:e.data.isTop===true});show();}});
+ const waitReady=async(tag,ms=1400)=>{const end=performance.now()+ms;while(performance.now()<end&&!s.messages.some(m=>m.case===tag))await sleep(25);};
+ function frame(tag,target,name){const f=document.createElement('iframe');if(name)f.name=name;f.title=tag;s.assignments.push(tag);document.getElementById('frames').append(f);if(target)f.src=target;refs.push(f);show();return f;}
+ async function requestClick(tag,href=null,target=null,callback=null){s.currentCase=tag;const el=document.createElement(href?'a':'button');el.textContent='Trusted action: '+tag;if(href)el.href=href;if(target)el.target=target;const done=new Promise(resolve=>{el.addEventListener('click',e=>{s.requestClick=false;s.clicks.push({case:tag,trusted:e.isTrusted});show();if(callback)callback(e);resolve();});});document.getElementById('action-slot').replaceChildren(el);s.clickSerial++;s.requestClick=true;show();await done;await sleep(200);}
+ async function autoTop(tag,target){s.currentCase=tag;s.assignments.push(tag);show();location.href=target;await sleep(1400);}
+ function childHTML(bodyScript){return '<!doctype html><body>Controlled popup bootstrap<scr'+'ipt>'+bodyScript+'</scr'+'ipt>';}
+ function srcdoc(tag){return '<!doctype html><scr'+'ipt>(top.opener||top).postMessage({kind:"structural-ready",case:'+JSON.stringify(tag)+',isTop:false},"*")</scr'+'ipt>';}
+ async function openPopup(tag,target,bootstrap=null){let w=null;await requestClick(tag,null,null,()=>{w=window.open(target,'_blank');if(!w)s.popupErrors.push(tag+':null');});if(w&&bootstrap){await sleep(200);try{w.document.open();w.document.write(childHTML(bootstrap));w.document.close();}catch(e){s.popupErrors.push(tag+':write');}}return w;}
+ async function closePopup(w){if(w)try{w.close();}catch(e){s.popupErrors.push('close');}await sleep(250);}
+ async function run(){
+  await sleep(500);
+  if(resume==='after-main-auth'){await autoTop('post-auth-return',url('frame-a.vibez.test','post-auth-return'));await requestClick('login-live-main',url('login.live.com','login-live-main','/redirect'));return;}
+  if(resume==='after-login-live'){await autoTop('post-login-live-return',url('frame-a.vibez.test','post-login-live-return'));s.finished=true;s.currentCase='complete';show();return;}
+  frame('blank-frame','about:blank');const doc=frame('srcdoc-frame');doc.srcdoc=srcdoc('srcdoc-frame');await waitReady('srcdoc-frame');
+  frame('unknown-frame',url('frame-a.vibez.test','unknown-frame'));await waitReady('unknown-frame');
+  frame('named-frame',url('frame-a.vibez.test','named-frame'),'controlled-named');await waitReady('named-frame');
+  frame('nested-parent',url('frame-a.vibez.test','nested-parent'));await waitReady('nested-child');
+  frame('redirect-frame',url('frame-a.vibez.test','redirect-frame','/redirect'));await waitReady('redirect-frame');
+  frame('same-url',url('frame-a.vibez.test','same-url'));await waitReady('same-url');
+  frame('known-canvas',url('canvas.mistralusercontent.com','known-canvas'));await waitReady('known-canvas');
+  frame('known-challenge',url('challenges.cloudflare.com','known-challenge','/cdn-cgi/challenge-platform/structural'));await waitReady('known-challenge');
+  frame('unsafe-credentials','https://user:pass@frame-a.vibez.test/content?case=unsafe-credentials');
+  frame('unsafe-port','https://frame-a.vibez.test:444/content?case=unsafe-port');
+  frame('unsafe-http','http://frame-a.vibez.test/content?case=unsafe-http');
+  frame('unsafe-file','file:///tmp/vibez-structural-does-not-exist?case=unsafe-file');
+  const data=frame('unsafe-data');data.src='data:text/html,'+encodeURIComponent(srcdoc('unsafe-data'));await sleep(600);
+  // If a provider iframe wrongly enables top-level auth, the following automatic
+  // external document would execute and emit an /executed server marker.
+  frame('auth-iframe',url('accounts.google.com','auth-iframe'));await waitReady('auth-iframe');
+  frame('frame-auth-chain',url('chat.mistral.ai','frame-auth-chain','/frame-auth-start'));await waitReady('frame-auth-final');
+  await autoTop('top-after-auth',url('frame-a.vibez.test','top-after-auth'));
+  await autoTop('same-url',url('frame-a.vibez.test','same-url'));
+  await autoTop('top-auto',url('frame-a.vibez.test','top-auto'));
+  await autoTop('top-redirect',url('frame-a.vibez.test','top-redirect','/redirect'));
+  await requestClick('click-self',url('frame-a.vibez.test','click-self'));await sleep(300);
+  await requestClick('click-frame',url('frame-a.vibez.test','click-frame'),'controlled-named');await sleep(300);
+  await requestClick('click-blank',url('frame-a.vibez.test','click-blank'),'_blank');await sleep(300);
+  await requestClick('click-http','http://frame-a.vibez.test/content?case=click-http');await sleep(300);
+  s.currentCase='auto-popup';s.assignments.push('auto-popup');setTimeout(()=>{s.autoPopupReturnedNull=window.open(url('frame-a.vibez.test','auto-popup'),'_blank')===null;show();},0);await sleep(500);
+  let w=await openPopup('canvas-popup',url('canvas.mistralusercontent.com','canvas-popup'));await waitReady('canvas-popup');await closePopup(w);
+  const nestedLiteral=JSON.stringify(srcdoc('pending-srcdoc')).replace(/</g,'\\u003c');
+  const pendingScript='const a=document.createElement("iframe");a.src='+JSON.stringify(url('accounts.google.com','pending-auth-frame'))+';document.body.append(a);const b=document.createElement("iframe");b.srcdoc='+nestedLiteral+';document.body.append(b);setTimeout(()=>location.href='+JSON.stringify(url('canvas.mistralusercontent.com','pending-canvas'))+',700);';
+  w=await openPopup('pending-popup','about:blank',pendingScript);await waitReady('pending-canvas',1800);await sleep(1100);await closePopup(w);
+  w=await openPopup('oauth-direct-popup',url('accounts.google.com','oauth-direct'));await waitReady('oauth-direct-final',2000);await closePopup(w);
+  const authScript='const a=document.createElement("iframe");a.srcdoc='+JSON.stringify(srcdoc('oauth-srcdoc')).replace(/</g,'\\u003c')+';document.body.append(a);const b=document.createElement("iframe");b.src='+JSON.stringify(url('challenges.cloudflare.com','oauth-challenge','/cdn-cgi/challenge-platform/structural'))+';document.body.append(b);setTimeout(()=>location.href='+JSON.stringify(url('accounts.google.com','oauth-blank'))+',700);';
+  w=await openPopup('oauth-blank-popup','about:blank',authScript);await waitReady('oauth-blank-final',2400);await closePopup(w);
+  w=await openPopup('login-live-popup',url('login.live.com','login-live-popup'));await waitReady('login-live-popup-final',2200);await closePopup(w);
+  s.currentCase='main-auth-chain';s.assignments.push('main-auth-chain');show();location.href=url('chat.mistral.ai','main-auth-chain','/main-auth-start');
+ }
+ run().catch(e=>{s.error=String(e);s.finished=true;show();});show();
+})();
+</script>

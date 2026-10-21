@@ -1,0 +1,72 @@
+VibeZ local Wry patch
+====================
+
+Upstream: wry 0.57.0, https://crates.io/crates/wry/0.57.0
+Repository: https://github.com/tauri-apps/wry
+Original .crate SHA-256:
+  a819957a01b3119af85e638a38d242af76dbc87d130dca67bfd0441072e21ff0
+Cargo VCS metadata shipped by upstream:
+  git SHA-1 792d0359ba6501a4fc360ece17de2ae42329a47c, dirty=true
+  (The release archive, not an assumed clean Git commit, is the exact baseline.)
+License: Apache-2.0 OR MIT. Original LICENSE-APACHE, LICENSE-MIT and LICENSE.spdx
+are retained. This is a complete copy of the published package; the local Cargo
+registry cache has not been changed.
+
+Why this patch exists
+---------------------
+Tauri 2.12.1 always supplies a Wry navigation handler, including its plugin
+wrapper when an application omits on_navigation. Wry's WebKitGTK callback then
+settles every NavigationAction using only a URL and returns true, so a native
+handler connected afterward cannot inspect the action or override that choice.
+Linux receives iframe navigations through that same callback. URL-only handling
+cannot distinguish automatically embedded frames from deliberate external links.
+
+Small local difference
+----------------------
+Only src/lib.rs and src/webkitgtk/mod.rs differ from upstream:
+
+* Export Linux-only set_webkit_policy_handler(&webkit2gtk::WebView, callback).
+* Store one Rc callback in private per-view GObject data.
+* Consult it before the existing decide-policy type switch. A true result stops
+  fallback; false retains the original Wry/Tauri/plugin path exactly.
+* Clone the Rc before calling user code, so callback replacement or re-entrant
+  policy signals do not keep a borrowed qdata pointer alive.
+* Export Linux-only set_webkit_new_window_handler(&webkit2gtk::WebView,
+  callback), using a second private per-view Rc. Consult it before the existing
+  create-signal URL handler; false denies creation, true retains the old path.
+  WebKit may emit create without a preceding NewWindowAction policy decision,
+  so the creation gate independently exposes the actual NavigationAction.
+
+The hook is opt-in per native webview and GTK-thread only. Unregistered views,
+including bundled controls, follow the original code. All non-Linux builds use
+the original code. No navigation decision, opener, protocol permission, cookie
+setting, user-agent change or IPC grant is added by this patch itself.
+The hook is consulted by Wry's navigation-handler signal connection. Tauri
+2.12.1 always supplies that connection through its plugin wrapper; a raw Wry
+view built without a navigation handler does not consult the installed hook.
+The new-window gate similarly requires Wry's new-window-handler connection;
+Tauri app views that register on_new_window supply it. Without a registered
+native creation gate, the original create path is unchanged.
+
+The callback must return true if it calls use/ignore/download; only WebKit's
+first decision has effect. It must return false without settling the decision
+when normal Wry/Tauri/plugin handling is wanted. Callers install it while the
+view is neutral, before its first remote load or before returning a related
+popup from NewWindowResponse::Create. Do not capture a strong reference to the
+same view in its stored callback. The callback is released with the native view
+or on replacement. This API does not add reliable pre-request frame identity.
+
+Maintenance and validation
+--------------------------
+Keep the complete upstream license and package baseline when updating. Compare
+these two source files with the new pinned release and re-check Tauri's wrapper
+and Wry signal order before carrying the patch forward. Prefer an upstream
+native policy hook when available; do not apply an unrelated version upgrade
+silently. The package-level patch must be exercised through the app's native
+frame/popup tests (handled=true, fallback=false, unhooked controls, callback
+replacement/re-entry, auth redirects, iframe/main response classification and
+related opener/postMessage/close behavior). A successful Rust build alone does
+not establish correct routing or compatibility with real service previews.
+The creation-gate checks must include create-only JavaScript popups whose
+NavigationType is Other even when recent user activation makes is_user_gesture
+true; gesture alone must not be mistaken for a deliberate clicked link.
