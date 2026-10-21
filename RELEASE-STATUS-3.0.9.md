@@ -17,7 +17,7 @@ Ten of the twelve required release files are available as build artifacts. Sourc
 
 Intel Mac ticket stapling/validation repeatedly failed with Apple CloudKit `NSURLErrorDomain -1005` (network connection lost), exit **68**. This happened across normal attempts and a fresh-runner retry, with five bounded network retries each time. The final attempt accepted app notarization and created/notarized the DMG, but could not complete the explicit independent ticket validation. Do not waive the check or call the Intel package validated.
 
-All other platform jobs are green. The combined twelve-format gate remains skipped because Intel failed. The existing failed-run artifacts remain on GitHub; local copies/logs are retained. Automatic approval review refused deletion of an old failed validation artifact, so deletion was abandoned and the rerun preserved existing evidence.
+All other platform jobs are green. The combined twelve-format gate remains skipped because Intel failed. The existing failed-run artifacts remain on GitHub; local copies/logs are retained.
 
 ## Next release action
 

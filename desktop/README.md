@@ -14,7 +14,7 @@ From the repository root, check metadata with `python3 tools/release-v3/check-in
 
 Verified update installers close VibeZ automatically after handoff. Linux package hooks close only `/usr/bin/vibez3`; AppImage updates replace the original file after exit. Regression check: `python3 tests/update-install.py src-tauri/target/release/vibez3` in `desktop`.
 
-Version 3.0.9 fixes Linux routing of embedded Cloudflare/Turnstile verification frames, keeping their required navigation in the webview instead of requesting external browser opens. Ordinary external links retain their normal behavior. The controlled reproduction used the unchanged published 3.0.7 binary; it did not perform a genuine Turnstile solve or reproduce the complete openSUSE report. See [release notes](../V3-RELEASE.md) for the evidence and limits.
+Version 3.0.9 promotes the frame-aware Canvas/chart and verification routing tested in test.3. Unknown automatic navigations/popups are blocked; deliberate external hyperlinks remain supported. The openSUSE reporters separately confirmed working previews and a completed Cloudflare/Mistral sign-in in the test Flatpak. The original heavy conversation still reaches 100% idle CPU; it is not claimed fixed. See [release notes](../V3-RELEASE.md) for evidence and limits.
 
 Linux immediate wheel scrolling, scoped offscreen rendering, bounded cached-height refreshes, normal GTK resize allocation, native Find and screenshot support from 3.0.7 are retained. Existing code headers remain unchanged. Windows/WebView2 and macOS/WKWebView receive version/title and TLS dependency updates; navigation/rendering paths remain unchanged. Titles use `VibeZ V3.0.9` on every platform.
 
