@@ -1,0 +1,52 @@
+<!doctype html><meta charset="utf-8"><title>Controlled active-frame lifecycle</title>
+<style>
+body{margin:12px;background:#eef2f6;color:#172033;font:14px sans-serif}
+h1{font-size:19px;margin:0 0 8px}#frames{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+article{padding:5px;background:white;border:1px solid #8290a5}iframe{width:100%;height:220px;border:0}
+#frames.offscreen article:not(:first-child){position:absolute;top:5000px;left:0;width:280px}
+#frames.hidden article:not(:first-child){display:none}
+</style>
+<h1>Eight controlled active previews — no hosted conversation</h1><p id="phase">Starting</p><main id="frames"></main>
+<script>
+(() => {
+  'use strict';
+  const frames=[], reports=new Map(), started=performance.now(), stopToken=String(Math.random());
+  const state=window.__vibezCanvas={controlledFixture:true,experiment:'active-frame-lifecycle-v1',phase:'starting',elapsedMs:0,frames:[],helper:null};
+  const host=document.querySelector('#frames');
+  for(let id=0;id<8;id++){
+    const frame=document.createElement('iframe'), article=document.createElement('article');
+    article.setAttribute('data-testid','assistant-message');
+    article.append('Synthetic preview '+(id+1),frame);host.append(article);frames.push(frame);
+    frame.setAttribute('sandbox','allow-scripts');
+    const child=`<!doctype html><style>body{margin:0;font:12px sans-serif}canvas{width:100%;height:180px}input{width:90%}</style><canvas width="280" height="180"></canvas><input aria-label="Synthetic unsaved state"><scr`+`ipt>(()=>{
+      const id=${id}, instance=String(Math.random()), input=document.querySelector('input'), c=document.querySelector('canvas'), x=c.getContext('2d');
+      input.value='synthetic-unsaved-state';let raf=0,timers=0,request=0,sequence=0,stopAck=null,stopped=false;
+      function draw(){if(stopped)return;raf++;x.fillStyle='#fff';x.fillRect(0,0,280,180);for(let n=0;n<20;n++){x.fillStyle=n%2?'#2563eb':'#16a34a';x.fillRect(n*14,180-(40+Math.sin((raf+n)/25)*25),10,80)}request=requestAnimationFrame(draw)}
+      function report(){parent.postMessage({kind:'controlled-active-frame',id,instance,raf,timers,sequence:++sequence,stopAck,visibility:document.visibilityState,draftPreserved:input.value==='synthetic-unsaved-state'},'*')}
+      const tick=setInterval(()=>{timers++},50), status=setInterval(report,250);draw();report();
+      addEventListener('message',e=>{if(e.source!==parent||e.data?.kind!=='controlled-stop')return;stopAck=e.data.token;stopped=true;cancelAnimationFrame(request);clearInterval(tick);clearInterval(status);report()});
+    })()</scr`+`ipt>`;
+    frame.srcdoc=child;
+  }
+  addEventListener('message',e=>{
+    const d=e.data;
+    if(d?.kind!=='controlled-active-frame'||!Number.isInteger(d.id)||e.source!==frames[d.id]?.contentWindow)return;
+    reports.set(d.id,{id:d.id,instance:d.instance,raf:d.raf,timers:d.timers,sequence:d.sequence,stopAck:d.stopAck,reportedAtMs:Math.round(performance.now()-started),visibility:d.visibility,draftPreserved:d.draftPreserved});
+  });
+  function phase(name){state.phase=name;host.className=name;document.querySelector('#phase').textContent=name}
+  setTimeout(()=>phase('visible'),1000);
+  setTimeout(()=>phase('offscreen'),14000);
+  setTimeout(()=>phase('hidden'),26000);
+  setTimeout(()=>phase('returned'),38000);
+  setTimeout(()=>{phase('stopped');state.stopToken=stopToken;frames.forEach(f=>f.contentWindow.postMessage({kind:'controlled-stop',token:stopToken},'*'))},52000);
+  setInterval(()=>{
+    state.elapsedMs=Math.round(performance.now()-started);
+    state.frames=frames.map((f,id)=>{
+      const rect=f.getBoundingClientRect(), s=reports.get(id);
+      return {...s,id,inViewport:rect.width>0&&rect.height>0&&rect.bottom>0&&rect.top<innerHeight&&rect.right>0&&rect.left<innerWidth};
+    });
+    const s=window.__vibezRichRender?.status();
+    state.helper=s?{messages:s.messages,scans:s.scans,passes:s.passes,mutations:s.mutations,measurements:s.measurements,working:s.working}:null;
+  },500);
+})();
+</script>

@@ -78,6 +78,9 @@ jobs:
       - name: Publication checks
         if: steps.scope.outputs.native == 'true'
         run: python3 -m unittest discover -s tools/release-v3/tests -p 'test_*.py'
+      - name: CPU diagnostic and active-frame report checks
+        if: steps.scope.outputs.native == 'true'
+        run: python3 -m unittest discover -s tools/diagnostics/tests -p 'test_*.py'
 
   linux-x64:
     needs: test
