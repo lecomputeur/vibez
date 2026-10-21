@@ -1,6 +1,6 @@
 # VibeZ 3.0.9 — release status, 21 October 2026
 
-**All release build gates passed; validated for publication.** The [exact-source validation run](https://github.com/lecomputeur/vibez/actions/runs/39643498884) completed all nine required jobs successfully. This document records publication preparation; the [GitHub release](https://github.com/lecomputeur/vibez/releases/tag/v3.0.9) and deployed website must be checked separately before recording a completed publication. No Microsoft Store submission or Flathub listing update was performed.
+**Published on GitHub as Latest.** [VibeZ 3.0.9](https://github.com/lecomputeur/vibez/releases/tag/v3.0.9) was published at `2026-10-21T17:58:11Z` on 21 October 2026. All twelve packages passed the exact-source nine-job validation and the uploaded files were downloaded again and matched byte-for-byte. The three legacy update feeds also matched the verified originals adapted for this release. No Microsoft Store submission or Flathub listing update was performed. README and website/installation updates are included in [release PR #50](https://github.com/lecomputeur/vibez/pull/50).
 
 Frozen build source: `64dbf09e8a24b1d1859b3571cd3b83b87a39f14c`. [Release proof](tools/release-v3/release-proof-3.0.9.json); [release PR](https://github.com/lecomputeur/vibez/pull/50).
 
@@ -16,7 +16,7 @@ The previous Intel Apple-ticket validation failure was retried without waiving s
 
 ## Publication and rollback
 
-Publish only the verified twelve-package build artifact, retaining its source label and checksums. Verify the uploaded bytes and Latest release before recording publication complete. Preserve the unchanged v3.0.8 release assets, checksums and tag as rollback. The isolated Canvas Test app/profile remains separate, with updates disabled. Ordinary 3.0.9+test.2 may require the stable installer directly because build-metadata/DEB version ordering does not reliably offer it as an upgrade. Do not delete or migrate profiles.
+GitHub release `419877438` contains the verified twelve-package build artifact, its source label and checksums, plus three compatibility feeds. The public Latest release and `v3.0.9` tag were checked against frozen source `64dbf09e8a24b1d1859b3571cd3b83b87a39f14c`; all 17 uploaded files matched the verified package/feed set. Preserve the unchanged v3.0.8 release assets, checksums and tag as rollback. The isolated Canvas Test app/profile remains separate, with updates disabled. Ordinary 3.0.9+test.2 may require the stable installer directly because build-metadata/DEB version ordering does not reliably offer it as an upgrade. Do not delete or migrate profiles.
 
 ## Known existing issue
 
