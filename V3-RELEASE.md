@@ -1,6 +1,6 @@
 # VibeZ 3.0.9 — Linux Canvas and verification navigation
 
-> **Installed test.2 or test.3?** Uninstall the test application first, keep its saved data, then install the normal 3.0.9 release. Follow the [Linux installation steps](https://lecomputeur.github.io/vibez/linux.html#test-build-upgrade).
+> **Installed test.2 or test.3?** Uninstall the test application first, then install the normal 3.0.9 release. Keep saved data from ordinary test.2; the separate Canvas Test app is no longer needed. Follow the [Linux installation steps](https://lecomputeur.github.io/vibez/linux.html#test-build-upgrade).
 
 The [verified 3.0.9 build](https://github.com/lecomputeur/vibez/actions/runs/39643498884) passed all nine required platform/security jobs, including native regressions, advisory checks, all twelve packages and Developer ID signing, Apple notarization and stapled-ticket validation for both Mac architectures. Both Mac jobs also verified the native architecture and macOS 14 deployment minimum in Info.plist and Mach-O. Frozen source: `64dbf09e8a24b1d1859b3571cd3b83b87a39f14c`. The [release proof](tools/release-v3/release-proof-3.0.9.json) records the source and run. The files are validated for publication; the GitHub release asset list records public availability. Windows MSIX version: **3.0.9.0**. Microsoft Store submission and certification remain separate. The original heavy-conversation high-CPU issue remains open; see [release notes](RELEASE-NOTES-3.0.9.md). See [build/publication status](RELEASE-STATUS-3.0.9.md).
 
@@ -30,13 +30,13 @@ MSIX creation is separate from Partner Center submission. No Store submission is
 
 ## Rollback
 
-Keep v3.0.8 assets, checksums and tag unchanged. Before installing, close the app and back up the existing app profile using the operating system's normal backup tools. Reinstall the matching 3.0.8 package if required; never delete or migrate profiles to roll back. Do not overwrite the isolated Canvas Test installation. Store rollback requires reviewing the current Partner Center submission and version ordering; never replace an existing submission blindly.
+Keep v3.0.8 assets, checksums and tag unchanged. Before installing, close the app and back up the existing app profile using the operating system's normal backup tools. Reinstall the matching 3.0.8 package if required; never delete or migrate profiles to roll back. The separate Canvas Test app is not needed for rollback and can be removed. Store rollback requires reviewing the current Partner Center submission and version ordering; never replace an existing submission blindly.
 
 ## Moving from test builds
 
-Save any drafts and close VibeZ completely, including its tray/background instance. Uninstall the test application before installing the normal 3.0.9 release, while keeping its saved data.
+Save any drafts and close VibeZ completely, including its tray/background instance. Uninstall the test application before installing the normal 3.0.9 release. Keep saved data from ordinary test.2.
 
 - **Ordinary 3.0.9+test.2:** the DEB package is named `vibe-z-3`. Remove the test application package while preserving its profile and settings in your home directory; do not delete the saved data. Then install the normal 3.0.9 package.
-- **Isolated Canvas Test 3.0.9+test.3:** remove the Canvas Test application only and keep its separate profile. For a Flatpak installation, do not use `--delete-data`. Canvas Test data is not automatically copied or migrated into the normal VibeZ profile.
+- **Canvas Test 3.0.9+test.3:** the separate Canvas Test app is no longer needed and can be removed. Keeping its test data is optional.
 
-Do not wait for an automatic update notification: these test builds and the normal release share the base version 3.0.9, and the isolated Canvas Test has update checks disabled. Build metadata has equal SemVer precedence; DEB ordering also treats 3.0.9 as lower than 3.0.9+test.2. Follow the [Linux installation steps](https://lecomputeur.github.io/vibez/linux.html#test-build-upgrade) to remove the test application and install the normal package without deleting saved data.
+Do not wait for an automatic update notification: these test builds and the normal release share the base version 3.0.9, and the isolated Canvas Test has update checks disabled. Build metadata has equal SemVer precedence; DEB ordering also treats 3.0.9 as lower than 3.0.9+test.2. Follow the [Linux installation steps](https://lecomputeur.github.io/vibez/linux.html#test-build-upgrade) when removing the test application and installing the normal package.
