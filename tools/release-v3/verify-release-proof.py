@@ -81,6 +81,8 @@ def required_steps(version):
         required['Linux — AppImage, DEB and RPM'].append('Native Cloudflare frame and popup routing regression')
     if version == '3.0.9':
         required['Linux — AppImage, DEB and RPM'].append('Native structural navigation, auth boundary, chart pixels and Wry lifecycle')
+        for arch in ('x64', 'arm64'):
+            required[f'macOS — {arch} signed DMG and ZIP'].append('Verify native Mac architecture and macOS 14 deployment minimum')
     return required
 
 
