@@ -16,7 +16,7 @@ The previous Intel Apple-ticket validation failure was retried without waiving s
 
 ## Publication and rollback
 
-GitHub release `419877438` contains the verified twelve-package build artifact, its source label and checksums, plus three compatibility feeds. The public Latest release and `v3.0.9` tag were checked against frozen source `64dbf09e8a24b1d1859b3571cd3b83b87a39f14c`; all 17 uploaded files matched the verified package/feed set. Preserve the unchanged v3.0.8 release assets, checksums and tag as rollback. The isolated Canvas Test app/profile remains separate, with updates disabled. Ordinary 3.0.9+test.2 may require the stable installer directly because build-metadata/DEB version ordering does not reliably offer it as an upgrade. Do not delete or migrate profiles.
+GitHub release `419877438` contains the verified twelve-package build artifact, its source label and checksums, plus three compatibility feeds. The public Latest release and `v3.0.9` tag were checked against frozen source `64dbf09e8a24b1d1859b3571cd3b83b87a39f14c`; all 17 uploaded files matched the verified package/feed set. Preserve the unchanged v3.0.8 release assets, checksums and tag as rollback. The isolated Canvas Test app/profile remains separate, with updates disabled. For test.2 or test.3, first close and uninstall the test application while keeping its saved data, then install the regular 3.0.9 package; see the [installation steps](https://lecomputeur.github.io/vibez/linux.html#test-build-upgrade). Ordinary test.2 can otherwise be treated as newer by the installer. Canvas Test has a separate profile that is not automatically transferred to the regular app.
 
 ## Known existing issue
 
