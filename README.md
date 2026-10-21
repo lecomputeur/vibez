@@ -1,5 +1,3 @@
-> **3.0.9 candidate:** validation and stable publication are pending. [3.0.8 remains the stable download](https://github.com/lecomputeur/vibez/releases/tag/v3.0.8). The original 100% idle CPU workload remains open in #49. Store 3.0.9 has not been submitted.
-
 <div align="center">
 
 <img src="icon.png" width="128" alt="VibeZ application logo">
@@ -20,11 +18,11 @@
 
 </div>
 
-> **VibeZ 3.0.9:** Fix Linux routing of embedded Cloudflare verification frames, and update the version shown on every platform. [Release downloads](https://github.com/lecomputeur/vibez/releases/tag/v3.0.9) · [Release notes and validation](V3-RELEASE.md). Microsoft Store delivery remains separate.
+> **VibeZ 3.0.9:** Promote tested Linux Canvas/chart preview and verification navigation improvements, with TLS certificate-trust dependency and version/title updates on every platform. [Release downloads](https://github.com/lecomputeur/vibez/releases/tag/v3.0.9) · [Release notes and validation](V3-RELEASE.md). Microsoft Store delivery remains separate.
 
 **Cloudflare verification frames on Linux stay in the app instead of opening as external browser links.**
 
-The routing fix applies to AppImage, DEB, RPM, Arch/Pacman and Flatpak. Ordinary external links still open in your browser. Existing settings, profiles and the Linux rich-chat scrolling and resize improvements from 3.0.7 are retained. Windows and macOS receive the version/title update to `VibeZ V3.0.9`; their navigation and rendering behavior are unchanged.
+The routing fix applies to AppImage, DEB, RPM, Arch/Pacman and Flatpak. Ordinary external links still open in your browser. Existing settings, profiles and the Linux rich-chat scrolling and resize improvements from 3.0.7 are retained. Windows and macOS receive the TLS certificate-trust dependency and version/title updates to `VibeZ V3.0.9`; their navigation and rendering behavior are unchanged.
 
 The faulty routing was reproduced with controlled synthetic frames in the published 3.0.7 Linux executable. The test Flatpak completed verification on openSUSE Leap according to the reporter. The original heavy conversation remains at 100% idle CPU according to the other reporter; this release does not claim to resolve it. See the [validation and limits](V3-RELEASE.md#validation-and-limits).
 
@@ -56,7 +54,7 @@ The rebuilt module also prevents stale settings windows from reverting a newer l
 
 ## One version. Every distribution format.
 
-The following twelve **VibeZ 3.0.9** candidate filenames are reserved for the exact-source build. They are not available until validation and stable publication succeed.
+The **VibeZ 3.0.9** build produced and verified all twelve files below from one frozen source commit. The GitHub release asset list records download availability.
 
 | Platform | Downloads |
 |---|---|
@@ -85,7 +83,7 @@ Native Linux packages and AppImage require **glibc 2.39 or newer**; DEB targets 
 
 ## What the tests prove — and what they do not
 
-The 3.0.9 validation workflow builds all twelve formats from one frozen commit, with advisory audits and native regressions. No successful 3.0.9 proof is claimed until every required job passes. See [candidate release notes](RELEASE-NOTES-3.0.9.md) and [Store upload instructions](MICROSOFT-STORE-3.0.9.md).
+The [verified 3.0.9 build](https://github.com/lecomputeur/vibez/actions/runs/39643498884) passed all nine required platform/security jobs, including native regressions, advisory checks, all twelve packages and Developer ID signing, Apple notarization and stapled-ticket validation for both Mac architectures. Both Mac jobs also verified the native architecture and macOS 14 deployment minimum in Info.plist and Mach-O. Frozen source: `64dbf09e8a24b1d1859b3571cd3b83b87a39f14c`. The [release proof](tools/release-v3/release-proof-3.0.9.json) records the source and run. The files are validated for publication; the GitHub release asset list records public availability. Windows MSIX version: **3.0.9.0**. Microsoft Store submission and certification remain separate. The original heavy-conversation high-CPU issue remains open; see [release notes](RELEASE-NOTES-3.0.9.md). See [Store upload instructions](MICROSOFT-STORE-3.0.9.md).
 
 Automated native probes are offline tests. They are not a claim that every live sign-in provider, Linux distribution, Wayland session, fractional scale or website feature has been tested. Microphone/camera access, global screenshot shortcuts and unattended installer execution are not enabled in this version. Direct-download updates remain user-confirmed; Microsoft Store updates are delivered by the Store. Screenshots offer native visible-page, full-loaded-page and desktop-area capture, with optional direct paste into a draft. Downloaded updates are installed only after your confirmation.
 

@@ -1,6 +1,6 @@
 # VibeZ 3.0.9 — Linux Canvas and verification navigation
 
-Release candidate; stable publication is blocked by repeated Apple CloudKit ticket-validation failures on Intel Mac. Ten package formats passed, including Windows Store MSIX 3.0.9.0. No stable 3.0.9 or Store publication was performed. See [exact build/publication status](RELEASE-STATUS-3.0.9.md) and the [validation run](https://github.com/lecomputeur/vibez/actions/runs/39630746331).
+The [verified 3.0.9 build](https://github.com/lecomputeur/vibez/actions/runs/39643498884) passed all nine required platform/security jobs, including native regressions, advisory checks, all twelve packages and Developer ID signing, Apple notarization and stapled-ticket validation for both Mac architectures. Both Mac jobs also verified the native architecture and macOS 14 deployment minimum in Info.plist and Mach-O. Frozen source: `64dbf09e8a24b1d1859b3571cd3b83b87a39f14c`. The [release proof](tools/release-v3/release-proof-3.0.9.json) records the source and run. The files are validated for publication; the GitHub release asset list records public availability. Windows MSIX version: **3.0.9.0**. Microsoft Store submission and certification remain separate. The original heavy-conversation high-CPU issue remains open; see [release notes](RELEASE-NOTES-3.0.9.md). See [build/publication status](RELEASE-STATUS-3.0.9.md).
 
 ## Changes
 
@@ -20,7 +20,7 @@ Sources: https://github.com/lecomputeur/vibez/issues/49#issuecomment-6273090635 
 
 ## Packaging and delivery
 
-Required: Linux x64 AppImage, DEB, RPM, Arch/Pacman and Flatpak; Windows x64 EXE, MSI and Store MSIX 3.0.9.0; signed/notarized macOS x64 and arm64 DMG/ZIP. Every package must use the same frozen source commit and pass package, native smoke and advisory checks.
+Verified packages: Linux x64 AppImage, DEB, RPM, Arch/Pacman and Flatpak; Windows x64 EXE, MSI and Store MSIX 3.0.9.0; signed/notarized macOS x64 and arm64 DMG/ZIP. All twelve packages use the same frozen source commit and passed package, native smoke and advisory checks.
 
 Linux native/AppImage require glibc 2.39+ and WebKitGTK 4.1; Flatpak uses GNOME Platform 50. Windows requires WebView2; the MSIX targets Windows 10 build 17763+. macOS requires 14+. Linux desktop selection requires X11; Wayland/hybrid GPU coverage is limited.
 
@@ -32,4 +32,4 @@ Keep v3.0.8 assets, checksums and tag unchanged. Before installing, close the ap
 
 ## Moving from test builds
 
-The isolated Canvas Test remains a separate app/profile with updates disabled. Install the ordinary package separately when the stable release is cleared. For an installed ordinary 3.0.9+test.2, use the stable installer directly: build metadata has equal SemVer precedence, while DEB ordering treats 3.0.9 as lower. This is a version-ordering issue, not older release code. Do not delete or migrate profiles.
+The isolated Canvas Test remains a separate app/profile with updates disabled. Install the ordinary 3.0.9 package separately from the GitHub release when its downloads are public. For an installed ordinary 3.0.9+test.2, use the stable installer directly: build metadata has equal SemVer precedence, while DEB ordering treats 3.0.9 as lower. This is a version-ordering issue, not older release code. Do not delete or migrate profiles.

@@ -1,10 +1,8 @@
-> **3.0.9 candidate:** validation and stable publication are pending. [3.0.8 remains the stable download](https://github.com/lecomputeur/vibez/releases/tag/v3.0.8). The original 100% idle CPU workload remains open in #49. Store 3.0.9 has not been submitted.
-
 # VibeZ 3
 
 Rust/Tauri 3.0.9 source for Linux AppImage/DEB/RPM/Arch/Flatpak, Windows EXE/MSI/MSIX and macOS Intel/Apple Silicon app/DMG/ZIP.
 
-The [3.0.9 validation run](https://github.com/lecomputeur/vibez/actions/runs/39630746331) passed Linux, Windows and Apple Silicon packaging and the required native/security tests. Intel compilation/native tests passed, but Apple CloudKit ticket validation failed repeatedly. Stable publication is blocked, no complete 3.0.9 proof exists, and the 3.0.8 evidence remains historical. See [release status](../RELEASE-STATUS-3.0.9.md).
+The [verified 3.0.9 build](https://github.com/lecomputeur/vibez/actions/runs/39643498884) passed all nine required platform/security jobs, including native regressions, advisory checks, all twelve packages and Developer ID signing, Apple notarization and stapled-ticket validation for both Mac architectures. Both Mac jobs also verified the native architecture and macOS 14 deployment minimum in Info.plist and Mach-O. Frozen source: `64dbf09e8a24b1d1859b3571cd3b83b87a39f14c`. The [release proof](../tools/release-v3/release-proof-3.0.9.json) records the source and run. The files are validated for publication; the GitHub release asset list records public availability. Windows MSIX version: **3.0.9.0**. Microsoft Store submission and certification remain separate. The original heavy-conversation high-CPU issue remains open; see [release notes](../RELEASE-NOTES-3.0.9.md). See [release status](../RELEASE-STATUS-3.0.9.md).
 
 App identity: `nl.lecomputeur.vibez3`; executable: `vibez3`. The app opens the normal Mistral client and retains the ordinary settings, profile and published-update flow. Existing Electron and preview profiles are not silently copied or deleted.
 

@@ -1,4 +1,4 @@
-# 3.0.9 (candidate; unpublished — Intel Mac ticket validation blocked)
+# 3.0.9 — 2026-10-21
 
 - Refresh TLS trust dependencies: rustls-webpki 0.103.16 and webpki-roots 1.0.10.
 - Linux native frame-aware navigation fixes Canvas previews and unwanted external tabs.

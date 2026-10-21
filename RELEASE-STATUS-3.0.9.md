@@ -1,34 +1,29 @@
 # VibeZ 3.0.9 — release status, 21 October 2026
 
-**Stable publication is blocked.** GitHub Latest and the live website remain on 3.0.8. No v3.0.9 stable release, Store submission or Flathub listing update was performed.
+**All release build gates passed; validated for publication.** The [exact-source validation run](https://github.com/lecomputeur/vibez/actions/runs/39643498884) completed all nine required jobs successfully. This document records publication preparation; the [GitHub release](https://github.com/lecomputeur/vibez/releases/tag/v3.0.9) and deployed website must be checked separately before recording a completed publication. No Microsoft Store submission or Flathub listing update was performed.
 
-Frozen build source: `e8926529989a032b8df4c19a75fd2d1fe4fff37d`. [Validation run](https://github.com/lecomputeur/vibez/actions/runs/39630746331); [release PR](https://github.com/lecomputeur/vibez/pull/50).
+Frozen build source: `64dbf09e8a24b1d1859b3571cd3b83b87a39f14c`. [Release proof](tools/release-v3/release-proof-3.0.9.json); [release PR](https://github.com/lecomputeur/vibez/pull/50).
 
 ## Verified build outputs
 
 - Linux x64: AppImage, DEB, RPM, Arch/Pacman and Flatpak.
 - Windows x64: Setup EXE, MSI and Store-upload MSIX version **3.0.9.0**.
-- macOS arm64: Developer ID signed, Apple-notarized and stapled DMG/ZIP.
-- Intel macOS: compilation and native tests passed; application signing/notarization passed, but independent final ticket validation failed. Its DMG/ZIP are not released or substituted with older files.
+- macOS arm64 and Intel x64: Developer ID signed, Apple-notarized and stapled DMG/ZIP, with explicit ticket validation passing on both architectures. Both jobs verified their native architecture and the macOS 14 minimum in Info.plist and Mach-O.
 
-Ten of the twelve required release files are available as build artifacts. Source versions, production app identity, dependency audit, checksum-pinned upstream Wry comparison, Linux frame/auth/chart regressions, rich-chat lifecycle/streaming/Find/resize/wheel/fullscreen, screenshot/paste/two monitors, updates and installed-package checks passed. Windows and both Mac architectures passed native integration tests. No complete successful 3.0.9 release proof exists and none was fabricated.
+All twelve required release files passed the combined package/checksum gate. Source versions, production app identity, dependency audit, checksum-pinned upstream Wry comparison, Linux frame/auth/chart regressions, rich-chat lifecycle/streaming/Find/resize/wheel/fullscreen, screenshot/paste/two monitors, updates and installed-package checks passed. Windows and both Mac architectures passed native integration tests. The genuine versioned release proof records the source and successful run; no proof was fabricated.
 
-## Release blocker
+The previous Intel Apple-ticket validation failure was retried without waiving signing, notarization, stapling or explicit ticket validation. The complete rebuild uses a native Intel macOS 26 runner for Intel outputs. Runtime, dependency locks and app build configuration remain identical to the earlier e892 source. CI/proof changes add architecture/macOS-minimum checks and exclude non-release recovery artifacts from collection. The final successful platform jobs and combined gate supersede the earlier failed attempts, whose logs/artifacts remain historical evidence.
 
-Intel Mac ticket stapling/validation repeatedly failed with Apple CloudKit `NSURLErrorDomain -1005` (network connection lost), exit **68**. This happened across normal attempts and a fresh-runner retry, with five bounded network retries each time. The final attempt accepted app notarization and created/notarized the DMG, but could not complete the explicit independent ticket validation. Do not waive the check or call the Intel package validated.
+## Publication and rollback
 
-All other platform jobs are green. The combined twelve-format gate remains skipped because Intel failed. The existing failed-run artifacts remain on GitHub; local copies/logs are retained.
-
-## Next release action
-
-After Apple connectivity recovers, rerun only the failed Intel job (including its dependent final gate) in the same frozen-source run. Require native tests, signing, Accepted notarization, stapling and explicit ticket validation to pass. Then record the genuine versioned release proof, download/reverify all twelve packages and source archive, finalize availability text, and publish/merge the prepared release work. Preserve v3.0.8 and the separate test.3 app.
+Publish only the verified twelve-package build artifact, retaining its source label and checksums. Verify the uploaded bytes and Latest release before recording publication complete. Preserve the unchanged v3.0.8 release assets, checksums and tag as rollback. The isolated Canvas Test app/profile remains separate, with updates disabled. Ordinary 3.0.9+test.2 may require the stable installer directly because build-metadata/DEB version ordering does not reliably offer it as an upgrade. Do not delete or migrate profiles.
 
 ## Known existing issue
 
-The preview fix is confirmed by the openSUSE reporter; Cloudflare/Mistral loading is confirmed in the test Flatpak on openSUSE Leap. The original heavy conversation still consumes 100% CPU at idle (#42/#49). This release does not claim to fix that remaining workload.
+The openSUSE Tumbleweed reporter confirmed fresh Canvas/chart previews without blank external tabs. The openSUSE Leap 16/GNOME reporter confirmed Cloudflare verification and Mistral loading in the test.3 Flatpak; that reporter did not test RPM. The original heavy conversation still consumes 100% CPU at idle and has typing/scrolling stutter (#42/#49). This release does not claim to fix that remaining workload. The routing hooks apply only to Linux; TLS trust dependency updates apply to all platforms.
 
 ## Store upload
 
-The Windows upload file is `VibeZ-3.0.9-Windows-x64-Store.msix`, version **3.0.9.0**, identity `LeComputeur.VibeZDesktop`, publisher `CN=613EFBB1-83C3-495D-9C3B-D4EE98C72B95`. SHA-256: `1d6f7d3c3f6ff4fd22e1f28955a0127aa96272ccc69e926bb9fdefcc20a88cd2`.
+The Windows upload file is `VibeZ-3.0.9-Windows-x64-Store.msix`, version **3.0.9.0**, identity `LeComputeur.VibeZDesktop`, publisher `CN=613EFBB1-83C3-495D-9C3B-D4EE98C72B95`. SHA-256: `7e0a6808f3e83030f47448045497285938cf6bdea82553e1a66f8db9f458a9b6`.
 
-[Partner Center steps and English/Dutch What's New](MICROSOFT-STORE-3.0.9.md). Use only the existing VibeZ Desktop product/account; inspect current package versions and submissions first. Package verification is not Windows App Certification Kit/Store certification. No Partner Center access or submission has been performed.
+[Partner Center steps and English/Dutch What's New](MICROSOFT-STORE-3.0.9.md). Use only the existing VibeZ Desktop product/account; inspect current package versions and submissions first. Package verification is separate from Windows App Certification Kit/Store certification. No Partner Center access, submission or Store publication has been performed.
