@@ -56,6 +56,8 @@ The rebuilt module also prevents stale settings windows from reverting a newer l
 
 The **VibeZ 3.0.9** build produced and verified all twelve files below from one frozen source commit. The GitHub release asset list records download availability.
 
+> **Installed test.2 or test.3? Uninstall the test version first, keeping its saved data, then install VibeZ 3.0.9.** Save unfinished drafts and close VibeZ before removing it. Follow the [test-build installation steps](https://lecomputeur.github.io/vibez/linux.html#test-build-upgrade). The separate Canvas Test app has its own profile, which is not automatically transferred to the regular app.
+
 | Platform | Downloads |
 |---|---|
 | **Linux x86-64** | [AppImage](https://github.com/lecomputeur/vibez/releases/download/v3.0.9/VibeZ-3.0.9-Linux-x64.AppImage) · [DEB](https://github.com/lecomputeur/vibez/releases/download/v3.0.9/VibeZ-3.0.9-Linux-x64.deb) · [RPM](https://github.com/lecomputeur/vibez/releases/download/v3.0.9/VibeZ-3.0.9-Linux-x64.rpm) · [Arch/Pacman](https://github.com/lecomputeur/vibez/releases/download/v3.0.9/VibeZ-3.0.9-Linux-x64.pkg.tar.zst) · [Flatpak](https://github.com/lecomputeur/vibez/releases/download/v3.0.9/VibeZ-3.0.9-Linux-x64.flatpak) |

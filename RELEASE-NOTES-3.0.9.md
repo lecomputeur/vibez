@@ -1,5 +1,7 @@
 # VibeZ 3.0.9 — Linux Canvas and verification navigation
 
+> **Installed test.2 or test.3?** Uninstall the test application first, keep its saved data, then install the normal 3.0.9 release. Follow the [Linux installation steps](https://lecomputeur.github.io/vibez/linux.html#test-build-upgrade).
+
 The [verified 3.0.9 build](https://github.com/lecomputeur/vibez/actions/runs/39643498884) passed all nine required platform/security jobs, including native regressions, advisory checks, all twelve packages and Developer ID signing, Apple notarization and stapled-ticket validation for both Mac architectures. Both Mac jobs also verified the native architecture and macOS 14 deployment minimum in Info.plist and Mach-O. Frozen source: `64dbf09e8a24b1d1859b3571cd3b83b87a39f14c`. The [release proof](tools/release-v3/release-proof-3.0.9.json) records the source and run. The files are validated for publication; the GitHub release asset list records public availability. Windows MSIX version: **3.0.9.0**. Microsoft Store submission and certification remain separate. The original heavy-conversation high-CPU issue remains open; see [release notes](RELEASE-NOTES-3.0.9.md). See [build/publication status](RELEASE-STATUS-3.0.9.md).
 
 ## Changes
@@ -32,4 +34,9 @@ Keep v3.0.8 assets, checksums and tag unchanged. Before installing, close the ap
 
 ## Moving from test builds
 
-The isolated Canvas Test remains a separate app/profile with updates disabled. Install the ordinary 3.0.9 package separately from the GitHub release when its downloads are public. For an installed ordinary 3.0.9+test.2, use the stable installer directly: build metadata has equal SemVer precedence, while DEB ordering treats 3.0.9 as lower. This is a version-ordering issue, not older release code. Do not delete or migrate profiles.
+Save any drafts and close VibeZ completely, including its tray/background instance. Uninstall the test application before installing the normal 3.0.9 release, while keeping its saved data.
+
+- **Ordinary 3.0.9+test.2:** the DEB package is named `vibe-z-3`. Remove the test application package while preserving its profile and settings in your home directory; do not delete the saved data. Then install the normal 3.0.9 package.
+- **Isolated Canvas Test 3.0.9+test.3:** remove the Canvas Test application only and keep its separate profile. For a Flatpak installation, do not use `--delete-data`. Canvas Test data is not automatically copied or migrated into the normal VibeZ profile.
+
+Do not wait for an automatic update notification: these test builds and the normal release share the base version 3.0.9, and the isolated Canvas Test has update checks disabled. Build metadata has equal SemVer precedence; DEB ordering also treats 3.0.9 as lower than 3.0.9+test.2. Follow the [Linux installation steps](https://lecomputeur.github.io/vibez/linux.html#test-build-upgrade) to remove the test application and install the normal package without deleting saved data.
