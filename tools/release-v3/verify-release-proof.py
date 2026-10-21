@@ -14,6 +14,7 @@ REPO = 'lecomputeur/vibez'
 RELEASES = {
     '3.0.6': ('.github/workflows/v3.0.6-validation.yml', 'vibe/linux-scroll-306-7c3e91'),
     '3.0.7': ('.github/workflows/v3.0.7-validation.yml', 'vibe/linux-rich-render-307'),
+    '3.0.9': ('.github/workflows/v3.0.9-validation.yml', 'release/v3.0.9-20261021'),
     '3.0.8': ('.github/workflows/v3.0.8-validation.yml', 'vibe/linux-turnstile-308-b46e90'),
 }
 NAMES = {
@@ -62,7 +63,7 @@ def proof_path(version):
 
 def required_steps(version):
     required = {name: list(steps) for name, steps in REQUIRED_STEPS.items()}
-    if version in ('3.0.7', '3.0.8'):
+    if version in ('3.0.7', '3.0.8', '3.0.9'):
         required.update({
             'Track v3 source and freeze dependencies': [f'Verify immutable {version} build inputs'],
             'Linux — AppImage, DEB and RPM': [
@@ -76,8 +77,10 @@ def required_steps(version):
             'Linux — Arch/Pacman': ['Build and verify Arch/Pacman package'],
             'Linux — Flatpak': ['Build and verify Flatpak package'],
         })
-    if version == '3.0.8':
+    if version in ('3.0.8', '3.0.9'):
         required['Linux — AppImage, DEB and RPM'].append('Native Cloudflare frame and popup routing regression')
+    if version == '3.0.9':
+        required['Linux — AppImage, DEB and RPM'].append('Native structural navigation, auth boundary, chart pixels and Wry lifecycle')
     return required
 
 

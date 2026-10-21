@@ -1,3 +1,5 @@
+> **3.0.9 candidate:** validation and stable publication are pending. [3.0.8 remains the stable download](https://github.com/lecomputeur/vibez/releases/tag/v3.0.8). The original 100% idle CPU workload remains open in #49. Store 3.0.9 has not been submitted.
+
 <div align="center">
 
 <img src="icon.png" width="128" alt="VibeZ application logo">
@@ -9,7 +11,7 @@
 <p>Rewritten from the ground up for VibeZ 3. A rebuilt language engine that directly addresses the earlier language-selection and startup issues.<br>Windows, macOS and Linux — one version, twelve release files.</p>
 
 <p>
-<a href="https://github.com/lecomputeur/vibez/releases/tag/v3.0.8"><strong>Explore VibeZ 3.0.8</strong></a> ·
+<a href="https://github.com/lecomputeur/vibez/releases/tag/v3.0.9"><strong>Explore VibeZ 3.0.9</strong></a> ·
 <a href="https://lecomputeur.github.io/vibez/">Website & installation guides</a> ·
 <a href="V3-RELEASE.md">What's new</a>
 </p>
@@ -18,13 +20,13 @@
 
 </div>
 
-> **VibeZ 3.0.8:** Fix Linux routing of embedded Cloudflare verification frames, and update the version shown on every platform. [Release downloads](https://github.com/lecomputeur/vibez/releases/tag/v3.0.8) · [Release notes and validation](V3-RELEASE.md). Microsoft Store delivery remains separate.
+> **VibeZ 3.0.9:** Fix Linux routing of embedded Cloudflare verification frames, and update the version shown on every platform. [Release downloads](https://github.com/lecomputeur/vibez/releases/tag/v3.0.9) · [Release notes and validation](V3-RELEASE.md). Microsoft Store delivery remains separate.
 
 **Cloudflare verification frames on Linux stay in the app instead of opening as external browser links.**
 
-The routing fix applies to AppImage, DEB, RPM, Arch/Pacman and Flatpak. Ordinary external links still open in your browser. Existing settings, profiles and the Linux rich-chat scrolling and resize improvements from 3.0.7 are retained. Windows and macOS receive the version/title update to `VibeZ V3.0.8`; their navigation and rendering behavior are unchanged.
+The routing fix applies to AppImage, DEB, RPM, Arch/Pacman and Flatpak. Ordinary external links still open in your browser. Existing settings, profiles and the Linux rich-chat scrolling and resize improvements from 3.0.7 are retained. Windows and macOS receive the version/title update to `VibeZ V3.0.9`; their navigation and rendering behavior are unchanged.
 
-The faulty routing was reproduced with controlled synthetic frames in the published 3.0.7 Linux executable. A genuine Turnstile verification and the complete reported openSUSE failure have not been reproduced. See the [validation and limits](V3-RELEASE.md#validation-and-limits).
+The faulty routing was reproduced with controlled synthetic frames in the published 3.0.7 Linux executable. The test Flatpak completed verification on openSUSE Leap according to the reporter. The original heavy conversation remains at 100% idle CPU according to the other reporter; this release does not claim to resolve it. See the [validation and limits](V3-RELEASE.md#validation-and-limits).
 
 ## Not a new coat of paint. A new desktop foundation.
 
@@ -54,14 +56,14 @@ The rebuilt module also prevents stale settings windows from reverting a newer l
 
 ## One version. Every distribution format.
 
-The **VibeZ 3.0.8** build produced and verified all twelve files below from one frozen source commit. Check the release asset list for the available downloads.
+The following twelve **VibeZ 3.0.9** candidate filenames are reserved for the exact-source build. They are not available until validation and stable publication succeed.
 
 | Platform | Downloads |
 |---|---|
-| **Linux x86-64** | [AppImage](https://github.com/lecomputeur/vibez/releases/download/v3.0.8/VibeZ-3.0.8-Linux-x64.AppImage) · [DEB](https://github.com/lecomputeur/vibez/releases/download/v3.0.8/VibeZ-3.0.8-Linux-x64.deb) · [RPM](https://github.com/lecomputeur/vibez/releases/download/v3.0.8/VibeZ-3.0.8-Linux-x64.rpm) · [Arch/Pacman](https://github.com/lecomputeur/vibez/releases/download/v3.0.8/VibeZ-3.0.8-Linux-x64.pkg.tar.zst) · [Flatpak](https://github.com/lecomputeur/vibez/releases/download/v3.0.8/VibeZ-3.0.8-Linux-x64.flatpak) |
-| **Windows x64** | [Setup EXE](https://github.com/lecomputeur/vibez/releases/download/v3.0.8/VibeZ-3.0.8-Windows-x64-Setup.exe) · [MSI](https://github.com/lecomputeur/vibez/releases/download/v3.0.8/VibeZ-3.0.8-Windows-x64.msi) · [Store submission MSIX](https://github.com/lecomputeur/vibez/releases/download/v3.0.8/VibeZ-3.0.8-Windows-x64-Store.msix) |
-| **macOS Apple Silicon** | [DMG](https://github.com/lecomputeur/vibez/releases/download/v3.0.8/VibeZ-3.0.8-macOS-arm64.dmg) · [ZIP](https://github.com/lecomputeur/vibez/releases/download/v3.0.8/VibeZ-3.0.8-macOS-arm64.zip) |
-| **macOS Intel** | [DMG](https://github.com/lecomputeur/vibez/releases/download/v3.0.8/VibeZ-3.0.8-macOS-x64.dmg) · [ZIP](https://github.com/lecomputeur/vibez/releases/download/v3.0.8/VibeZ-3.0.8-macOS-x64.zip) |
+| **Linux x86-64** | [AppImage](https://github.com/lecomputeur/vibez/releases/download/v3.0.9/VibeZ-3.0.9-Linux-x64.AppImage) · [DEB](https://github.com/lecomputeur/vibez/releases/download/v3.0.9/VibeZ-3.0.9-Linux-x64.deb) · [RPM](https://github.com/lecomputeur/vibez/releases/download/v3.0.9/VibeZ-3.0.9-Linux-x64.rpm) · [Arch/Pacman](https://github.com/lecomputeur/vibez/releases/download/v3.0.9/VibeZ-3.0.9-Linux-x64.pkg.tar.zst) · [Flatpak](https://github.com/lecomputeur/vibez/releases/download/v3.0.9/VibeZ-3.0.9-Linux-x64.flatpak) |
+| **Windows x64** | [Setup EXE](https://github.com/lecomputeur/vibez/releases/download/v3.0.9/VibeZ-3.0.9-Windows-x64-Setup.exe) · [MSI](https://github.com/lecomputeur/vibez/releases/download/v3.0.9/VibeZ-3.0.9-Windows-x64.msi) · [Store submission MSIX](https://github.com/lecomputeur/vibez/releases/download/v3.0.9/VibeZ-3.0.9-Windows-x64-Store.msix) |
+| **macOS Apple Silicon** | [DMG](https://github.com/lecomputeur/vibez/releases/download/v3.0.9/VibeZ-3.0.9-macOS-arm64.dmg) · [ZIP](https://github.com/lecomputeur/vibez/releases/download/v3.0.9/VibeZ-3.0.9-macOS-arm64.zip) |
+| **macOS Intel** | [DMG](https://github.com/lecomputeur/vibez/releases/download/v3.0.9/VibeZ-3.0.9-macOS-x64.dmg) · [ZIP](https://github.com/lecomputeur/vibez/releases/download/v3.0.9/VibeZ-3.0.9-macOS-x64.zip) |
 
 macOS publication requires Developer ID signing, notarization and stapling. Direct Windows EXE/MSI installers are unsigned; Windows may show a reputation warning. The unsigned MSIX is for Partner Center submission, not the recommended direct installer. Building it does **not** mean Microsoft has certified or published the update.
 
@@ -83,7 +85,7 @@ Native Linux packages and AppImage require **glibc 2.39 or newer**; DEB targets 
 
 ## What the tests prove — and what they do not
 
-The [verified 3.0.8 build](https://github.com/lecomputeur/vibez/actions/runs/39112469853) passed all nine required jobs, including dependency audits, frontend/Rust tests, native Linux Cloudflare frame and popup routing, rich-chat regressions, screenshots/paste, updates, all twelve packages and macOS signing/notarization. Its frozen source is [`b8fb3a3`](https://github.com/lecomputeur/vibez/commit/b8fb3a31692776ca8b903cab01397ab85c5e5304); the [versioned release proof](tools/release-v3/release-proof-3.0.8.json) pins the source and run. The Windows job created and validated the Store MSIX version **3.0.8.0**. See the [release notes](V3-RELEASE.md) for the reproduction and its limits. Earlier 3.0.7 and 3.0.6 evidence remains historical.
+The 3.0.9 validation workflow builds all twelve formats from one frozen commit, with advisory audits and native regressions. No successful 3.0.9 proof is claimed until every required job passes. See [candidate release notes](RELEASE-NOTES-3.0.9.md) and [Store upload instructions](MICROSOFT-STORE-3.0.9.md).
 
 Automated native probes are offline tests. They are not a claim that every live sign-in provider, Linux distribution, Wayland session, fractional scale or website feature has been tested. Microphone/camera access, global screenshot shortcuts and unattended installer execution are not enabled in this version. Direct-download updates remain user-confirmed; Microsoft Store updates are delivered by the Store. Screenshots offer native visible-page, full-loaded-page and desktop-area capture, with optional direct paste into a draft. Downloaded updates are installed only after your confirmation.
 

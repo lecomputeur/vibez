@@ -1,32 +1,28 @@
-# VibeZ Desktop — Microsoft Store update 3.0.8
+# VibeZ Desktop — Partner Center update 3.0.9
 
-## Existing product identity — do not create a new Store app
+Status: package/build pending verification; no Store submission or publication performed.
 
-- Product: VibeZ Desktop
-- Product ID: 9NR7L2G4MS08
-- Identity: LeComputeur.VibeZDesktop
-- Publisher: CN=613EFBB1-83C3-495D-9C3B-D4EE98C72B95
-- Package version: 3.0.8.0, x64
-- Application executable: vibez3.exe (Rust/Tauri, not the archived Electron executable)
+Use the existing product **VibeZ Desktop**, Product ID **9NR7L2G4MS08**. No additional account or Store product is needed.
 
-## Build and validate
+- Upload file: `VibeZ-3.0.9-Windows-x64-Store.msix` (only after its successful Windows build and verification).
+- Identity: `LeComputeur.VibeZDesktop`; Publisher: `CN=613EFBB1-83C3-495D-9C3B-D4EE98C72B95`.
+- Manifest version: **3.0.9.0**, x64; executable `vibez3.exe`; display name `VibeZ Desktop`.
+- Unsigned Store-upload package; use EXE/MSI for direct installation. Microsoft signs packages distributed through the Store.
 
-The [verified 3.0.8 Windows build](https://github.com/lecomputeur/vibez/actions/runs/39112469853) successfully created and unpacked `VibeZ-3.0.8-Windows-x64-Store.msix`, version **3.0.8.0**. It invoked `desktop/scripts/build-store.ps1` and MakeAppx, validating the approved identity, publisher, x64 architecture, display name, version and `vibez3.exe` entry point.
+## Upload steps
 
-All nine jobs in the same-source run passed, producing all twelve packages, including signed/notarized Intel and Apple Silicon Mac downloads. The [3.0.8 release proof](tools/release-v3/release-proof-3.0.8.json) pins the frozen source and run. Verify the actual MSIX against the release's `SHA256SUMS`; a build success is not Microsoft Store certification.
+1. Sign in to the existing Microsoft Partner Center account and open Apps and games → VibeZ Desktop (9NR7L2G4MS08).
+2. Inspect current live package versions and every draft/in-progress submission first. Stop if 3.0.9.0 is not newer, if another submission is in progress, or if the identity/publisher differs. Do not discard or replace another submission.
+3. After the GitHub release gates and the unresolved high-CPU blocker are cleared, create a new update submission for the existing product. Under Packages upload exactly the verified MSIX named above. Compare its SHA-256 with the delivered build checksums.
+4. Wait for package validation. Check identity, publisher, architecture, Windows requirements and version 3.0.9.0. Review any errors before continuing.
+5. Preserve existing pricing, markets, age ratings, privacy link and product declarations, including purchases offered by the embedded Mistral service outside Microsoft commerce. Review supported languages against the existing listing.
+6. Paste the appropriate What's New text below. Review certification notes and publication timing. Submit only with explicit permission and appropriate account access.
+7. Monitor certification. Call the update live only when Partner Center confirms publication. Record the submission ID, package hash and publication timestamp.
 
-The Store upload package is intentionally unsigned; Microsoft signs delivered Store packages. Use the EXE or MSI for ordinary direct installation. Building the MSIX does not submit or certify the update.
+## What's New — English
 
-## Submission
+VibeZ 3.0.9 updates the app version and window titles. Your existing settings and profiles are preserved. This release also includes Linux-specific improvements for embedded Canvas previews and verification navigation. Microsoft Store installations receive updates through the Store. VibeZ is an independent client and is not affiliated with Mistral AI.
 
-After the package passes its validation gates, open the existing product in Partner Center, create an update submission, and add the new MSIX under Packages. Retain the existing product identity, pricing and age-rating declarations. Review supported languages and the listing text below, then submit for certification when Store submission is authorized. GitHub publication and Store delivery are separate: do not claim the Store is running 3.0.8 until Partner Center confirms the submission is published.
+## Nieuw in deze versie — Nederlands
 
-Retain the product declaration that the app allows purchases without using Microsoft Store commerce when the embedded Mistral service offers its own paid upgrade. VibeZ is independent and is not affiliated with or supported by Mistral AI.
-
-## English update text
-
-VibeZ 3.0.8 updates the app version and the version shown in its window titles. Windows navigation, rendering, settings and profiles are unchanged. The Cloudflare navigation fix in this release applies only to Linux. Microsoft Store installations update through the Store. This independent client is not affiliated with Mistral AI.
-
-## Nederlandse updatebeschrijving
-
-VibeZ 3.0.8 werkt de appversie en de versie in de titelbalken bij. Navigatie, weergave, instellingen en profielen op Windows blijven ongewijzigd. De Cloudflare-navigatiereparatie in deze versie geldt alleen voor Linux. Microsoft Store-installaties worden via de Store bijgewerkt. Deze onafhankelijke client is niet verbonden aan Mistral AI.
+VibeZ 3.0.9 werkt de appversie en titelbalken bij. Je bestaande instellingen en profielen blijven behouden. Deze release bevat ook Linux-specifieke verbeteringen voor ingesloten Canvas-previews en verificatienavigatie. Microsoft Store-installaties ontvangen updates via de Store. VibeZ is een onafhankelijke client en is niet verbonden aan Mistral AI.

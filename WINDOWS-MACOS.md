@@ -1,3 +1,5 @@
+> **3.0.9 candidate:** validation and stable publication are pending. [3.0.8 remains the stable download](https://github.com/lecomputeur/vibez/releases/tag/v3.0.8). The original 100% idle CPU workload remains open in #49. Store 3.0.9 has not been submitted.
+
 # VibeZ on Windows and macOS
 
 VibeZ provides native desktop packages for Windows and macOS alongside the Linux packages. Public releases are built automatically from this GitHub repository by GitHub Actions and include SHA-256 checksums.
