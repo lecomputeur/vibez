@@ -119,16 +119,25 @@ jobs:
           python3 desktop/test-tools/canvas/policy-hook/run.py --output "$PWD/desktop/artifacts/canvas/lifecycle"
       - name: Rich-chat streaming, Find, resize, wheel and fullscreen regressions
         run: |
+          # The 291k-node fixture exceeds the old 2.4 GiB protective launcher cap
+          # on current WebKitGTK. Keep a bounded 4.8 GiB CI budget and 2 GiB host
+          # reserve; retain every correctness assertion and the 40x16 workload.
+          mkdir -p "$RUNNER_TEMP/baseline308"
+          GH_TOKEN="$VIBEZ_CI_UPDATE_TOKEN" gh release download v3.0.8 --repo lecomputeur/vibez --pattern VibeZ-3.0.8-Linux-x64.deb --dir "$RUNNER_TEMP/baseline308"
+          echo '98b689ac7cfc285333d7c1272f668441af6111f516d09b82e895ff858bcdaf71  '"$RUNNER_TEMP/baseline308/VibeZ-3.0.8-Linux-x64.deb" | sha256sum --check --strict
+          dpkg-deb -x "$RUNNER_TEMP/baseline308/VibeZ-3.0.8-Linux-x64.deb" "$RUNNER_TEMP/baseline308/root"
+          export VIBEZ_BASELINE_BINARY="$RUNNER_TEMP/baseline308/root/usr/bin/vibez3"
           export VIBEZ_BINARY="$PWD/desktop/src-tauri/target/release/vibez3"
           timeout 1200s xvfb-run -a -s '-screen 0 1600x1000x24' bash -euo pipefail <<'RICH'
           openbox --sm-disable > desktop/artifacts/rich-openbox.log 2>&1 &
           wm_pid=$!
           trap 'kill "$wm_pid" 2>/dev/null || true' EXIT
-          python3 desktop/test-tools/rich-chat/run.py --binary "$VIBEZ_BINARY" --mode lifecycle --output desktop/artifacts/rich/lifecycle
-          python3 desktop/test-tools/rich-chat/run.py --binary "$VIBEZ_BINARY" --mode resize --output desktop/artifacts/rich/resize
-          python3 desktop/test-tools/rich-chat/run.py --binary "$VIBEZ_BINARY" --mode wheel --baseline --output desktop/artifacts/rich/wheel-baseline
-          python3 desktop/test-tools/rich-chat/run.py --binary "$VIBEZ_BINARY" --mode wheel --output desktop/artifacts/rich/wheel-optimized
-          python3 desktop/test-tools/rich-chat/run.py --binary "$VIBEZ_BINARY" --mode fullscreen --sections 2 --output desktop/artifacts/rich/fullscreen
+          python3 desktop/test-tools/rich-chat/run.py --binary "$VIBEZ_BASELINE_BINARY" --max-own-rss-mib 4800 --min-available-mib 2048 --mode resize --output desktop/artifacts/rich/resize-308-control
+          python3 desktop/test-tools/rich-chat/run.py --binary "$VIBEZ_BINARY" --max-own-rss-mib 4800 --min-available-mib 2048 --mode lifecycle --output desktop/artifacts/rich/lifecycle
+          python3 desktop/test-tools/rich-chat/run.py --binary "$VIBEZ_BINARY" --max-own-rss-mib 4800 --min-available-mib 2048 --mode resize --output desktop/artifacts/rich/resize
+          python3 desktop/test-tools/rich-chat/run.py --binary "$VIBEZ_BINARY" --max-own-rss-mib 4800 --min-available-mib 2048 --mode wheel --baseline --output desktop/artifacts/rich/wheel-baseline
+          python3 desktop/test-tools/rich-chat/run.py --binary "$VIBEZ_BINARY" --max-own-rss-mib 4800 --min-available-mib 2048 --mode wheel --output desktop/artifacts/rich/wheel-optimized
+          python3 desktop/test-tools/rich-chat/run.py --binary "$VIBEZ_BINARY" --max-own-rss-mib 4800 --min-available-mib 2048 --mode fullscreen --sections 2 --output desktop/artifacts/rich/fullscreen
           RICH
       - name: Installer shutdown and AppImage replacement regression
         run: python3 desktop/tests/update-install.py desktop/src-tauri/target/release/vibez3 2>&1 | tee desktop/artifacts/update-install.log
