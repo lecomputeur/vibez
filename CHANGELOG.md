@@ -1,5 +1,6 @@
-# 3.0.9 (candidate; unpublished)
+# 3.0.9 (candidate; unpublished — Intel Mac ticket validation blocked)
 
+- Refresh TLS trust dependencies: rustls-webpki 0.103.16 and webpki-roots 1.0.10.
 - Linux native frame-aware navigation fixes Canvas previews and unwanted external tabs.
 - Isolate authentication-window state and block automatic unknown popups.
 - Version/title update for Windows and macOS; Store package version 3.0.9.0.

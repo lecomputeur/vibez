@@ -1,10 +1,10 @@
 # VibeZ Desktop — Partner Center update 3.0.9
 
-Status: package/build pending verification; no Store submission or publication performed.
+Status: Windows EXE/MSI/MSIX build and native tests passed in the [frozen-source run](https://github.com/lecomputeur/vibez/actions/runs/39630746331). MSIX 3.0.9.0 was packed/unpacked and independently checked (identity/publisher, AMD64 PE, CRC and every block-map SHA-256). The overall stable release is held by Intel Mac Apple-ticket validation. No Store submission or publication performed.
 
 Use the existing product **VibeZ Desktop**, Product ID **9NR7L2G4MS08**. No additional account or Store product is needed.
 
-- Upload file: `VibeZ-3.0.9-Windows-x64-Store.msix` (only after its successful Windows build and verification).
+- Upload file: `VibeZ-3.0.9-Windows-x64-Store.msix` (verified Windows build artifact).
 - Identity: `LeComputeur.VibeZDesktop`; Publisher: `CN=613EFBB1-83C3-495D-9C3B-D4EE98C72B95`.
 - Manifest version: **3.0.9.0**, x64; executable `vibez3.exe`; display name `VibeZ Desktop`.
 - Unsigned Store-upload package; use EXE/MSI for direct installation. Microsoft signs packages distributed through the Store.
@@ -21,10 +21,12 @@ Use the existing product **VibeZ Desktop**, Product ID **9NR7L2G4MS08**. No addi
 
 ## What's New — English
 
-VibeZ 3.0.9 updates the app version and window titles. Your existing settings and profiles are preserved. This release also includes Linux-specific improvements for embedded Canvas previews and verification navigation. Microsoft Store installations receive updates through the Store. VibeZ is an independent client and is not affiliated with Mistral AI.
+VibeZ 3.0.9 updates the app version and window titles, and refreshes certificate-trust dependencies used for secure update requests. Your existing settings and profiles are preserved. This release also includes Linux-specific improvements for embedded Canvas previews and verification navigation. Microsoft Store installations receive updates through the Store. VibeZ is an independent client and is not affiliated with Mistral AI.
 
 ## Nieuw in deze versie — Nederlands
 
-VibeZ 3.0.9 werkt de appversie en titelbalken bij. Je bestaande instellingen en profielen blijven behouden. Deze release bevat ook Linux-specifieke verbeteringen voor ingesloten Canvas-previews en verificatienavigatie. Microsoft Store-installaties ontvangen updates via de Store. VibeZ is een onafhankelijke client en is niet verbonden aan Mistral AI.
+VibeZ 3.0.9 werkt de appversie en titelbalken bij en vernieuwt de certificaatafhankelijkheden voor beveiligde updateverzoeken. Je bestaande instellingen en profielen blijven behouden. Deze release bevat ook Linux-specifieke verbeteringen voor ingesloten Canvas-previews en verificatienavigatie. Microsoft Store-installaties ontvangen updates via de Store. VibeZ is een onafhankelijke client en is niet verbonden aan Mistral AI.
 
 Official references: [upload MSIX packages](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/upload-app-packages), [create an app submission](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/create-app-submission). Run the Windows App Certification Kit before submission; MakeAppx and smoke checks do not replace Store certification.
+
+Verified upload SHA-256: `1d6f7d3c3f6ff4fd22e1f28955a0127aa96272ccc69e926bb9fdefcc20a88cd2`. See [release blocker/status](RELEASE-STATUS-3.0.9.md).

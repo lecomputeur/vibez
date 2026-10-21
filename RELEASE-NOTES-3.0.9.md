@@ -1,6 +1,6 @@
 # VibeZ 3.0.9 — Linux Canvas and verification navigation
 
-Release candidate. Stable publication is conditional on the exact-source all-platform build and release-blocker review. No successful 3.0.9 build or Store publication is claimed by this document.
+Release candidate; stable publication is blocked by repeated Apple CloudKit ticket-validation failures on Intel Mac. Ten package formats passed, including Windows Store MSIX 3.0.9.0. No stable 3.0.9 or Store publication was performed. See [exact build/publication status](RELEASE-STATUS-3.0.9.md) and the [validation run](https://github.com/lecomputeur/vibez/actions/runs/39630746331).
 
 ## Changes
 
@@ -10,7 +10,7 @@ Release candidate. Stable publication is conditional on the exact-source all-pla
 - Update rustls-webpki to 0.103.16 and webpki-roots to 1.0.10 for the newly published certificate-trust advisories RUSTSEC-2026-0382 and RUSTSEC-2026-0381.
 - Windows/macOS receive version 3.0.9 and window title VibeZ V3.0.9. The routing hooks are Linux-only.
 
-## Reporter evidence and remaining issue
+## Validation and limits
 
 The openSUSE Leap 16/GNOME reporter confirmed successful Cloudflare verification and Mistral loading in the test.3 Flatpak on 21 October. RPM was not tested by that reporter. The openSUSE Tumbleweed reporter confirmed fresh table/chart previews and no blank Firefox tabs on 19 October.
 
@@ -29,3 +29,7 @@ MSIX creation is separate from Partner Center submission. No Store submission is
 ## Rollback
 
 Keep v3.0.8 assets, checksums and tag unchanged. Before installing, close the app and back up the existing app profile using the operating system's normal backup tools. Reinstall the matching 3.0.8 package if required; never delete or migrate profiles to roll back. Do not overwrite the isolated Canvas Test installation. Store rollback requires reviewing the current Partner Center submission and version ordering; never replace an existing submission blindly.
+
+## Moving from test builds
+
+The isolated Canvas Test remains a separate app/profile with updates disabled. Install the ordinary package separately when the stable release is cleared. For an installed ordinary 3.0.9+test.2, use the stable installer directly: build metadata has equal SemVer precedence, while DEB ordering treats 3.0.9 as lower. This is a version-ordering issue, not older release code. Do not delete or migrate profiles.
