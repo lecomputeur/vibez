@@ -11,12 +11,14 @@ def evidence(fixed):
         {'event': 'controlled-html-replacement'},
         {'event': 'fixture-state', 'ownFixtureState': {
             'controlledFixture': True, 'finished': True, 'origin': 'https://chat.mistral.ai',
-            'popupAttempted': True, 'popupReturnedNull': True, 'popupEventTrusted': True}},
+            'externalAttempted': True, 'popupAttempted': True, 'popupReturnedNull': True, 'popupEventTrusted': True}},
         {'event': 'native-click-dispatched', 'scopedToOwnWebview': True},
         {'event': 'own-window-count', 'ownWebviewWindows': 1},
         {'event': 'create-request-observed', 'fixtureCase': 'challenge-popup', 'origin': run.CF},
     ]
-    opens = [{'fixtureCase': 'external-normal', 'origin': 'https://example.com', 'browserStarted': False}]
+    events.append({'event': 'policy-observed', 'type': 'navigation-action',
+                   'fixtureCase': 'external-normal', 'origin': 'https://example.com'})
+    opens = [] if fixed else [{'fixtureCase': 'external-normal', 'origin': 'https://example.com', 'browserStarted': False}]
     for case in run.FRAME_CASES:
         events.append({'event': 'policy-observed', 'type': 'navigation-action', 'fixtureCase': case, 'origin': run.CF})
         if fixed:
@@ -45,6 +47,16 @@ class ReportTests(unittest.TestCase):
         self.assertTrue(run.check_report(events, opens, 'fixed')['ok'])
         events = [event for event in events if not (event.get('event') == 'resource-load-started'
                   and event.get('fixtureCase') == 'named')]
+        self.assertFalse(run.check_report(events, opens, 'fixed')['ok'])
+
+    def test_automatic_external_opener_is_a_regression(self):
+        events, opens = evidence(True)
+        opens.append({'fixtureCase': 'external-normal', 'origin': 'https://example.com', 'browserStarted': False})
+        self.assertFalse(run.check_report(events, opens, 'fixed')['ok'])
+
+    def test_missing_automatic_navigation_observation_fails(self):
+        events, opens = evidence(True)
+        events = [e for e in events if e.get('fixtureCase') != 'external-normal']
         self.assertFalse(run.check_report(events, opens, 'fixed')['ok'])
 
     def test_main_frame_response_or_extra_window_fails(self):
