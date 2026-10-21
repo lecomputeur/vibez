@@ -2,6 +2,8 @@
 
 `measure-linux-cpu.py` measures an already running VibeZ process and its descendants. It does not launch the app. Use it to compare the **same original heavy conversation from issue #49** in stable VibeZ 3.0.9, first normally and then with the rich-render helper disabled.
 
+You can download just `measure-linux-cpu.py` using GitHub's **Download raw file** button; no repository checkout or app rebuild is required. For a standalone download, run commands from its download folder and replace `tools/diagnostics/measure-linux-cpu.py` below with `./measure-linux-cpu.py`.
+
 ## Prepare both runs
 
 Save any drafts before restarting. Keep the saved conversation, viewport, window size, scroll position and idle conditions the same for both runs. Let loading and streaming finish, then leave the app untouched during each measurement. Do not reinstall VibeZ or delete a profile.
