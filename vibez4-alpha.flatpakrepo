@@ -1,0 +1,5 @@
+[Flatpak Repo]
+Title=VibeZ V4 Alpha
+Url=https://raw.githubusercontent.com/lecomputeur/vibez/v4-alpha-flatpak/
+DefaultBranch=alpha
+GPGKey=mDMEauX/nBYJKwYBBAHaRw8BAQdAvyWkzjziaSk/EfNPP9Z3VWPjjGx+gYNTPc9IfEjHsCK0FlZpYmVaIFY0IEFscGhhIFVwZGF0ZXOIkwQTFgoAOxYhBMZB2EttrCcGtOrjHfsTwebvjuTjBQJq5f+cAhsDBQsJCAcCAiICBhUKCQgLAgQWAgMBAh4HAheAAAoJEPsTwebvjuTjZZwA/0jrgxECQuQmul/XRRtN0yKJmMwFCDf6QuX9mqNkjQ1MAQCvHYHJAq8QKwau6dY0hzpMyWQix9gLfSwnt3ecJdxtAw==

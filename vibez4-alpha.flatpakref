@@ -1,0 +1,9 @@
+[Flatpak Ref]
+Name=nl.lecomputeur.vibez4.alpha
+Branch=alpha
+Title=VibeZ V4 Alpha
+SuggestRemoteName=vibez4-alpha-channel
+IsRuntime=false
+Url=https://raw.githubusercontent.com/lecomputeur/vibez/v4-alpha-flatpak/
+GPGKey=mDMEauX/nBYJKwYBBAHaRw8BAQdAvyWkzjziaSk/EfNPP9Z3VWPjjGx+gYNTPc9IfEjHsCK0FlZpYmVaIFY0IEFscGhhIFVwZGF0ZXOIkwQTFgoAOxYhBMZB2EttrCcGtOrjHfsTwebvjuTjBQJq5f+cAhsDBQsJCAcCAiICBhUKCQgLAgQWAgMBAh4HAheAAAoJEPsTwebvjuTjZZwA/0jrgxECQuQmul/XRRtN0yKJmMwFCDf6QuX9mqNkjQ1MAQCvHYHJAq8QKwau6dY0hzpMyWQix9gLfSwnt3ecJdxtAw==
+RuntimeRepo=https://flathub.org/repo/flathub.flatpakrepo
