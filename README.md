@@ -18,6 +18,16 @@
 
 </div>
 
+> **Help test VibeZ V4 Alpha**
+>
+> A lightweight Mistral client with the familiar web interface and a local folder for each project or conversation. Try your existing Mistral web chats with files from your computer.
+>
+> **V4 Alpha installs separately. It does not replace VibeZ 3.0.9 and uses its own profile and settings.** Windows, macOS and Linux downloads are available.
+>
+> [Download V4 Alpha](https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-alpha.4) · [Share feedback on GitHub](https://github.com/lecomputeur/vibez/discussions/56) · [Report a bug](https://github.com/lecomputeur/vibez/issues/new/choose)
+>
+> Found a problem, something confusing or an improvement you would like? Please let us know on GitHub. Include your operating system, package format and Alpha version. Your feedback helps shape V4.
+
 > **VibeZ 3.0.9:** Promote tested Linux Canvas/chart preview and verification navigation improvements, with TLS certificate-trust dependency and version/title updates on every platform. [Release downloads](https://github.com/lecomputeur/vibez/releases/tag/v3.0.9) · [Release notes and validation](V3-RELEASE.md). Microsoft Store delivery remains separate.
 
 **Cloudflare verification frames on Linux stay in the app instead of opening as external browser links.**
