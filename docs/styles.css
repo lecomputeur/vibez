@@ -37,6 +37,13 @@ article p, .details p, .details li, .feature-list p { color: #c6c4c2; line-heigh
 code { color: #ffcf8a; }
 .notice { max-width: 820px; margin-top: 2rem; font-size: .93rem; }
 .platform-summary { max-width: 820px; }
+.details.alpha-invite { margin: 0 0 2rem; padding: clamp(1.25rem, 4vw, 2.5rem); border: 1px solid #9e573a; border-radius: 1rem; background: rgba(255, 139, 76, .065); scroll-margin-top: 1rem; }
+.alpha-invite .eyebrow { color: #ffbc61; }
+.alpha-invite h2 { margin: .75rem 0 1rem; }
+.alpha-invite p { max-width: 850px; }
+.alpha-invite .alpha-feedback { margin: 1.5rem 0 0; font-size: .95rem; }
+.alpha-invite p a { color: #ffbc61; text-underline-offset: .18em; }
+.alpha-invite .button:focus-visible, .alpha-invite p a:focus-visible { outline: 3px solid #ffcf8a; outline-offset: 4px; }
 footer { padding: 2rem 1rem 3rem; color: #9ea3ad; font-size: .9rem; }
 footer a { color: #ffbc61; }
 @media (max-width: 820px) { .package-grid, .package-grid.mac-packages, .feature-list { grid-template-columns: 1fr; } }
