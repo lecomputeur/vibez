@@ -26,6 +26,7 @@ jobs:
     outputs:
       matrix: ${{ steps.targets.outputs.matrix }}
       verification_only: ${{ steps.targets.outputs.verification_only }}
+      update_verification: ${{ steps.targets.outputs.update_verification }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -44,11 +45,18 @@ jobs:
           assert all(isinstance(x,str) and x in known for x in targets)
           matrix={'include':[{'target':x,'runner':known[x]} for x in targets]}
           verification=spec.get('verify_existing')
+          update_verification=spec.get('verify_update')
+          assert not (verification and update_verification)
           if verification:
               assert len(targets)==1 and targets[0].startswith('macos') and verification['target']==targets[0]
+          if update_verification:
+              assert update_verification['previous_version']=='4.0.0-alpha.6'
+              assert update_verification['version']==spec['version']
+              assert set(update_verification['targets']) >= set(targets)
           with open(os.environ['GITHUB_OUTPUT'],'a') as output:
               output.write('matrix='+json.dumps(matrix)+'\n')
-              output.write('verification_only='+('true' if verification else 'false')+'\n')
+              output.write('verification_only='+('true' if verification or update_verification else 'false')+'\n')
+              output.write('update_verification='+('true' if update_verification else 'false')+'\n')
           PY
   native:
     needs: plan
@@ -136,15 +144,25 @@ jobs:
         shell: bash
         run: python alpha-source/tools/ci-alpha-build.py collect --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
       - name: Download exact existing CI packages
-        if: needs.plan.outputs.verification_only == 'true'
+        if: needs.plan.outputs.verification_only == 'true' && needs.plan.outputs.update_verification != 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python alpha-source/tools/ci-alpha-build.py download-existing --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
       - name: Revalidate exact existing packages without credentials
-        if: needs.plan.outputs.verification_only == 'true'
+        if: needs.plan.outputs.verification_only == 'true' && needs.plan.outputs.update_verification != 'true'
         shell: bash
         run: python alpha-source/tools/ci-alpha-build.py revalidate-existing --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
+      - name: Download exact signed Alpha update packages
+        if: needs.plan.outputs.update_verification == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python alpha-source/tools/ci-alpha-build.py download-updates --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
+      - name: Test a real Alpha 6 to new Alpha update without credentials
+        if: needs.plan.outputs.update_verification == 'true'
+        shell: bash
+        run: python alpha-source/tools/ci-alpha-build.py verify-updates --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
       - name: Encrypt build log
         if: always()
         shell: bash
@@ -166,7 +184,7 @@ jobs:
           name: alpha-${{ matrix.target }}-${{ github.run_attempt }}
           path: |
             alpha-source/artifacts/ci-packages/*
-            alpha-source/artifacts/ci-proof/*.json
+            alpha-source/artifacts/ci-proof/**/*.json
             ${{ runner.temp }}/alpha-build.log.gpg
           if-no-files-found: error
           retention-days: 14

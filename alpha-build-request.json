@@ -1,7 +1,7 @@
 {
-  "version": "4.0.0-alpha.6",
-  "url": "https://github.com/lecomputeur/vibez/releases/download/v4-alpha-channel/VibeZ-4.0.0-alpha.6-native-source-8f165c5477e4aa93.tar.gz.gpg",
-  "sha256": "8f165c5477e4aa93f772413ee3f9a5e4310646afd77553435461c57601318fac",
+  "version": "4.0.0-alpha.7",
+  "url": "https://github.com/lecomputeur/vibez/releases/download/v4-alpha-channel/VibeZ-4.0.0-alpha.7-native-source-c2186b5296d4c632.tar.gz.gpg",
+  "sha256": "c2186b5296d4c632beb0a77dd0b896148acebb836bb1f09f941b513d99ef8a1d",
   "targets": [
     "windows-x64",
     "macos-x64",
