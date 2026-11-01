@@ -18,9 +18,9 @@
 
 </div>
 
-> **Help test VibeZ V4 Alpha**
+> **New in V4: work with local folders**
 >
-> A lightweight Mistral client with the familiar web interface and a local folder for each project or conversation. Try your existing Mistral web chats with files from your computer.
+> **The biggest change from VibeZ 3: Mistral can now work with a folder you choose on your computer.** Link one local folder to each project or conversation. Ask Mistral to read text files, create new ones or propose edits. Changes are saved only after your approval.
 >
 > **V4 Alpha installs separately. It does not replace VibeZ 3.0.9 and uses its own profile and settings.** Windows, macOS and Linux downloads are available.
 >
