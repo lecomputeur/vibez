@@ -1,7 +1,7 @@
 {
   "version": "4.0.0-alpha.7",
-  "url": "https://github.com/lecomputeur/vibez/releases/download/v4-alpha-channel/VibeZ-4.0.0-alpha.7-native-source-02c3149e3cdbd634.tar.gz.gpg",
-  "sha256": "02c3149e3cdbd6344ef5b84bcd492912433e6a69a667253ad5fb15f80ac2210a",
+  "url": "https://github.com/lecomputeur/vibez/releases/download/v4-alpha-channel/VibeZ-4.0.0-alpha.7-native-source-f63ec40e40e89ffc.tar.gz.gpg",
+  "sha256": "f63ec40e40e89ffc7566ea74565228adc131a96bbfa2c5ba6512e7446f5bc5e2",
   "targets": [
     "windows-x64",
     "macos-x64",
@@ -35,13 +35,21 @@
             "name": "VibeZ-4.0.0-alpha.7-Windows-x64.msi",
             "size": 49297689,
             "sha256": "8f312089a93fe6201cf41780626ebed646c18efa6c496756628ba16082b25727",
-            "asset_id": 699156957
+            "ci_artifact": {
+              "id": 13095067560,
+              "run": 41335154886,
+              "sha256": "fc2598a7e1e361b7ef0bebbba11d7a9cd889dc1ffaa7487921836de5db60a991"
+            }
           },
           "to_nsis": {
             "name": "VibeZ-4.0.0-alpha.7-Windows-x64-Setup.exe",
             "size": 35505275,
             "sha256": "6509b5fbd5f6f487c590b483df82730e5bbed5c3506a3a33525c4b066f95c8ac",
-            "asset_id": 699156956
+            "ci_artifact": {
+              "id": 13095067560,
+              "run": 41335154886,
+              "sha256": "fc2598a7e1e361b7ef0bebbba11d7a9cd889dc1ffaa7487921836de5db60a991"
+            }
           }
         }
       },
@@ -57,7 +65,11 @@
             "name": "VibeZ-4.0.0-alpha.7-macOS-x64.app.tar.gz",
             "size": 68272486,
             "sha256": "a161c93518ec00f4050e5b47bc39a7a658a5ddf5f7b81a037cda93478a185b9d",
-            "asset_id": 699157286
+            "ci_artifact": {
+              "id": 13095441910,
+              "run": 41335154886,
+              "sha256": "09ddc6278954316f912a6579f8f5869df10a5a420d6de8dfc16fd4e3bd5962c2"
+            }
           }
         }
       },
@@ -73,7 +85,11 @@
             "name": "VibeZ-4.0.0-alpha.7-macOS-arm64.app.tar.gz",
             "size": 65905697,
             "sha256": "0dcea23c415c5be89cb8b317f43ab84da0054a86b92e0e4dca4a8e4f1b643e23",
-            "asset_id": 699156961
+            "ci_artifact": {
+              "id": 13094584964,
+              "run": 41335154886,
+              "sha256": "f1f8c9bacdfc7f58ba7450e1d28b84d259196af361c72e0fad83d2e76643fb66"
+            }
           }
         }
       }
