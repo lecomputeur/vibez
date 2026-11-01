@@ -1,9 +1,19 @@
 {
   "version": "4.0.0-alpha.4",
-  "url": "https://github.com/lecomputeur/vibez/releases/download/v4-alpha-channel/VibeZ-4.0.0-alpha.4-native-source-ee502770d85ea171.tar.gz.gpg",
-  "sha256": "ee502770d85ea171c58c9c495c96227e5378387b782ddc4150588c044661af4b",
+  "url": "https://github.com/lecomputeur/vibez/releases/download/v4-alpha-channel/VibeZ-4.0.0-alpha.4-native-source-6a4f50fb4bb20277.tar.gz.gpg",
+  "sha256": "6a4f50fb4bb20277e8fd8d029cd7f4975b0a506755ccea401ed40fd59d21f790",
   "targets": [
-    "macos-x64",
-    "macos-arm64"
-  ]
+    "macos-x64"
+  ],
+  "verify_existing": {
+    "target": "macos-x64",
+    "run": 41271339130,
+    "artifact_id": 13070240946,
+    "artifact_sha256": "564d191d1f7c629298492c977b0a9d8fe653d493b24962758eab9f582e5abb09",
+    "packages": {
+      "VibeZ-4.0.0-alpha.4-macOS-x64.app.tar.gz": "502c9f44767fd0536a56309e2d0af2af3c4907e5e2c466787156cd3dcc1e60b5",
+      "VibeZ-4.0.0-alpha.4-macOS-x64.dmg": "f60051c8dcdbd6a7ad96e75ea0e3effa673b7a2ac8dca49d74df8485c7d4f6f1",
+      "VibeZ-4.0.0-alpha.4-macOS-x64.zip": "3b8fd092937bd782787c101c64527e172ee9bc67da0fec98e3f9978b372ea86a"
+    }
+  }
 }

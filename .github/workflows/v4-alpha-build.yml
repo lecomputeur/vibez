@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: v4-alpha-native-${{ github.ref }}-${{ github.sha }}-${{ inputs.target || 'all' }}
@@ -24,6 +25,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.targets.outputs.matrix }}
+      verification_only: ${{ steps.targets.outputs.verification_only }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -41,7 +43,12 @@ jobs:
           assert isinstance(targets,list) and targets and len(targets)==len(set(targets))
           assert all(isinstance(x,str) and x in known for x in targets)
           matrix={'include':[{'target':x,'runner':known[x]} for x in targets]}
-          with open(os.environ['GITHUB_OUTPUT'],'a') as output:output.write('matrix='+json.dumps(matrix)+'\n')
+          verification=spec.get('verify_existing')
+          if verification:
+              assert len(targets)==1 and targets[0].startswith('macos') and verification['target']==targets[0]
+          with open(os.environ['GITHUB_OUTPUT'],'a') as output:
+              output.write('matrix='+json.dumps(matrix)+'\n')
+              output.write('verification_only='+('true' if verification else 'false')+'\n')
           PY
   native:
     needs: plan
@@ -53,6 +60,7 @@ jobs:
     env:
       ALPHA_TARGET: ${{ matrix.target }}
       CARGO_TERM_COLOR: never
+      ALPHA_VERIFY_ONLY: ${{ needs.plan.outputs.verification_only }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -74,8 +82,10 @@ jobs:
               brew install gnupg
             fi
           fi
-          rustup toolchain install stable --profile minimal
-          rustup default stable
+          if [[ "$ALPHA_VERIFY_ONLY" != true ]]; then
+            rustup toolchain install stable --profile minimal
+            rustup default stable
+          fi
       - name: Download and decrypt private build source
         shell: bash
         env:
@@ -101,12 +111,13 @@ jobs:
           assert json.loads((source/'desktop/package.json').read_text())['version']==spec['version']
           PY
       - name: Prepare and test native package
+        if: needs.plan.outputs.verification_only != 'true'
         shell: bash
         run: |
           python alpha-source/tools/ci-alpha-build.py prepare --target "$ALPHA_TARGET" > "$RUNNER_TEMP/alpha-build.log" 2>&1
           python alpha-source/tools/ci-alpha-build.py build --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
       - name: Sign and notarize macOS package
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && needs.plan.outputs.verification_only != 'true'
         shell: bash
         env:
           MAC_CERTIFICATE_P12_BASE64: ${{ secrets.MAC_CERTIFICATE_P12_BASE64 }}
@@ -117,12 +128,23 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: python alpha-source/tools/ci-alpha-build.py sign-mac --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
       - name: Test the signed app without signing credentials
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && needs.plan.outputs.verification_only != 'true'
         shell: bash
         run: python alpha-source/tools/ci-alpha-build.py smoke-signed --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
       - name: Collect only installers and validation results
+        if: needs.plan.outputs.verification_only != 'true'
         shell: bash
         run: python alpha-source/tools/ci-alpha-build.py collect --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
+      - name: Download exact existing CI packages
+        if: needs.plan.outputs.verification_only == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python alpha-source/tools/ci-alpha-build.py download-existing --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
+      - name: Revalidate exact existing packages without credentials
+        if: needs.plan.outputs.verification_only == 'true'
+        shell: bash
+        run: python alpha-source/tools/ci-alpha-build.py revalidate-existing --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
       - name: Encrypt build log
         if: always()
         shell: bash
