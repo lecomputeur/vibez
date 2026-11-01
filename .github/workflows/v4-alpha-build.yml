@@ -5,26 +5,49 @@ on:
     branches: [build/v4-alpha-ci]
     paths: [.github/workflows/v4-alpha-build.yml, alpha-build-request.json]
   workflow_dispatch:
+    inputs:
+      target:
+        description: Native package to rebuild
+        type: choice
+        default: all
+        options: [all, windows-x64, macos-x64, macos-arm64]
 
 permissions:
   contents: read
 
 concurrency:
-  group: v4-alpha-native-${{ github.ref }}
+  group: v4-alpha-native-${{ github.ref }}-${{ github.sha }}-${{ inputs.target || 'all' }}
   cancel-in-progress: false
 
 jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.targets.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - id: targets
+        env:
+          SELECTED_TARGET: ${{ inputs.target || '' }}
+        run: |
+          python3 - <<'PY'
+          import json,os,pathlib
+          spec=json.loads(pathlib.Path('alpha-build-request.json').read_text())
+          known={'windows-x64':'windows-2022','macos-x64':'macos-15-intel','macos-arm64':'macos-15'}
+          selected=os.environ['SELECTED_TARGET']
+          targets=([selected] if selected and selected!='all' else list(known)) if selected else spec.get('targets',list(known))
+          assert isinstance(targets,list) and targets and len(targets)==len(set(targets))
+          assert all(isinstance(x,str) and x in known for x in targets)
+          matrix={'include':[{'target':x,'runner':known[x]} for x in targets]}
+          with open(os.environ['GITHUB_OUTPUT'],'a') as output:output.write('matrix='+json.dumps(matrix)+'\n')
+          PY
   native:
+    needs: plan
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - target: windows-x64
-            runner: windows-2022
-          - target: macos-x64
-            runner: macos-15-intel
-          - target: macos-arm64
-            runner: macos-15
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 100
     env:
