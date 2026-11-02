@@ -38,7 +38,7 @@ jobs:
           python3 - <<'PY'
           import json,os,pathlib
           spec=json.loads(pathlib.Path('alpha-build-request.json').read_text())
-          known={'windows-x64':'windows-2022','macos-x64':'macos-15-intel','macos-arm64':'macos-15'}
+          known={'windows-x64':'windows-2022','macos-x64':'macos-15-intel','macos-arm64':'macos-26'}
           selected=os.environ['SELECTED_TARGET']
           targets=([selected] if selected and selected!='all' else list(known)) if selected else spec.get('targets',list(known))
           assert isinstance(targets,list) and targets and len(targets)==len(set(targets))
