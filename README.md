@@ -20,11 +20,13 @@
 
 > **New in V4: work with local folders**
 >
-> **The biggest change from VibeZ 3: Mistral can now work with a folder you choose on your computer.** Link one local folder to each project or conversation. Ask Mistral to read text files, create new ones or propose edits. Changes are saved only after your approval.
+> **The biggest change from VibeZ 3: Mistral can now work with a folder you choose on your computer.** Link one or more local folders to each project or conversation. Browse files and subfolders in the right-hand panel and read supported Office documents through the local connector. Proposed text changes are saved only after your approval.
 >
 > **V4 Alpha installs separately. It does not replace VibeZ 3.0.9 and uses its own profile and settings.** Windows, macOS and Linux downloads are available.
 >
-> [Download V4 Alpha](https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-alpha.6) · [Share feedback on GitHub](https://github.com/lecomputeur/vibez/discussions/56) · [Report a bug](https://github.com/lecomputeur/vibez/issues/new/choose)
+> Alpha 9 is available for Linux, Windows and Intel Macs. The Apple Silicon build will follow; Apple Silicon users can keep using Alpha 8.
+>
+> [Download V4 Alpha](https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-alpha.9) · [Share feedback on GitHub](https://github.com/lecomputeur/vibez/discussions/56) · [Report a bug](https://github.com/lecomputeur/vibez/issues/new/choose)
 >
 > Found a problem, something confusing or an improvement you would like? Please let us know on GitHub. Include your operating system, package format and Alpha version. Your feedback helps shape V4.
 
