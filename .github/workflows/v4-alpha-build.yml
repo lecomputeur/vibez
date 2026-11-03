@@ -129,7 +129,7 @@ jobs:
           assert json.loads((source/'desktop/package.json').read_text())['version']==spec['source_version']
           overlay=os.environ.get('VIBEZ_RELEASE_OVERLAY','')
           assert overlay and len(overlay)<60000 and spec['version']=='4.0.0-alpha.10'
-          allowed={'desktop/package-lock.json','desktop/package.json','desktop/src-tauri/Cargo.lock','desktop/src-tauri/Cargo.toml','desktop/src-tauri/src/classic_layout.rs','desktop/src-tauri/tauri.conf.json'}
+          allowed={'desktop/src-tauri/tauri.conf.json', 'desktop/src-tauri/Cargo.lock', 'desktop/standalone-tests/connection-feedback.browser.cjs', 'backend/web_connector.py', 'desktop/src-tauri/src/classic_layout.rs', 'standalone-ui/panel.css', 'backend/standalone_engine.py', 'standalone-ui/panel.html', 'backend/workspace_engine.py', 'desktop/package-lock.json', 'desktop/package.json', 'desktop/src-tauri/src/project_overview.rs', 'desktop/standalone-tests/app.test.cjs', 'standalone-ui/panel.js', 'desktop/src-tauri/Cargo.toml'}
           extra=root/'release-overlay.gpg';decoded=root/'release-overlay.tar.gz'
           extra.write_bytes(base64.b64decode(overlay,validate=True))
           assert hashlib.sha256(extra.read_bytes()).hexdigest()==spec['overlay_sha256']
@@ -138,27 +138,24 @@ jobs:
               subprocess.run(['gpg','--batch','--pinentry-mode','loopback','--passphrase-file',str(password),'--output',str(decoded),'--decrypt',str(extra)],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
               with tarfile.open(decoded) as stream:
                   entries=stream.getmembers()
-                  assert len(entries)==7 and {m.name for m in entries}==allowed|{'release-overlay.json'}
-                  assert all(m.isfile() and m.size<250000 for m in entries)
+                  assert len(entries)==1 and entries[0].name=='release-overlay.json' and entries[0].isfile() and entries[0].size<1000000
                   meta=json.load(stream.extractfile('release-overlay.json'))
-                  assert meta['schema']==1 and meta['version']==spec['version'] and meta['source_version']==spec['source_version']
-                  assert meta['base_cipher_sha256']==spec['sha256'] and meta['source_manifest_sha256']==spec['source_manifest_sha256']
-                  assert len(meta['files'])==6 and {f['path']for f in meta['files']}==allowed
-                  for file in meta['files']:
-                      target=source/file['path']
-                      assert hashlib.sha256(target.read_bytes()).hexdigest()==file['base_sha256']
-                      content=stream.extractfile(file['path']).read()
-                      assert hashlib.sha256(content).hexdigest()==file['sha256']
-                      target.write_bytes(content)
-                  edits=meta.get('text_edits',[])
-                  assert len(edits)==1 and edits[0]['path']=='desktop/standalone-tests/app.test.cjs'
-                  for edit in edits:
-                      target=source/edit['path'];before=target.read_bytes()
-                      assert hashlib.sha256(before).hexdigest()==edit['base_sha256']
-                      text=before.decode();assert text.count(spec['source_version'])==1
-                      content=text.replace(spec['source_version'],spec['version'],1).encode()
-                      assert hashlib.sha256(content).hexdigest()==edit['sha256']
-                      target.write_bytes(content)
+              assert meta['schema']==2 and meta['version']==spec['version'] and meta['source_version']==spec['source_version']
+              assert meta['base_cipher_sha256']==spec['sha256'] and meta['source_manifest_sha256']==spec['source_manifest_sha256']
+              assert len(meta['files'])==15 and {f['path']for f in meta['files']}==allowed
+              for file in meta['files']:
+                  target=source/file['path'];before=target.read_bytes()
+                  assert hashlib.sha256(before).hexdigest()==file['base_sha256']
+                  lines=before.decode().splitlines(keepends=True);chunks=[];cursor=0
+                  assert 0<len(file['edits'])<1000
+                  for edit in file['edits']:
+                      start,end,text=edit['start'],edit['end'],edit['text']
+                      assert type(start)is int and type(end)is int and cursor<=start<=end<=len(lines)
+                      assert isinstance(text,str)and len(text)<250000
+                      chunks.extend([''.join(lines[cursor:start]),text]);cursor=end
+                  chunks.append(''.join(lines[cursor:]));content=''.join(chunks).encode()
+                  assert len(content)<1000000 and hashlib.sha256(content).hexdigest()==file['sha256']
+                  target.write_bytes(content)
           finally:
               password.unlink(missing_ok=True);decoded.unlink(missing_ok=True);extra.unlink(missing_ok=True)
           records=[{'path':name,'sha256':hashlib.sha256((source/name).read_bytes()).hexdigest()}for name in names]

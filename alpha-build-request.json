@@ -3,8 +3,8 @@
   "source_version": "4.0.0-alpha.9",
   "url": "https://github.com/lecomputeur/vibez/releases/download/v4-alpha-channel/VibeZ-4.0.0-alpha.9-native-source-17e6a7c64a7ebd17.tar.gz.gpg",
   "sha256": "17e6a7c64a7ebd17e4eab940018ac1a39333ccd530125cc1f53b36b9a3d181b5",
-  "overlay_sha256": "c108cdc68f693f3a0e8870c1c39d97cb0383efac84321623293ab19e618f0865",
-  "source_manifest_sha256": "d6867f04e779657d361111a11a28cd18591abdd17537e39176a26b8676116f64",
+  "overlay_sha256": "8b62a1a46bc646fa55601b2948954c497ab507943de6a5ee45fd439211005dff",
+  "source_manifest_sha256": "d89bde5f51ea6f7b3a2d54f552a4b0436baf9f549cdfddf9fa4432ed82262856",
   "targets": [
     "macos-x64",
     "macos-arm64"
