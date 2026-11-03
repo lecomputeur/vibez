@@ -9,12 +9,8 @@ on:
       target:
         description: Native package to rebuild
         type: choice
-        default: windows-x64
+        default: all
         options: [all, windows-x64, macos-x64, macos-arm64]
-      release_overlay:
-        description: Encrypted, source-hash-bound Mac release changes
-        type: string
-        required: true
 
 permissions:
   contents: read
@@ -54,7 +50,7 @@ jobs:
           if verification:
               assert len(targets)==1 and targets[0].startswith('macos') and verification['target']==targets[0]
           if update_verification:
-              assert update_verification['previous_version']=='4.0.0-alpha.8'
+              assert update_verification['previous_version'] in ['4.0.0-alpha.8','4.0.0-alpha.10']
               assert update_verification['version']==spec['version']
               assert set(update_verification['targets']) >= set(targets)
           with open(os.environ['GITHUB_OUTPUT'],'a') as output:
@@ -102,12 +98,11 @@ jobs:
         shell: bash
         env:
           VIBEZ_ALPHA_BUILD_PASSPHRASE: ${{ secrets.VIBEZ_ALPHA_BUILD_PASSPHRASE }}
-          VIBEZ_RELEASE_OVERLAY: ${{ inputs.release_overlay }}
         run: |
           python - <<'PY'
-          import base64,hashlib,json,os,pathlib,re,subprocess,tarfile,urllib.request
+          import hashlib,json,os,pathlib,re,subprocess,tarfile,urllib.request
           spec=json.loads(pathlib.Path('alpha-build-request.json').read_text())
-          assert re.fullmatch(r'4\.[0-9]+\.[0-9]+-alpha\.[1-9][0-9]*',spec['version'])
+          assert spec['version']=='4.0.0-alpha.14' and spec['source_version']==spec['version']
           assert spec['url'].startswith('https://github.com/lecomputeur/vibez/releases/download/v4-alpha-channel/')
           assert spec['url'].endswith('.tar.gz.gpg') and re.fullmatch('[0-9a-f]{64}',spec['sha256'])
           root=pathlib.Path(os.environ['RUNNER_TEMP'])/'vibez-alpha-private';root.mkdir(mode=0o700)
@@ -121,49 +116,18 @@ jobs:
           source=pathlib.Path('alpha-source');source.mkdir()
           with tarfile.open(plain) as stream:
               members=stream.getmembers()
-              assert all(m.isfile() for m in members)
+              assert all(m.isfile() and not pathlib.PurePosixPath(m.name).is_absolute() and '..' not in pathlib.PurePosixPath(m.name).parts for m in members)
               names=sorted(m.name for m in members)
-              assert len(names)==427 and len(set(names))==len(names)
+              assert len(names)==spec['file_count']==428 and len(set(names))==len(names)
+              assert sum(m.size for m in members)<100*1024*1024
               stream.extractall(source,filter='data')
           plain.unlink();encrypted.unlink()
-          assert json.loads((source/'desktop/package.json').read_text())['version']==spec['source_version']
-          overlay=os.environ.get('VIBEZ_RELEASE_OVERLAY','')
-          assert overlay and len(overlay)<60000 and spec['version']=='4.0.0-alpha.10'
-          allowed={'desktop/src-tauri/tauri.conf.json', 'desktop/src-tauri/Cargo.lock', 'desktop/standalone-tests/connection-feedback.browser.cjs', 'backend/web_connector.py', 'desktop/src-tauri/src/classic_layout.rs', 'standalone-ui/panel.css', 'backend/standalone_engine.py', 'standalone-ui/panel.html', 'backend/workspace_engine.py', 'desktop/package-lock.json', 'desktop/package.json', 'desktop/src-tauri/src/project_overview.rs', 'desktop/standalone-tests/app.test.cjs', 'standalone-ui/panel.js', 'desktop/src-tauri/Cargo.toml'}
-          extra=root/'release-overlay.gpg';decoded=root/'release-overlay.tar.gz'
-          extra.write_bytes(base64.b64decode(overlay,validate=True))
-          assert hashlib.sha256(extra.read_bytes()).hexdigest()==spec['overlay_sha256']
-          password.write_text(os.environ['VIBEZ_ALPHA_BUILD_PASSPHRASE']);password.chmod(0o600)
-          try:
-              subprocess.run(['gpg','--batch','--pinentry-mode','loopback','--passphrase-file',str(password),'--output',str(decoded),'--decrypt',str(extra)],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-              with tarfile.open(decoded) as stream:
-                  entries=stream.getmembers()
-                  assert len(entries)==1 and entries[0].name=='release-overlay.json' and entries[0].isfile() and entries[0].size<1000000
-                  meta=json.load(stream.extractfile('release-overlay.json'))
-              assert meta['schema']==2 and meta['version']==spec['version'] and meta['source_version']==spec['source_version']
-              assert meta['base_cipher_sha256']==spec['sha256'] and meta['source_manifest_sha256']==spec['source_manifest_sha256']
-              assert len(meta['files'])==15 and {f['path']for f in meta['files']}==allowed
-              for file in meta['files']:
-                  target=source/file['path'];before=target.read_bytes()
-                  assert hashlib.sha256(before).hexdigest()==file['base_sha256']
-                  lines=before.decode().splitlines(keepends=True);chunks=[];cursor=0
-                  assert 0<len(file['edits'])<1000
-                  for edit in file['edits']:
-                      start,end,text=edit['start'],edit['end'],edit['text']
-                      assert type(start)is int and type(end)is int and cursor<=start<=end<=len(lines)
-                      assert isinstance(text,str)and len(text)<250000
-                      chunks.extend([''.join(lines[cursor:start]),text]);cursor=end
-                  chunks.append(''.join(lines[cursor:]));content=''.join(chunks).encode()
-                  assert len(content)<1000000 and hashlib.sha256(content).hexdigest()==file['sha256']
-                  target.write_bytes(content)
-          finally:
-              password.unlink(missing_ok=True);decoded.unlink(missing_ok=True);extra.unlink(missing_ok=True)
           records=[{'path':name,'sha256':hashlib.sha256((source/name).read_bytes()).hexdigest()}for name in names]
           actual=hashlib.sha256(json.dumps(records,sort_keys=True,separators=(',',':')).encode()).hexdigest()
-          assert actual==spec['source_manifest_sha256'],'Release source does not match the frozen local manifest'
+          assert actual==spec['source_manifest_sha256'],'Source does not match approved frozen Alpha14'
           assert json.loads((source/'desktop/package.json').read_text())['version']==spec['version']
           proof=source/'artifacts/ci-proof';proof.mkdir(parents=True)
-          (proof/('frozen-source-'+os.environ['ALPHA_TARGET']+'.json')).write_text(json.dumps({'passed':True,'version':spec['version'],'files_verified':len(names),'source_manifest_sha256':actual,'base_cipher_sha256':spec['sha256'],'overlay_sha256':spec['overlay_sha256']},indent=2)+'\n')
+          (proof/('frozen-source-'+os.environ['ALPHA_TARGET']+'.json')).write_text(json.dumps({'passed':True,'version':spec['version'],'files_verified':len(names),'source_manifest_sha256':actual,'base_cipher_sha256':spec['sha256']},indent=2)+'\n')
           PY
       - name: Prepare and test native package
         if: needs.plan.outputs.verification_only != 'true'
