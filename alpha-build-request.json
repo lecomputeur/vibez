@@ -6,7 +6,6 @@
   "overlay_sha256": "8b62a1a46bc646fa55601b2948954c497ab507943de6a5ee45fd439211005dff",
   "source_manifest_sha256": "d89bde5f51ea6f7b3a2d54f552a4b0436baf9f549cdfddf9fa4432ed82262856",
   "targets": [
-    "macos-x64",
-    "macos-arm64"
+    "windows-x64"
   ]
 }

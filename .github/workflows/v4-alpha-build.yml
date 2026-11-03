@@ -1,4 +1,4 @@
-name: V4 Alpha signed Mac packages
+name: V4 Alpha native packages
 
 on:
   push:
@@ -9,8 +9,8 @@ on:
       target:
         description: Native package to rebuild
         type: choice
-        default: all
-        options: [all, macos-x64, macos-arm64]
+        default: windows-x64
+        options: [all, windows-x64, macos-x64, macos-arm64]
       release_overlay:
         description: Encrypted, source-hash-bound Mac release changes
         type: string
@@ -42,7 +42,7 @@ jobs:
           python3 - <<'PY'
           import json,os,pathlib
           spec=json.loads(pathlib.Path('alpha-build-request.json').read_text())
-          known={'macos-x64':'macos-26-intel','macos-arm64':'macos-26'}
+          known={'windows-x64':'windows-2022','macos-x64':'macos-26-intel','macos-arm64':'macos-26'}
           selected=os.environ['SELECTED_TARGET']
           targets=([selected] if selected and selected!='all' else list(known)) if selected else spec.get('targets',list(known))
           assert isinstance(targets,list) and targets and len(targets)==len(set(targets))
@@ -54,7 +54,7 @@ jobs:
           if verification:
               assert len(targets)==1 and targets[0].startswith('macos') and verification['target']==targets[0]
           if update_verification:
-              assert update_verification['previous_version']=='4.0.0-alpha.6'
+              assert update_verification['previous_version']=='4.0.0-alpha.8'
               assert update_verification['version']==spec['version']
               assert set(update_verification['targets']) >= set(targets)
           with open(os.environ['GITHUB_OUTPUT'],'a') as output:
@@ -206,7 +206,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python alpha-source/tools/ci-alpha-build.py download-updates --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
-      - name: Test a real Alpha 6 to new Alpha update without credentials
+      - name: Test a real signed Alpha update without credentials
         if: needs.plan.outputs.update_verification == 'true'
         shell: bash
         run: python alpha-source/tools/ci-alpha-build.py verify-updates --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
