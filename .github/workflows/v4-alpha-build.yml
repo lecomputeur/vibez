@@ -1,4 +1,4 @@
-name: V4 Alpha native test packages
+name: V4 Alpha macOS toolbar regression
 
 on:
   push:
@@ -38,7 +38,7 @@ jobs:
           python3 - <<'PY'
           import json,os,pathlib
           spec=json.loads(pathlib.Path('alpha-build-request.json').read_text())
-          known={'windows-x64':'windows-2022','macos-x64':'macos-15-intel','macos-arm64':'macos-26'}
+          known={'windows-x64':'windows-2022','macos-x64':'macos-26-intel','macos-arm64':'macos-26'}
           selected=os.environ['SELECTED_TARGET']
           targets=([selected] if selected and selected!='all' else list(known)) if selected else spec.get('targets',list(known))
           assert isinstance(targets,list) and targets and len(targets)==len(set(targets))
@@ -123,46 +123,7 @@ jobs:
         shell: bash
         run: |
           python alpha-source/tools/ci-alpha-build.py prepare --target "$ALPHA_TARGET" > "$RUNNER_TEMP/alpha-build.log" 2>&1
-          python alpha-source/tools/ci-alpha-build.py build --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
-      - name: Sign and notarize macOS package
-        if: runner.os == 'macOS' && needs.plan.outputs.verification_only != 'true'
-        shell: bash
-        env:
-          MAC_CERTIFICATE_P12_BASE64: ${{ secrets.MAC_CERTIFICATE_P12_BASE64 }}
-          MAC_CERTIFICATE_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
-          APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: python alpha-source/tools/ci-alpha-build.py sign-mac --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
-      - name: Test the signed app without signing credentials
-        if: runner.os == 'macOS' && needs.plan.outputs.verification_only != 'true'
-        shell: bash
-        run: python alpha-source/tools/ci-alpha-build.py smoke-signed --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
-      - name: Collect only installers and validation results
-        if: needs.plan.outputs.verification_only != 'true'
-        shell: bash
-        run: python alpha-source/tools/ci-alpha-build.py collect --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
-      - name: Download exact existing CI packages
-        if: needs.plan.outputs.verification_only == 'true' && needs.plan.outputs.update_verification != 'true'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python alpha-source/tools/ci-alpha-build.py download-existing --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
-      - name: Revalidate exact existing packages without credentials
-        if: needs.plan.outputs.verification_only == 'true' && needs.plan.outputs.update_verification != 'true'
-        shell: bash
-        run: python alpha-source/tools/ci-alpha-build.py revalidate-existing --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
-      - name: Download exact signed Alpha update packages
-        if: needs.plan.outputs.update_verification == 'true'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python alpha-source/tools/ci-alpha-build.py download-updates --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
-      - name: Test a real Alpha 6 to new Alpha update without credentials
-        if: needs.plan.outputs.update_verification == 'true'
-        shell: bash
-        run: python alpha-source/tools/ci-alpha-build.py verify-updates --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
+          python alpha-source/tools/ci-macos-toolbar-check.py --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
       - name: Encrypt build log
         if: always()
         shell: bash
