@@ -24,9 +24,9 @@
 >
 > **V4 Alpha installs separately. It does not replace VibeZ 3.0.9 and uses its own profile and settings.** Windows, macOS and Linux downloads are available.
 >
-> Alpha 10 for Intel and Apple Silicon Macs fixes the clipped toolbar and simplifies linked folders. Linux and Windows remain on Alpha 9. Install this Mac-only release using the DMG; the shared automatic update feed is unchanged.
+> Alpha 10 is available for Linux, Windows, Intel and Apple Silicon Macs. It simplifies linked folders on every platform and fixes the clipped Mac toolbar. Updates use the separate V4 Alpha channels.
 >
-> [Mac Alpha 10](https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-alpha.10) · [Linux / Windows Alpha 9](https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-alpha.9) · [Share feedback on GitHub](https://github.com/lecomputeur/vibez/discussions/56) · [Report a bug](https://github.com/lecomputeur/vibez/issues/new/choose)
+> [Download V4 Alpha 10](https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-alpha.10) · [Share feedback on GitHub](https://github.com/lecomputeur/vibez/discussions/56) · [Report a bug](https://github.com/lecomputeur/vibez/issues/new/choose)
 >
 > Found a problem, something confusing or an improvement you would like? Please let us know on GitHub. Include your operating system, package format and Alpha version. Your feedback helps shape V4.
 
