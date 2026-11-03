@@ -146,6 +146,7 @@ jobs:
           path: |
             alpha-source/artifacts/ci-packages/*
             alpha-source/artifacts/ci-proof/**/*.json
+            alpha-source/artifacts/ci-proof/**/*.png
             ${{ runner.temp }}/alpha-build.log.gpg
           if-no-files-found: error
           retention-days: 14
