@@ -6,6 +6,115 @@
   "overlay_sha256": "8b62a1a46bc646fa55601b2948954c497ab507943de6a5ee45fd439211005dff",
   "source_manifest_sha256": "d89bde5f51ea6f7b3a2d54f552a4b0436baf9f549cdfddf9fa4432ed82262856",
   "targets": [
-    "windows-x64"
-  ]
+    "windows-x64",
+    "macos-x64",
+    "macos-arm64"
+  ],
+  "verify_update": {
+    "previous_version": "4.0.0-alpha.8",
+    "version": "4.0.0-alpha.10",
+    "feed": {
+      "version": "4.0.0-alpha.10",
+      "notes": "V4 Alpha 10: simpler linked folders on Linux, Windows and macOS, plus the Mac toolbar correction. VibeZ 3.0.9 stays separate.",
+      "pub_date": "2026-11-03T15:56:17Z",
+      "platforms": {
+        "linux-x86_64-appimage": {
+          "url": "https://github.com/lecomputeur/vibez/releases/download/v4.0.0-alpha.10/VibeZ-4.0.0-alpha.10-Linux-x64.AppImage",
+          "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcXBoNmZPcEpVMG5ZY0NLZG1neGlhVjUzNjk0dU83N2NhZGI2UUx5K0F4Q2Q5UUwwYk9ncDR5aFdNNi8zdWhkTnpMbkg0Ni84cEZYT05sUGxEOXZsbEttUW9sSnZsdWdzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzNzIxMzcwCWZpbGU6VmliZVotNC4wLjAtYWxwaGEuMTAtTGludXgteDY0LkFwcEltYWdlCXZlcnNpb246NC4wLjAtYWxwaGEuMTAKMzlFMDVSdFRUdUkxQkRUdzBxRlM2bDdXbk5NVFJ1R2dET0lqU2RRQnRRQkd4RWFoK3p6MEJEclhoREZEK2xaYmdGOFduZzJ3UlJzMUw2bkl2d3pVQkE9PQo="
+        },
+        "windows-x86_64-nsis": {
+          "url": "https://github.com/lecomputeur/vibez/releases/download/v4.0.0-alpha.10/VibeZ-4.0.0-alpha.10-Windows-x64-Setup.exe",
+          "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcXBoNmZPcEpVMHROQUdjV285V25ML1Z1dHFjOVZaZjhEQ0J4K29OQ3Vkd3E2OEwzQUtoZmxHYXNIZFBuZkdNTjlGaklFeVNZV0RVbmxuK0tJNzY3d29CTzUzMDJsNEFzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzNzIxMzcyCWZpbGU6VmliZVotNC4wLjAtYWxwaGEuMTAtV2luZG93cy14NjQtU2V0dXAuZXhlCXZlcnNpb246NC4wLjAtYWxwaGEuMTAKR0Nkd0Y2bE9VakUvUTRuaFkvZmFGU1hEazRJUEJBbVBLWkpSbDN5a3BoYmNjWGFCOHJPb2dFSlFEeCt5T1dsWWJ3TGJIaWtKeUlLd1BpMjVTOExGQkE9PQo="
+        },
+        "windows-x86_64-msi": {
+          "url": "https://github.com/lecomputeur/vibez/releases/download/v4.0.0-alpha.10/VibeZ-4.0.0-alpha.10-Windows-x64.msi",
+          "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcXBoNmZPcEpVMGk3QzdOaXFBLzFMWDlSamU3N1pZZ1dZa3R1bWpPTy9GYjlCWklDV3FwVnhnLzNTYU81SDd5bSs5SXpLdThWRHNqOUc5L0QvRFhMbmU3YXFJeFJwbkFnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzNzIxMzczCWZpbGU6VmliZVotNC4wLjAtYWxwaGEuMTAtV2luZG93cy14NjQubXNpCXZlcnNpb246NC4wLjAtYWxwaGEuMTAKd2xDV3lBNnpyWkRGUGFZUC9sSG9pNnkwRUhpUkJHdFo4NTZ5dUVXYnVlUzRkMUx6Vm1IMmlQd1hUbVVwbDVENVpJK2JwZ0ZRTUVwTmkvTER6T1l5Q3c9PQo="
+        },
+        "darwin-x86_64-app": {
+          "url": "https://github.com/lecomputeur/vibez/releases/download/v4.0.0-alpha.10/VibeZ-4.0.0-alpha.10-macOS-x64.app.tar.gz",
+          "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcXBoNmZPcEpVMHYzUUd5MGdENklCYk9yNC9kTC9iNDQ5KzU0MzFtR3lNa2pUR0gvcWlJU3g0aHYzRnZ5OWhpZ2VHZFRoQmxDWmlOM1JXREJ6STcyK3lWdCtyZFFsd0F3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzNzIxMzc1CWZpbGU6VmliZVotNC4wLjAtYWxwaGEuMTAtbWFjT1MteDY0LmFwcC50YXIuZ3oJdmVyc2lvbjo0LjAuMC1hbHBoYS4xMAp5UmtqblJodUkyUGZQa2ZpRG1pTElsWDJEMExWMmpHNFJNV1drMlNDbFFrMTRJUlN4RkJNemVZaGt1MDJ2MkJkK2xmMkRhNEk5dklyMGxNSUxva21CQT09Cg=="
+        },
+        "darwin-aarch64-app": {
+          "url": "https://github.com/lecomputeur/vibez/releases/download/v4.0.0-alpha.10/VibeZ-4.0.0-alpha.10-macOS-arm64.app.tar.gz",
+          "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRcXBoNmZPcEpVMGdBekVzTmd5d3N1bEVQVWxMMmJQQ0VZNm91TzQvN2JGYjZTMXFwNE41aER2S0N1SkZTUW9pVnFpTGJYK2FHRDVXOW92clNIREcrR2c2c3hPVkFjMXdjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzNzIxMzczCWZpbGU6VmliZVotNC4wLjAtYWxwaGEuMTAtbWFjT1MtYXJtNjQuYXBwLnRhci5negl2ZXJzaW9uOjQuMC4wLWFscGhhLjEwCmx1K2xWb2c1WmFEU3g4QVZOQ00vZ0IycDh3SUZyM2NRUHhVWVN4U28zNzAzUFVNVnhOVGNjV0F2QVJOVGx5V2x4RVk2a1lDdnBTVnJGWXlTRC9uSUJ3PT0K"
+        }
+      }
+    },
+    "targets": {
+      "macos-x64": {
+        "files": {
+          "from_app": {
+            "name": "VibeZ-4.0.0-alpha.8-macOS-x64.app.tar.gz",
+            "size": 68272414,
+            "sha256": "09163092bbfd3736473a632f6878032d14581d094ac5c59c1524e218f2f3cffd",
+            "asset_id": 702391701
+          },
+          "to_app": {
+            "name": "VibeZ-4.0.0-alpha.10-macOS-x64.app.tar.gz",
+            "size": 68468641,
+            "sha256": "a52913bfa2f34310e14ec3399819d70ecf4550178dd6353b53f8a903a94d374b",
+            "url": "https://github.com/lecomputeur/vibez/releases/download/v4.0.0-alpha.10/VibeZ-4.0.0-alpha.10-macOS-x64.app.tar.gz"
+          }
+        }
+      },
+      "macos-arm64": {
+        "files": {
+          "from_app": {
+            "name": "VibeZ-4.0.0-alpha.8-macOS-arm64.app.tar.gz",
+            "size": 65906060,
+            "sha256": "439b411a39231bd0af49776a82c1d60f58c9fcb484bdcff44f271fe324eaa7df",
+            "asset_id": 702391294
+          },
+          "to_app": {
+            "name": "VibeZ-4.0.0-alpha.10-macOS-arm64.app.tar.gz",
+            "size": 65406131,
+            "sha256": "c03864492afd771ffe1a9576ba1570168595e972cae0cf42c313cbc3232efaa6",
+            "url": "https://github.com/lecomputeur/vibez/releases/download/v4.0.0-alpha.10/VibeZ-4.0.0-alpha.10-macOS-arm64.app.tar.gz"
+          }
+        }
+      },
+      "windows-x64": {
+        "files": {
+          "from_msi": {
+            "name": "VibeZ-4.0.0-alpha.8-Windows-x64.msi",
+            "size": 49309977,
+            "sha256": "a98ffd82222e049768ff9e14cab473046de95182a02aa9e64aac0794c1f11716",
+            "asset_id": 702391055
+          },
+          "from_nsis": {
+            "name": "VibeZ-4.0.0-alpha.8-Windows-x64-Setup.exe",
+            "size": 35501505,
+            "sha256": "7b4e9158e0cf2a67f387effabfdb2833864f2a4ca6366c0153a03a0b0dd4e261",
+            "asset_id": 702390859
+          },
+          "to_msi": {
+            "name": "VibeZ-4.0.0-alpha.10-Windows-x64.msi",
+            "size": 49517016,
+            "sha256": "f45f190804fa14599dcf79993ab0a35a2b06adaabf23f12b40defbf90e25b3cd",
+            "ci_artifact": {
+              "id": 13244924768,
+              "run": 41666568973,
+              "sha256": "e4580de541b9d6c8f6de09c5a63cbe83005718c7723678bc51bdf4a52c41a608"
+            }
+          },
+          "to_nsis": {
+            "name": "VibeZ-4.0.0-alpha.10-Windows-x64-Setup.exe",
+            "size": 35641687,
+            "sha256": "7d18845897d967066d148cdc3eef9b24b4dbb48a1d328f59a238e032b6d3f988",
+            "ci_artifact": {
+              "id": 13244924768,
+              "run": 41666568973,
+              "sha256": "e4580de541b9d6c8f6de09c5a63cbe83005718c7723678bc51bdf4a52c41a608"
+            }
+          },
+          "stable_msi": {
+            "name": "VibeZ-3.0.9-Windows-x64.msi",
+            "size": 7184384,
+            "sha256": "e0348d56a65ad8c1c27358982605357fb98991a0132f6010d282bd01763a706f",
+            "asset_id": 663339287
+          }
+        }
+      }
+    }
+  }
 }
