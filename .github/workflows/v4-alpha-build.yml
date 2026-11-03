@@ -150,6 +150,15 @@ jobs:
                       content=stream.extractfile(file['path']).read()
                       assert hashlib.sha256(content).hexdigest()==file['sha256']
                       target.write_bytes(content)
+                  edits=meta.get('text_edits',[])
+                  assert len(edits)==1 and edits[0]['path']=='desktop/standalone-tests/app.test.cjs'
+                  for edit in edits:
+                      target=source/edit['path'];before=target.read_bytes()
+                      assert hashlib.sha256(before).hexdigest()==edit['base_sha256']
+                      text=before.decode();assert text.count(spec['source_version'])==1
+                      content=text.replace(spec['source_version'],spec['version'],1).encode()
+                      assert hashlib.sha256(content).hexdigest()==edit['sha256']
+                      target.write_bytes(content)
           finally:
               password.unlink(missing_ok=True);decoded.unlink(missing_ok=True);extra.unlink(missing_ok=True)
           records=[{'path':name,'sha256':hashlib.sha256((source/name).read_bytes()).hexdigest()}for name in names]
