@@ -1,4 +1,4 @@
-name: V4 Alpha macOS toolbar regression
+name: V4 Alpha native toolbar regression
 
 on:
   push:
@@ -11,6 +11,11 @@ on:
         type: choice
         default: all
         options: [all, windows-x64, macos-x64, macos-arm64]
+      toolbar_overlay:
+        description: Optional encrypted test-only Windows instrumentation
+        type: string
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -98,9 +103,10 @@ jobs:
         shell: bash
         env:
           VIBEZ_ALPHA_BUILD_PASSPHRASE: ${{ secrets.VIBEZ_ALPHA_BUILD_PASSPHRASE }}
+          VIBEZ_TOOLBAR_OVERLAY: ${{ inputs.toolbar_overlay }}
         run: |
           python - <<'PY'
-          import hashlib,json,os,pathlib,re,subprocess,tarfile,urllib.request
+          import base64,hashlib,json,os,pathlib,re,subprocess,tarfile,urllib.request
           spec=json.loads(pathlib.Path('alpha-build-request.json').read_text())
           assert re.fullmatch(r'4\.[0-9]+\.[0-9]+-alpha\.[1-9][0-9]*',spec['version'])
           assert spec['url'].startswith('https://github.com/lecomputeur/vibez/releases/download/v4-alpha-channel/')
@@ -117,13 +123,33 @@ jobs:
           with tarfile.open(plain) as stream:stream.extractall(source,filter='data')
           plain.unlink();encrypted.unlink()
           assert json.loads((source/'desktop/package.json').read_text())['version']==spec['version']
+          overlay=os.environ.get('VIBEZ_TOOLBAR_OVERLAY','')
+          if overlay:
+              assert os.environ['ALPHA_TARGET']=='windows-x64' and len(overlay)<60000
+              allowed={'desktop/src-tauri/src/classic_layout_probe_windows.rs','desktop/src-tauri/src/standalone.rs','desktop/src-tauri/src/official_web.rs','tools/ci-windows-toolbar-check.py'}
+              extra=root/'toolbar-overlay.gpg';decoded=root/'toolbar-overlay.tar.gz'
+              extra.write_bytes(base64.b64decode(overlay,validate=True))
+              password.write_text(os.environ['VIBEZ_ALPHA_BUILD_PASSPHRASE']);password.chmod(0o600)
+              try:
+                  subprocess.run(['gpg','--batch','--pinentry-mode','loopback','--passphrase-file',str(password),'--output',str(decoded),'--decrypt',str(extra)],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+                  with tarfile.open(decoded) as stream:
+                      members=stream.getmembers()
+                      assert len(members)==4 and {m.name for m in members}==allowed
+                      assert all(m.isfile() and m.size<250000 for m in members)
+                      stream.extractall(source,members=members,filter='data')
+              finally:
+                  password.unlink(missing_ok=True);decoded.unlink(missing_ok=True);extra.unlink(missing_ok=True)
           PY
       - name: Prepare and test native package
         if: needs.plan.outputs.verification_only != 'true'
         shell: bash
         run: |
           python alpha-source/tools/ci-alpha-build.py prepare --target "$ALPHA_TARGET" > "$RUNNER_TEMP/alpha-build.log" 2>&1
-          python alpha-source/tools/ci-macos-toolbar-check.py --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
+          if [[ "$ALPHA_TARGET" == windows-* ]]; then
+            python alpha-source/tools/ci-windows-toolbar-check.py --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
+          else
+            python alpha-source/tools/ci-macos-toolbar-check.py --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
+          fi
       - name: Encrypt build log
         if: always()
         shell: bash
