@@ -1,4 +1,4 @@
-name: V4 Alpha native test packages
+name: V4 Alpha signed Mac packages
 
 on:
   push:
@@ -10,7 +10,11 @@ on:
         description: Native package to rebuild
         type: choice
         default: all
-        options: [all, windows-x64, macos-x64, macos-arm64]
+        options: [all, macos-x64, macos-arm64]
+      release_overlay:
+        description: Encrypted, source-hash-bound Mac release changes
+        type: string
+        required: true
 
 permissions:
   contents: read
@@ -38,7 +42,7 @@ jobs:
           python3 - <<'PY'
           import json,os,pathlib
           spec=json.loads(pathlib.Path('alpha-build-request.json').read_text())
-          known={'windows-x64':'windows-2022','macos-x64':'macos-15-intel','macos-arm64':'macos-26'}
+          known={'macos-x64':'macos-26-intel','macos-arm64':'macos-26'}
           selected=os.environ['SELECTED_TARGET']
           targets=([selected] if selected and selected!='all' else list(known)) if selected else spec.get('targets',list(known))
           assert isinstance(targets,list) and targets and len(targets)==len(set(targets))
@@ -98,9 +102,10 @@ jobs:
         shell: bash
         env:
           VIBEZ_ALPHA_BUILD_PASSPHRASE: ${{ secrets.VIBEZ_ALPHA_BUILD_PASSPHRASE }}
+          VIBEZ_RELEASE_OVERLAY: ${{ inputs.release_overlay }}
         run: |
           python - <<'PY'
-          import hashlib,json,os,pathlib,re,subprocess,tarfile,urllib.request
+          import base64,hashlib,json,os,pathlib,re,subprocess,tarfile,urllib.request
           spec=json.loads(pathlib.Path('alpha-build-request.json').read_text())
           assert re.fullmatch(r'4\.[0-9]+\.[0-9]+-alpha\.[1-9][0-9]*',spec['version'])
           assert spec['url'].startswith('https://github.com/lecomputeur/vibez/releases/download/v4-alpha-channel/')
@@ -114,9 +119,45 @@ jobs:
               subprocess.run(['gpg','--batch','--pinentry-mode','loopback','--passphrase-file',str(password),'--output',str(plain),'--decrypt',str(encrypted)],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
           finally:password.unlink(missing_ok=True)
           source=pathlib.Path('alpha-source');source.mkdir()
-          with tarfile.open(plain) as stream:stream.extractall(source,filter='data')
+          with tarfile.open(plain) as stream:
+              members=stream.getmembers()
+              assert all(m.isfile() for m in members)
+              names=sorted(m.name for m in members)
+              assert len(names)==427 and len(set(names))==len(names)
+              stream.extractall(source,filter='data')
           plain.unlink();encrypted.unlink()
+          assert json.loads((source/'desktop/package.json').read_text())['version']==spec['source_version']
+          overlay=os.environ.get('VIBEZ_RELEASE_OVERLAY','')
+          assert overlay and len(overlay)<60000 and spec['version']=='4.0.0-alpha.10'
+          allowed={'desktop/package-lock.json','desktop/package.json','desktop/src-tauri/Cargo.lock','desktop/src-tauri/Cargo.toml','desktop/src-tauri/src/classic_layout.rs','desktop/src-tauri/tauri.conf.json'}
+          extra=root/'release-overlay.gpg';decoded=root/'release-overlay.tar.gz'
+          extra.write_bytes(base64.b64decode(overlay,validate=True))
+          assert hashlib.sha256(extra.read_bytes()).hexdigest()==spec['overlay_sha256']
+          password.write_text(os.environ['VIBEZ_ALPHA_BUILD_PASSPHRASE']);password.chmod(0o600)
+          try:
+              subprocess.run(['gpg','--batch','--pinentry-mode','loopback','--passphrase-file',str(password),'--output',str(decoded),'--decrypt',str(extra)],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+              with tarfile.open(decoded) as stream:
+                  entries=stream.getmembers()
+                  assert len(entries)==7 and {m.name for m in entries}==allowed|{'release-overlay.json'}
+                  assert all(m.isfile() and m.size<250000 for m in entries)
+                  meta=json.load(stream.extractfile('release-overlay.json'))
+                  assert meta['schema']==1 and meta['version']==spec['version'] and meta['source_version']==spec['source_version']
+                  assert meta['base_cipher_sha256']==spec['sha256'] and meta['source_manifest_sha256']==spec['source_manifest_sha256']
+                  assert len(meta['files'])==6 and {f['path']for f in meta['files']}==allowed
+                  for file in meta['files']:
+                      target=source/file['path']
+                      assert hashlib.sha256(target.read_bytes()).hexdigest()==file['base_sha256']
+                      content=stream.extractfile(file['path']).read()
+                      assert hashlib.sha256(content).hexdigest()==file['sha256']
+                      target.write_bytes(content)
+          finally:
+              password.unlink(missing_ok=True);decoded.unlink(missing_ok=True);extra.unlink(missing_ok=True)
+          records=[{'path':name,'sha256':hashlib.sha256((source/name).read_bytes()).hexdigest()}for name in names]
+          actual=hashlib.sha256(json.dumps(records,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+          assert actual==spec['source_manifest_sha256'],'Release source does not match the frozen local manifest'
           assert json.loads((source/'desktop/package.json').read_text())['version']==spec['version']
+          proof=source/'artifacts/ci-proof';proof.mkdir(parents=True)
+          (proof/('frozen-source-'+os.environ['ALPHA_TARGET']+'.json')).write_text(json.dumps({'passed':True,'version':spec['version'],'files_verified':len(names),'source_manifest_sha256':actual,'base_cipher_sha256':spec['sha256'],'overlay_sha256':spec['overlay_sha256']},indent=2)+'\n')
           PY
       - name: Prepare and test native package
         if: needs.plan.outputs.verification_only != 'true'
