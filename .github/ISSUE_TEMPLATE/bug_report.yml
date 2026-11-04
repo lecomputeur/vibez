@@ -1,21 +1,22 @@
 name: Bug report
-description: Report a reproducible problem with VibeZ
+description: Something in VibeZ is not working as expected
 title: "[Bug]: "
+labels: [bug, "status:triage"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for helping improve VibeZ. Please use this form for reproducible bugs and errors.
+        Thank you for helping improve VibeZ. You do not need to know whether the cause is VibeZ or Mistral before reporting it.
+        English is helpful, but you are welcome to describe the problem in your own language.
 
-        For how-to questions, ideas, feedback or general support, please use GitHub Discussions instead:
-        https://github.com/lecomputeur/vibez/discussions/categories/q-a
+        [Ask a question](https://github.com/lecomputeur/vibez/discussions/categories/q-a) · [Suggest an idea](https://github.com/lecomputeur/vibez/discussions/categories/ideas) · [Help test V4](https://github.com/lecomputeur/vibez/discussions/56)
 
   - type: input
     id: version
     attributes:
-      label: VibeZ version
-      description: You can find this in VibeZ under About.
-      placeholder: "2.0.0"
+      label: Exact VibeZ version
+      description: Copy the version from Settings or the window title. Older versions may show it under About.
+      placeholder: "3.0.9 or 4.0.0-alpha.<number>"
     validations:
       required: true
 
@@ -24,74 +25,82 @@ body:
     attributes:
       label: Operating system
       options:
+        - Linux
         - Windows
         - macOS
-        - Linux
-        - Other
+        - Other / not sure
     validations:
       required: true
 
   - type: input
     id: os-version
     attributes:
-      label: Operating system version / distribution
-      placeholder: "Windows 11 24H2, macOS 15, Ubuntu 24.04, Arch Linux..."
+      label: System version / Linux distribution and desktop
+      placeholder: "Ubuntu 24.04 Cinnamon, openSUSE Leap 16 KDE, Windows 11, macOS 15..."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: package
+    attributes:
+      label: Installed package
+      description: Choose the file or installation method you used. Select Not sure if you do not know.
+      options:
+        - DEB
+        - RPM
+        - Flatpak
+        - AppImage
+        - Arch / Pacman
+        - Windows Setup EXE
+        - Windows MSI
+        - macOS DMG
+        - Microsoft Store
+        - Other
+        - Not sure
     validations:
       required: true
 
   - type: dropdown
     id: architecture
     attributes:
-      label: CPU architecture
+      label: Processor architecture (if known)
       options:
-        - x64 / x86_64
-        - ARM64 / aarch64
-        - Unknown
+        - Not sure
+        - x64 / x86_64 / Intel Mac
+        - ARM64 / aarch64 / Apple Silicon
         - Other
-    validations:
-      required: true
 
   - type: textarea
     id: problem
     attributes:
-      label: What happened?
-      description: Describe the problem as clearly as possible.
-      placeholder: Tell us what went wrong.
+      label: What happened, and what did you expect?
+      description: Include any error message as text if possible.
+      placeholder: "I expected ... Instead, ..."
     validations:
       required: true
 
   - type: textarea
     id: steps
     attributes:
-      label: Steps to reproduce
-      description: List the exact steps that reproduce the problem.
+      label: How can we reproduce it?
+      description: Short steps are enough. Say whether it happens every time or only sometimes.
       placeholder: |
-        1. Open VibeZ
+        1. Open VibeZ and ...
         2. Click ...
         3. ...
     validations:
       required: true
 
   - type: textarea
-    id: expected
-    attributes:
-      label: Expected behaviour
-      placeholder: What did you expect VibeZ to do?
-    validations:
-      required: true
-
-  - type: textarea
     id: extra
     attributes:
-      label: Screenshots, logs or additional context
-      description: Add anything else that could help diagnose the problem. Please remove passwords, tokens and other private information.
+      label: Screenshots or extra details (optional)
+      description: Remove passwords, access tokens, private connector URLs and personal file contents before sharing. Do not post your Mistral sign-in details.
 
   - type: checkboxes
     id: checks
     attributes:
-      label: Before submitting
+      label: Existing reports
       options:
-        - label: I searched existing Issues and Discussions for the same problem.
-          required: true
-        - label: I am reporting a VibeZ problem, not a problem with the Mistral service itself.
+        - label: I checked whether this problem already has an open issue. If it does, I will add my result there instead.
           required: true
