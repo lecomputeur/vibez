@@ -1,0 +1,20 @@
+changelog:
+  exclude:
+    labels:
+      - duplicate
+      - invalid
+      - wontfix
+  categories:
+    - title: Fixes
+      labels:
+        - bug
+    - title: Improvements
+      labels:
+        - enhancement
+        - accessibility
+    - title: Documentation and help
+      labels:
+        - documentation
+    - title: Other changes
+      labels:
+        - "*"

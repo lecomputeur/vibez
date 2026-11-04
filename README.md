@@ -30,6 +30,10 @@
 >
 > Found a problem, something confusing or an improvement you would like? Please let us know on GitHub. Include your operating system, package format and Alpha version. Your feedback helps shape V4.
 
+## Help improve VibeZ
+
+**Not sure where to start? [Open the contributor guide](https://lecomputeur.github.io/vibez/contribute.html).** It points you to bug reports, ideas, testing, translations and code contributions. Follow [release progress](https://github.com/lecomputeur/vibez/milestones) and meet the [community contributors](CONTRIBUTORS.md).
+
 > **VibeZ 3.0.9:** Promote tested Linux Canvas/chart preview and verification navigation improvements, with TLS certificate-trust dependency and version/title updates on every platform. [Release downloads](https://github.com/lecomputeur/vibez/releases/tag/v3.0.9) · [Release notes and validation](V3-RELEASE.md). Microsoft Store delivery remains separate.
 
 **Cloudflare verification frames on Linux stay in the app instead of opening as external browser links.**
@@ -103,7 +107,7 @@ Automated native probes are offline tests. They are not a claim that every live 
 
 ## Build, contribute, make it better
 
-The new application lives in [`desktop/`](desktop/). The original root JavaScript/package files retain the Electron 2.x source, and [`tauri-preview/`](tauri-preview/) retains the preview history.
+Start with [CONTRIBUTING.md](CONTRIBUTING.md) to choose the right route and version. The public VibeZ 3 application lives in [`desktop/`](desktop/); V4 Alpha is maintained separately. The original root JavaScript/package files retain the Electron 2.x source, and [`tauri-preview/`](tauri-preview/) retains the preview history.
 
 ```sh
 cd desktop

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Help improve VibeZ: report a bug, test V4 Alpha, suggest an idea or contribute wording, documentation and code.">
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="https://lecomputeur.github.io/vibez/contribute.html">
+  <link rel="icon" href="icon.png">
+  <link rel="stylesheet" href="styles.css?v=v4-alpha-20261101">
+  <title>Help improve VibeZ — contributor guide</title>
+</head>
+<body>
+<header class="site-header"><nav aria-label="Primary navigation"><a class="brand" href="./">VibeZ</a><div class="nav-links"><a href="windows.html">Windows</a><a href="macos.html">macOS</a><a href="linux.html">Linux</a><a href="./#v4-alpha">V4 Alpha</a><a href="contribute.html" aria-current="page">Help improve VibeZ</a><a href="https://github.com/lecomputeur/vibez">GitHub</a></div></nav></header>
+<main>
+  <section class="hero compact">
+    <div class="hero-copy">
+      <p class="eyebrow">Testing · Ideas · Contributions</p>
+      <h1 class="search-heading">Help improve VibeZ</h1>
+      <p class="lead">Found a problem, have an idea or want to help test? Start here. You do not need to be a programmer.</p>
+      <p>English makes feedback easier to share, but your own language is welcome.</p>
+      <div class="actions"><a class="button button-primary" href="https://github.com/lecomputeur/vibez/issues/new/choose">Report a bug</a><a class="button button-secondary" href="https://github.com/lecomputeur/vibez/discussions/56">Help test V4 Alpha</a></div>
+    </div>
+  </section>
+  <section class="packages" aria-labelledby="where-heading">
+    <h2 id="where-heading">Choose where to go</h2>
+    <div class="package-grid">
+      <article><h3>Something is broken</h3><p>Search existing issues, then report one problem at a time. Include the version, operating system and installer format.</p><a class="text-link" href="https://github.com/lecomputeur/vibez/issues/new/choose">Open a bug report →</a></article>
+      <article><h3>An idea or a question</h3><p>Discuss a feature in Ideas. For help using VibeZ, choose Questions and answers.</p><p><a class="text-link" href="https://github.com/lecomputeur/vibez/discussions/categories/ideas">Suggest an idea →</a></p><a class="text-link" href="https://github.com/lecomputeur/vibez/discussions/categories/q-a">Ask a question →</a></article>
+      <article><h3>Testing or better wording</h3><p>Share what worked in the V4 testing discussion. For translations, give the language, current text and your suggestion.</p><p><a class="text-link" href="https://github.com/lecomputeur/vibez/discussions/56">Share a test result →</a></p><a class="text-link" href="https://github.com/lecomputeur/vibez/discussions/new?category=ideas">Suggest clearer wording →</a></article>
+    </div>
+  </section>
+  <section class="details" id="testing">
+    <h2>A useful test report can be short</h2>
+    <p>Use a package from the <a href="https://github.com/lecomputeur/vibez/releases">published releases</a> and test with copies of files in a temporary folder. V4 Alpha is a separate app and does not replace stable VibeZ 3.0.9.</p>
+    <ul>
+      <li><strong>Version:</strong> the full VibeZ version shown in the app.</li>
+      <li><strong>System:</strong> operating system, version and processor.</li>
+      <li><strong>Package:</strong> DEB, RPM, Flatpak, AppImage, Arch, EXE, MSI or DMG.</li>
+      <li><strong>Result:</strong> what you tried, what you expected and what happened. Say whether you used Work or Code.</li>
+    </ul>
+    <p>Good checks include connecting local folders, switching projects, reading files, approving or refusing edits and downloading generated files. Add screenshots or clear steps when helpful. Remove passwords, access tokens and private file contents.</p>
+    <p>Reply to the original report with follow-up results. If a separate bug appears, open a separate issue. A fix is only ready for you to confirm when its issue names a published version containing it.</p>
+  </section>
+  <section class="details" id="progress">
+    <h2>See what happens next</h2>
+    <p><a href="https://github.com/lecomputeur/vibez/milestones">Release milestones</a> group the work planned for a version. Issue labels show the next step: <strong>triage → in progress → ready to test → verified</strong>. The issue records which release and systems were checked.</p>
+    <div class="actions"><a class="button button-secondary" href="https://github.com/lecomputeur/vibez/milestones">View release progress</a><a class="button button-secondary" href="https://github.com/lecomputeur/vibez/discussions/56">Follow V4 releases</a></div>
+    <p class="notice">One announcement gathers each public release. Your original issue remains the place for its detailed follow-up. You can subscribe to the discussion or use GitHub's Watch settings to choose your notifications.</p>
+  </section>
+  <section class="details" id="code">
+    <h2>Code and documentation</h2>
+    <p><strong>Check the version before starting.</strong> The public <a href="https://github.com/lecomputeur/vibez/tree/main/desktop">desktop source</a> is VibeZ 3. The V4 Alpha implementation is maintained separately and is not in GitHub's automatic Alpha source archives.</p>
+    <p>For public V3 code, the website or documentation, fork the repository and open a focused pull request. Link an issue and explain how you checked the change. For V4 code, discuss the change in an issue first so the maintainer can clarify the correct source and review route. An issue does not automatically grant access to private code.</p>
+    <p>Wording suggestions can be sent as plain text. Say whether the text belongs to VibeZ or Mistral's website, because Mistral controls its own translations.</p>
+    <div class="actions"><a class="button button-secondary" href="https://github.com/lecomputeur/vibez/blob/main/CONTRIBUTING.md">Full contribution guide</a><a class="button button-secondary" href="https://github.com/lecomputeur/vibez/compare">Open a pull request</a></div>
+  </section>
+  <section class="details" id="thanks">
+    <h2>Thank you for helping</h2>
+    <p>Testing, reports and wording suggestions matter alongside code. Multiple perspectives help reveal problems that one person can miss.</p>
+    <p><a class="text-link" href="https://github.com/lecomputeur/vibez/blob/main/CONTRIBUTORS.md">Meet the community contributors →</a></p>
+  </section>
+</main>
+<footer><p>VibeZ is independent and is not affiliated with, endorsed by or supported by Mistral AI.</p><p><a href="./">VibeZ home</a> · <a href="https://github.com/lecomputeur/vibez">GitHub</a> · <a href="https://github.com/lecomputeur/vibez/blob/main/CONTRIBUTING.md">Contribution guide</a> · <a href="https://github.com/lecomputeur/vibez/blob/main/PRIVACY.md">Privacy</a></p></footer>
+</body>
+</html>

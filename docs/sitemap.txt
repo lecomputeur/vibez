@@ -2,3 +2,4 @@ https://lecomputeur.github.io/vibez/
 https://lecomputeur.github.io/vibez/windows.html
 https://lecomputeur.github.io/vibez/macos.html
 https://lecomputeur.github.io/vibez/linux.html
+https://lecomputeur.github.io/vibez/contribute.html
