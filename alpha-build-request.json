@@ -1,0 +1,13 @@
+{
+  "version": "4.0.0-alpha.22",
+  "source_version": "4.0.0-alpha.22",
+  "url": "https://github.com/lecomputeur/vibez/releases/download/v4-alpha-channel/VibeZ-4.0.0-alpha.22-native-source-63243067717bb85b.tar.gz.gpg",
+  "sha256": "63243067717bb85b5de3e63d8d1c9f5401116f217d21f5556d241b190e4aa007",
+  "source_manifest_sha256": "fc9440868fd9cc6a69210c1591813c2bf2f6c794b6e36484afbaac5246094975",
+  "file_count": 439,
+  "targets": [
+    "windows-x64",
+    "macos-x64",
+    "macos-arm64"
+  ]
+}
