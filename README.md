@@ -20,15 +20,15 @@
 
 > **New in V4: work with local folders**
 >
-> **The biggest change from VibeZ 3: Mistral can now work with a folder you choose on your computer.** Link one or more local folders to each project or conversation. Browse files and subfolders in the right-hand panel and read supported Office documents through the local connector. Proposed text changes are saved only after your approval.
+> **The biggest change from VibeZ 3: Mistral can now work with a folder you choose on your computer.** Link one or more local folders to each project or conversation. Browse files and subfolders in the right-hand panel, read supported Office documents and images, and create new Word, Excel, PowerPoint and OpenDocument files in your linked folders. File changes are saved only after your approval; existing Office documents remain read-only.
 >
 > **V4 Alpha installs separately. It does not replace VibeZ 3.0.9 and uses its own profile and settings.** Windows, macOS and Linux downloads are available.
 >
-> Alpha 14 is available for Linux, Windows, Intel and Apple Silicon Macs. Deleting a project conversation or its first question now keeps the new conversation inside the same project, including when the last conversation is removed. It also includes seven French wording improvements suggested by HumanistAtypik. Updates use the separate V4 Alpha channels.
+> Alpha 22 is available for Linux, Windows, Intel and Apple Silicon Macs. It adds local Office-document creation, updates file downloads and folder suggestions in the Save dialog, improves Work and Code project handling, and keeps the typing area free of the automatic VibeZ connector label. The project, folder and real connection status remain visible in the top bar. Updates use the separate V4 Alpha channels.
 >
-> [Download V4 Alpha 14](https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-alpha.14) · [Share feedback on GitHub](https://github.com/lecomputeur/vibez/discussions/56) · [Report a bug](https://github.com/lecomputeur/vibez/issues/new/choose)
+> [Download V4 Alpha 22](https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-alpha.22) · [Share feedback on GitHub](https://github.com/lecomputeur/vibez/discussions/56) · [Report a bug](https://github.com/lecomputeur/vibez/issues/new/choose)
 >
-> Found a problem, something confusing or an improvement you would like? Please let us know on GitHub. Include your operating system, package format and Alpha version. Your feedback helps shape V4.
+> Found a problem, something confusing or an improvement you would like? Please let us know on GitHub. Include your operating system, package format and Alpha version. Your feedback is essential to shaping V4. Please also tell us whether the right-hand panel and current layout are clear and convenient, and what you would change.
 
 ## Help improve VibeZ
 
