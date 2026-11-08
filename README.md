@@ -24,9 +24,9 @@
 >
 > **V4 Alpha installs separately. It does not replace VibeZ 3.0.9 and uses its own profile and settings.** Windows, macOS and Linux downloads are available.
 >
-> Alpha 22 is available for Linux, Windows, Intel and Apple Silicon Macs. It adds local Office-document creation, updates file downloads and folder suggestions in the Save dialog, improves Work and Code project handling, and keeps the typing area free of the automatic VibeZ connector label. The project, folder and real connection status remain visible in the top bar. Updates use the separate V4 Alpha channels.
+> Alpha 23 is available for Linux, Windows, Intel and Apple Silicon Macs. In Mistral Work, linking a local folder is now fully automatic, without keys or tokens, and faster and more reliable after a project switch or restart. The right-hand panel is tidier, with separate Files and Project tabs, play, pause and stop buttons next to the project name, and project rules you can edit from any conversation. All messages from VibeZ itself are now in English; the interface stays translated. Updates use the separate V4 Alpha channels.
 >
-> [Download V4 Alpha 22](https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-alpha.22) · [Share feedback on GitHub](https://github.com/lecomputeur/vibez/discussions/56) · [Report a bug](https://github.com/lecomputeur/vibez/issues/new/choose)
+> [Download V4 Alpha 23](https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-alpha.23) · [Share feedback on GitHub](https://github.com/lecomputeur/vibez/discussions/56) · [Report a bug](https://github.com/lecomputeur/vibez/issues/new/choose)
 >
 > Found a problem, something confusing or an improvement you would like? Please let us know on GitHub. Include your operating system, package format and Alpha version. Your feedback is essential to shaping V4. Please also tell us whether the right-hand panel and current layout are clear and convenient, and what you would change.
 
