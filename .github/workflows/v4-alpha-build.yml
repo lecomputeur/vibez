@@ -1,0 +1,209 @@
+name: V4 Alpha native packages
+
+on:
+  push:
+    branches: [build/v4-alpha-ci]
+    paths: [.github/workflows/v4-alpha-build.yml, alpha-build-request.json]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Native package to rebuild
+        type: choice
+        default: all
+        options: [all, windows-x64, macos-x64, macos-arm64]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: v4-alpha-native-${{ github.ref }}-${{ github.sha }}-${{ inputs.target || 'all' }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.targets.outputs.matrix }}
+      verification_only: ${{ steps.targets.outputs.verification_only }}
+      update_verification: ${{ steps.targets.outputs.update_verification }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - id: targets
+        env:
+          SELECTED_TARGET: ${{ inputs.target || '' }}
+        run: |
+          python3 - <<'PY'
+          import json,os,pathlib
+          spec=json.loads(pathlib.Path('alpha-build-request.json').read_text())
+          known={'windows-x64':'windows-2022','macos-x64':'macos-26-intel','macos-arm64':'macos-26'}
+          selected=os.environ['SELECTED_TARGET']
+          targets=([selected] if selected and selected!='all' else list(known)) if selected else spec.get('targets',list(known))
+          assert isinstance(targets,list) and targets and len(targets)==len(set(targets))
+          assert all(isinstance(x,str) and x in known for x in targets)
+          matrix={'include':[{'target':x,'runner':known[x]} for x in targets]}
+          verification=spec.get('verify_existing')
+          update_verification=spec.get('verify_update')
+          assert not (verification and update_verification)
+          if verification:
+              assert len(targets)==1 and targets[0].startswith('macos') and verification['target']==targets[0]
+          if update_verification:
+              assert update_verification['previous_version'] in ['4.0.0-alpha.14','4.0.0-alpha.25']
+              assert update_verification['version']==spec['version']
+              assert set(update_verification['targets']) >= set(targets)
+          with open(os.environ['GITHUB_OUTPUT'],'a') as output:
+              output.write('matrix='+json.dumps(matrix)+'\n')
+              output.write('verification_only='+('true' if verification or update_verification else 'false')+'\n')
+              output.write('update_verification='+('true' if update_verification else 'false')+'\n')
+          PY
+  native:
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 100
+    env:
+      ALPHA_TARGET: ${{ matrix.target }}
+      CARGO_TERM_COLOR: never
+      ALPHA_VERIFY_ONLY: ${{ needs.plan.outputs.verification_only }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Prepare GPG and Rust
+        shell: bash
+        run: |
+          if ! command -v gpg >/dev/null; then
+            if [[ "$RUNNER_OS" == Windows ]]; then
+              choco install gnupg --yes --no-progress
+              echo 'C:\Program Files (x86)\GnuPG\bin' >> "$GITHUB_PATH"
+            else
+              brew install gnupg
+            fi
+          fi
+          if [[ "$ALPHA_VERIFY_ONLY" != true ]]; then
+            rustup toolchain install stable --profile minimal
+            rustup default stable
+          fi
+      - name: Download and decrypt private build source
+        shell: bash
+        env:
+          VIBEZ_ALPHA_BUILD_PASSPHRASE: ${{ secrets.VIBEZ_ALPHA_BUILD_PASSPHRASE }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import hashlib,json,os,pathlib,re,subprocess,tarfile,urllib.request
+          spec=json.loads(pathlib.Path('alpha-build-request.json').read_text())
+          assert spec['version']=='4.0.0-alpha.26' and spec['source_version']==spec['version']
+          assert spec['url'].startswith('https://github.com/lecomputeur/vibez/releases/download/v4-alpha-channel/')
+          assert spec['url'].endswith('.tar.gz.gpg') and re.fullmatch('[0-9a-f]{64}',spec['sha256'])
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'vibez-alpha-private';root.mkdir(mode=0o700)
+          encrypted=root/'source.gpg';plain=root/'source.tar.gz';password=root/'password'
+          # Fetch through the releases API (the public download link answers 504 for
+          # some assets); the archive must still match the approved hash exactly.
+          name=spec['url'].rsplit('/',1)[1];assert re.fullmatch(r'VibeZ-4\.0\.0-alpha\.\d+-native-source-[0-9a-f]{16}\.tar\.gz\.gpg',name)
+          api='https://api.github.com/repos/lecomputeur/vibez/releases/tags/v4-alpha-channel'
+          headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'X-GitHub-Api-Version':'2022-11-28','User-Agent':'vibez-alpha-build'}
+          release=json.loads(urllib.request.urlopen(urllib.request.Request(api,headers=headers),timeout=90).read())
+          asset=[a for a in release['assets'] if a['name']==name];assert len(asset)==1,'source asset not found'
+          data=urllib.request.urlopen(urllib.request.Request(asset[0]['url'],headers={**headers,'Accept':'application/octet-stream'}),timeout=180).read()
+          assert len(data)<40*1024*1024 and hashlib.sha256(data).hexdigest()==spec['sha256']
+          encrypted.write_bytes(data);password.write_text(os.environ['VIBEZ_ALPHA_BUILD_PASSPHRASE']);password.chmod(0o600)
+          try:
+              subprocess.run(['gpg','--batch','--pinentry-mode','loopback','--passphrase-file',str(password),'--output',str(plain),'--decrypt',str(encrypted)],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+          finally:password.unlink(missing_ok=True)
+          source=pathlib.Path('alpha-source');source.mkdir()
+          with tarfile.open(plain) as stream:
+              members=stream.getmembers()
+              assert all(m.isfile() and not pathlib.PurePosixPath(m.name).is_absolute() and '..' not in pathlib.PurePosixPath(m.name).parts for m in members)
+              names=sorted(m.name for m in members)
+              assert len(names)==spec['file_count']==453 and len(set(names))==len(names)
+              assert sum(m.size for m in members)<100*1024*1024
+              stream.extractall(source,filter='data')
+          plain.unlink();encrypted.unlink()
+          records=[{'path':name,'sha256':hashlib.sha256((source/name).read_bytes()).hexdigest()}for name in names]
+          actual=hashlib.sha256(json.dumps(records,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+          assert actual==spec['source_manifest_sha256'],'Source does not match approved frozen Alpha26'
+          assert json.loads((source/'desktop/package.json').read_text())['version']==spec['version']
+          proof=source/'artifacts/ci-proof';proof.mkdir(parents=True)
+          (proof/('frozen-source-'+os.environ['ALPHA_TARGET']+'.json')).write_text(json.dumps({'passed':True,'version':spec['version'],'files_verified':len(names),'source_manifest_sha256':actual,'base_cipher_sha256':spec['sha256']},indent=2)+'\n')
+          PY
+      - name: Prepare and test native package
+        if: needs.plan.outputs.verification_only != 'true'
+        shell: bash
+        run: |
+          python alpha-source/tools/ci-alpha-build.py prepare --target "$ALPHA_TARGET" > "$RUNNER_TEMP/alpha-build.log" 2>&1
+          python alpha-source/tools/ci-alpha-build.py build --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
+      - name: Sign and notarize macOS package
+        if: runner.os == 'macOS' && needs.plan.outputs.verification_only != 'true'
+        shell: bash
+        env:
+          MAC_CERTIFICATE_P12_BASE64: ${{ secrets.MAC_CERTIFICATE_P12_BASE64 }}
+          MAC_CERTIFICATE_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+          APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: python alpha-source/tools/ci-alpha-build.py sign-mac --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
+      - name: Test the signed app without signing credentials
+        if: runner.os == 'macOS' && needs.plan.outputs.verification_only != 'true'
+        shell: bash
+        run: python alpha-source/tools/ci-alpha-build.py smoke-signed --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
+      - name: Collect only installers and validation results
+        if: needs.plan.outputs.verification_only != 'true'
+        shell: bash
+        run: python alpha-source/tools/ci-alpha-build.py collect --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
+      - name: Download exact existing CI packages
+        if: needs.plan.outputs.verification_only == 'true' && needs.plan.outputs.update_verification != 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python alpha-source/tools/ci-alpha-build.py download-existing --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
+      - name: Revalidate exact existing packages without credentials
+        if: needs.plan.outputs.verification_only == 'true' && needs.plan.outputs.update_verification != 'true'
+        shell: bash
+        run: python alpha-source/tools/ci-alpha-build.py revalidate-existing --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
+      - name: Download exact signed Alpha update packages
+        if: needs.plan.outputs.update_verification == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python alpha-source/tools/ci-alpha-build.py download-updates --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
+      - name: Test a real signed Alpha update without credentials
+        if: needs.plan.outputs.update_verification == 'true'
+        shell: bash
+        run: python alpha-source/tools/ci-alpha-build.py verify-updates --target "$ALPHA_TARGET" >> "$RUNNER_TEMP/alpha-build.log" 2>&1
+      - name: Encrypt build log
+        if: always()
+        shell: bash
+        env:
+          VIBEZ_ALPHA_BUILD_PASSPHRASE: ${{ secrets.VIBEZ_ALPHA_BUILD_PASSPHRASE }}
+        run: |
+          python - <<'PY'
+          import os,pathlib,subprocess
+          root=pathlib.Path(os.environ['RUNNER_TEMP']);log=root/'alpha-build.log';password=root/'alpha-log-password'
+          if not log.exists():raise SystemExit(0)
+          password.write_text(os.environ['VIBEZ_ALPHA_BUILD_PASSPHRASE']);password.chmod(0o600)
+          try:
+              subprocess.run(['gpg','--batch','--yes','--pinentry-mode','loopback','--passphrase-file',str(password),'--cipher-algo','AES256','--symmetric','--output',str(root/'alpha-build.log.gpg'),str(log)],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+          finally:password.unlink(missing_ok=True);log.unlink(missing_ok=True)
+          PY
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: alpha-${{ matrix.target }}-${{ github.run_attempt }}
+          path: |
+            alpha-source/artifacts/ci-packages/*
+            alpha-source/artifacts/ci-proof/**/*.json
+            ${{ runner.temp }}/alpha-build.log.gpg
+          if-no-files-found: error
+          retention-days: 14
