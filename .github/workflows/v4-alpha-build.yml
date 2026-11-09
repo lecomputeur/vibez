@@ -126,7 +126,7 @@ jobs:
               members=stream.getmembers()
               assert all(m.isfile() and not pathlib.PurePosixPath(m.name).is_absolute() and '..' not in pathlib.PurePosixPath(m.name).parts for m in members)
               names=sorted(m.name for m in members)
-              assert len(names)==spec['file_count']==451 and len(set(names))==len(names)
+              assert len(names)==spec['file_count']==453 and len(set(names))==len(names)
               assert sum(m.size for m in members)<100*1024*1024
               stream.extractall(source,filter='data')
           plain.unlink();encrypted.unlink()
