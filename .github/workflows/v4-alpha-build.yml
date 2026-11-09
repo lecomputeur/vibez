@@ -98,6 +98,7 @@ jobs:
         shell: bash
         env:
           VIBEZ_ALPHA_BUILD_PASSPHRASE: ${{ secrets.VIBEZ_ALPHA_BUILD_PASSPHRASE }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           python - <<'PY'
           import hashlib,json,os,pathlib,re,subprocess,tarfile,urllib.request
@@ -107,7 +108,14 @@ jobs:
           assert spec['url'].endswith('.tar.gz.gpg') and re.fullmatch('[0-9a-f]{64}',spec['sha256'])
           root=pathlib.Path(os.environ['RUNNER_TEMP'])/'vibez-alpha-private';root.mkdir(mode=0o700)
           encrypted=root/'source.gpg';plain=root/'source.tar.gz';password=root/'password'
-          data=urllib.request.urlopen(spec['url'],timeout=90).read()
+          # Fetch through the releases API (the public download link answers 504 for
+          # some assets); the archive must still match the approved hash exactly.
+          name=spec['url'].rsplit('/',1)[1];assert re.fullmatch(r'VibeZ-4\.0\.0-alpha\.\d+-native-source-[0-9a-f]{16}\.tar\.gz\.gpg',name)
+          api='https://api.github.com/repos/lecomputeur/vibez/releases/tags/v4-alpha-channel'
+          headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'X-GitHub-Api-Version':'2022-11-28','User-Agent':'vibez-alpha-build'}
+          release=json.loads(urllib.request.urlopen(urllib.request.Request(api,headers=headers),timeout=90).read())
+          asset=[a for a in release['assets'] if a['name']==name];assert len(asset)==1,'source asset not found'
+          data=urllib.request.urlopen(urllib.request.Request(asset[0]['url'],headers={**headers,'Accept':'application/octet-stream'}),timeout=180).read()
           assert len(data)<40*1024*1024 and hashlib.sha256(data).hexdigest()==spec['sha256']
           encrypted.write_bytes(data);password.write_text(os.environ['VIBEZ_ALPHA_BUILD_PASSPHRASE']);password.chmod(0o600)
           try:
