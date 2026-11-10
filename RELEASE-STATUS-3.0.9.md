@@ -20,7 +20,7 @@ GitHub release `419877438` contains the verified twelve-package build artifact, 
 
 ## Known existing issue
 
-The openSUSE Tumbleweed reporter confirmed fresh Canvas/chart previews without blank external tabs. The openSUSE Leap 16/GNOME reporter confirmed Cloudflare verification and Mistral loading in the test.3 Flatpak; that reporter did not test RPM. The original heavy conversation still consumes 100% CPU at idle and has typing/scrolling stutter (#42/#49). This release does not claim to fix that remaining workload. The routing hooks apply only to Linux; TLS trust dependency updates apply to all platforms.
+The openSUSE Tumbleweed reporter confirmed fresh Canvas/chart previews without blank external tabs. The openSUSE Leap 16/GNOME reporter confirmed Cloudflare verification and Mistral loading in the test.3 Flatpak; that reporter did not test RPM. The heavy-conversation performance problem (#42/#49) has since been resolved; both issues are closed. The routing hooks apply only to Linux; TLS trust dependency updates apply to all platforms.
 
 ## Store upload
 

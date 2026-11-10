@@ -13,7 +13,7 @@ Use the existing product **VibeZ Desktop**, Product ID **9NR7L2G4MS08**. No addi
 
 1. Sign in to the existing Microsoft Partner Center account and open Apps and games → VibeZ Desktop (9NR7L2G4MS08).
 2. Inspect current live package versions and every draft/in-progress submission first. Stop if 3.0.9.0 is not newer, if another submission is in progress, or if the identity/publisher differs. Do not discard or replace another submission.
-3. After verifying the exact-source GitHub release is public, reviewing the known high-CPU limitation and confirming submission permission/access, create a new update submission for the existing product. Under Packages upload exactly the verified MSIX named above. Compare its SHA-256 with the delivered build checksums.
+3. After verifying the exact-source GitHub release is public, confirming submission permission/access, create a new update submission for the existing product. Under Packages upload exactly the verified MSIX named above. Compare its SHA-256 with the delivered build checksums.
 4. Wait for package validation. Check identity, publisher, architecture, Windows requirements and version 3.0.9.0. Review any errors before continuing.
 5. Preserve existing pricing, markets, age ratings, privacy link and product declarations, including purchases offered by the embedded Mistral service outside Microsoft commerce. Review supported languages against the existing listing.
 6. Paste the appropriate What's New text below. Review certification notes and publication timing. Submit only with explicit permission and appropriate account access.

@@ -16,6 +16,6 @@ Apple Silicon: `VibeZ-3.0.9-macOS-arm64.dmg` or `.zip`. Intel: `VibeZ-3.0.9-macO
 
 Direct VibeZ 3 installations use the app's published-release update flow with SHA-256 checks and user-confirmed installation. Store installations use Store delivery. Ordinary 3.x profiles/settings are retained; isolated Canvas Test, older Electron and preview profiles remain separate. No automatic profile migration or deletion is included.
 
-This release adds TLS certificate-trust dependency updates on all platforms. The frame-aware Canvas/verification routing fix applies to Linux. The original heavy-conversation high-CPU report remains open in #49 and is not claimed fixed. Preserve the v3.0.8 assets and tag for rollback; close VibeZ, back up the ordinary profile and reinstall the matching 3.0.8 installer if needed. Do not delete or migrate profiles.
+This release adds TLS certificate-trust dependency updates on all platforms. The frame-aware Canvas/verification routing fix applies to Linux. The heavy-conversation high-CPU report (#42/#49) has since been resolved. Preserve the v3.0.8 assets and tag for rollback; close VibeZ, back up the ordinary profile and reinstall the matching 3.0.8 installer if needed. Do not delete or migrate profiles.
 
 Installation guides: [Windows](https://lecomputeur.github.io/vibez/windows.html) · [macOS](https://lecomputeur.github.io/vibez/macos.html). [Code signing policy](https://lecomputeur.github.io/vibez/code-signing-policy.html).
