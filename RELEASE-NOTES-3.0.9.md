@@ -2,7 +2,7 @@
 
 > **Installed test.2 or test.3?** Uninstall the test application first, then install the normal 3.0.9 release. Keep saved data from ordinary test.2; the separate Canvas Test app is no longer needed. Follow the [Linux installation steps](https://lecomputeur.github.io/vibez/linux.html#test-build-upgrade).
 
-The [verified 3.0.9 build](https://github.com/lecomputeur/vibez/actions/runs/39643498884) passed all nine required platform/security jobs, including native regressions, advisory checks, all twelve packages and Developer ID signing, Apple notarization and stapled-ticket validation for both Mac architectures. Both Mac jobs also verified the native architecture and macOS 14 deployment minimum in Info.plist and Mach-O. Frozen source: `64dbf09e8a24b1d1859b3571cd3b83b87a39f14c`. The [release proof](tools/release-v3/release-proof-3.0.9.json) records the source and run. The files are validated for publication; the GitHub release asset list records public availability. Windows MSIX version: **3.0.9.0**. Microsoft Store submission and certification remain separate. The original heavy-conversation high-CPU issue remains open; see [release notes](RELEASE-NOTES-3.0.9.md). See [build/publication status](RELEASE-STATUS-3.0.9.md).
+The [verified 3.0.9 build](https://github.com/lecomputeur/vibez/actions/runs/39643498884) passed all nine required platform/security jobs, including native regressions, advisory checks, all twelve packages and Developer ID signing, Apple notarization and stapled-ticket validation for both Mac architectures. Both Mac jobs also verified the native architecture and macOS 14 deployment minimum in Info.plist and Mach-O. Frozen source: `64dbf09e8a24b1d1859b3571cd3b83b87a39f14c`. The [release proof](tools/release-v3/release-proof-3.0.9.json) records the source and run. The files are validated for publication; the GitHub release asset list records public availability. Windows MSIX version: **3.0.9.0**. Microsoft Store submission and certification remain separate. The heavy-conversation high-CPU issue (#42/#49) has since been resolved; see [release notes](RELEASE-NOTES-3.0.9.md). See [build/publication status](RELEASE-STATUS-3.0.9.md).
 
 ## Changes
 
@@ -16,7 +16,7 @@ The [verified 3.0.9 build](https://github.com/lecomputeur/vibez/actions/runs/396
 
 The openSUSE Leap 16/GNOME reporter confirmed successful Cloudflare verification and Mistral loading in the test.3 Flatpak on 21 October. RPM was not tested by that reporter. The openSUSE Tumbleweed reporter confirmed fresh table/chart previews and no blank Firefox tabs on 19 October.
 
-**The original heavy conversation still consumes 100% CPU at idle and has typing/scrolling stutter.** Issue #42's remaining workload is tracked in #49. Preview routing is improved; the original performance problem is not resolved. Do not close or advertise it as fixed. No eager scanning, iframe suspension or Canvas version lifecycle change is included.
+The heavy-conversation performance problem (100% CPU at idle, typing/scrolling stutter; issues #42 and #49) has since been resolved and both issues are closed. This release itself improved preview routing only; no eager scanning, iframe suspension or Canvas version lifecycle change is included.
 
 Sources: https://github.com/lecomputeur/vibez/issues/49#issuecomment-6273090635 and https://github.com/lecomputeur/vibez/issues/45#issuecomment-6315695230.
 
