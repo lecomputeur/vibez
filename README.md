@@ -24,9 +24,9 @@
 >
 > **V4 Alpha installs separately. It does not replace VibeZ 3.0.9 and uses its own profile and settings.** Windows, macOS and Linux downloads are available.
 >
-> Alpha 23 is available for Linux, Windows, Intel and Apple Silicon Macs. In Mistral Work, linking a local folder is now fully automatic, without keys or tokens, and faster and more reliable after a project switch or restart. The right-hand panel is tidier, with separate Files and Project tabs, play, pause and stop buttons next to the project name, and project rules you can edit from any conversation. All messages from VibeZ itself are now in English; the interface stays translated. Updates use the separate V4 Alpha channels.
+> Alpha 26 is available for Linux, Windows, Intel and Apple Silicon Macs. In Mistral Work, linking a local folder now works in every app language and keeps working after a restart of VibeZ: the connector is replaced automatically, older VibeZ connectors for the same project are cleaned up, and linking again after a restart takes a few seconds less. The hidden connector reference in the message field no longer leaves a stray space in sent messages, and it is put back at once if Backspace or Delete removes it unnoticed. Connection errors say which part failed, and connector-timing.json lists the step timing so a slow link can be traced. Updates use the separate V4 Alpha channels.
 >
-> [Download V4 Alpha 23](https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-alpha.23) · [Share feedback on GitHub](https://github.com/lecomputeur/vibez/discussions/56) · [Report a bug](https://github.com/lecomputeur/vibez/issues/new/choose)
+> [Download V4 Alpha 26](https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-alpha.26) · [Share feedback on GitHub](https://github.com/lecomputeur/vibez/discussions/56) · [Report a bug](https://github.com/lecomputeur/vibez/issues/new/choose)
 >
 > Found a problem, something confusing or an improvement you would like? Please let us know on GitHub. Include your operating system, package format and Alpha version. Your feedback is essential to shaping V4. Please also tell us whether the right-hand panel and current layout are clear and convenient, and what you would change.
 
