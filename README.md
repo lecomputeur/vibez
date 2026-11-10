@@ -24,9 +24,9 @@
 >
 > **V4 Alpha installs separately. It does not replace VibeZ 3.0.9 and uses its own profile and settings.** Windows, macOS and Linux downloads are available.
 >
-> Alpha 28 is available for Linux, Windows, Intel and Apple Silicon Macs. In Mistral Work, linking a project survives a restart and is back in a few seconds, Mistral access is remembered so the permission step stops repeating, the panel shows what each step is doing, and the live self-test now checks sent messages and Code projects.
+> Alpha 29 is available for Linux, Windows, Intel and Apple Silicon Macs. Linking works again with the newer MCP protocol version Mistral started sending on 10 November; the live self-test covers Code projects and hands the test project back afterwards, and the release tooling had its first real run.
 >
-> [Download V4 Alpha 28](https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-alpha.28) · [Share feedback on GitHub](https://github.com/lecomputeur/vibez/discussions/56) · [Report a bug](https://github.com/lecomputeur/vibez/issues/new/choose)
+> [Download V4 Alpha 29](https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-alpha.29) · [Share feedback on GitHub](https://github.com/lecomputeur/vibez/discussions/56) · [Report a bug](https://github.com/lecomputeur/vibez/issues/new/choose)
 >
 > Found a problem, something confusing or an improvement you would like? Please let us know on GitHub. Include your operating system, package format and Alpha version. Your feedback is essential to shaping V4. Please also tell us whether the right-hand panel and current layout are clear and convenient, and what you would change.
 
