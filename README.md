@@ -24,9 +24,9 @@
 >
 > **V4 Alpha installs separately. It does not replace VibeZ 3.0.9 and uses its own profile and settings.** Windows, macOS and Linux downloads are available.
 >
-> Alpha 27 is available for Linux, Windows, Intel and Apple Silicon Macs. In Mistral Work, linking a local folder works in every app language and keeps working after a restart of VibeZ: the connector is replaced automatically, older VibeZ connectors for the same project are cleaned up, and linking again after a restart takes a few seconds less. The connector reference VibeZ adds to a message is hidden in the message field, in sent messages and in tool lines, both the Work reference and the "VibeZ · project" title chip of project and conversation chats; it is put back at once if Backspace or Delete removes it unnoticed. Connection errors say which part failed, and connector-timing.json lists the step timing so a slow link can be traced. Updates use the separate V4 Alpha channels.
+> Alpha 28 is available for Linux, Windows, Intel and Apple Silicon Macs. In Mistral Work, linking a project survives a restart and is back in a few seconds, Mistral access is remembered so the permission step stops repeating, the panel shows what each step is doing, and the live self-test now checks sent messages and Code projects.
 >
-> [Download V4 Alpha 27](https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-alpha.27) · [Share feedback on GitHub](https://github.com/lecomputeur/vibez/discussions/56) · [Report a bug](https://github.com/lecomputeur/vibez/issues/new/choose)
+> [Download V4 Alpha 28](https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-alpha.28) · [Share feedback on GitHub](https://github.com/lecomputeur/vibez/discussions/56) · [Report a bug](https://github.com/lecomputeur/vibez/issues/new/choose)
 >
 > Found a problem, something confusing or an improvement you would like? Please let us know on GitHub. Include your operating system, package format and Alpha version. Your feedback is essential to shaping V4. Please also tell us whether the right-hand panel and current layout are clear and convenient, and what you would change.
 
