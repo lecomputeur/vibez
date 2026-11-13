@@ -24,9 +24,9 @@
 >
 > **V4 Alpha installs separately. It does not replace VibeZ 3.0.9 and uses its own profile and settings.** Windows, macOS and Linux downloads are available.
 >
-> Alpha 31 is available for Linux, Windows, Intel and Apple Silicon Macs. Alpha installations can move on to the coming V4 Beta without reinstalling, a secure connection that fails to start is tried again on its own, and the Diagnostics report is easier to read.
+> Beta 1 is available for Linux, Windows, Intel and Apple Silicon Macs. The open Beta of VibeZ 4: Mistral Work and Code with your local project folders, automatic updates from the Alpha, and a Microsoft Store version on the way.
 >
-> [Download V4 Alpha 31](https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-alpha.31) · [Share feedback on GitHub](https://github.com/lecomputeur/vibez/discussions/56) · [Report a bug](https://github.com/lecomputeur/vibez/issues/new/choose)
+> [Download V4 Beta 1](https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-beta.1) · [Share feedback on GitHub](https://github.com/lecomputeur/vibez/discussions/56) · [Report a bug](https://github.com/lecomputeur/vibez/issues/new/choose)
 >
 > Found a problem, something confusing or an improvement you would like? Please let us know on GitHub. Include your operating system, package format and Alpha version. Your feedback is essential to shaping V4. Please also tell us whether the right-hand panel and current layout are clear and convenient, and what you would change.
 
