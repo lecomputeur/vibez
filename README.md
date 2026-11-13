@@ -24,9 +24,9 @@
 >
 > **V4 Beta installs separately. It does not replace VibeZ 3.0.9 and uses its own profile and settings.** Windows, macOS and Linux downloads are available.
 >
-> Beta 1 is available for Linux, Windows, Intel and Apple Silicon Macs. The open Beta of VibeZ 4: Mistral Work and Code with your local project folders, automatic updates from the Alpha, and a Microsoft Store version on the way.
+> Beta 2 is available for Linux, Windows, Intel and Apple Silicon Macs. Beta 2 fixes linking a folder when VibeZ is wide or maximized. VibeZ 4 is the open Beta: Mistral Work and Code with your local project folders, and automatic updates from the Alpha.
 >
-> [Download V4 Beta 1](https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-beta.1) · [Share feedback on GitHub](https://github.com/lecomputeur/vibez/discussions/56) · [Report a bug](https://github.com/lecomputeur/vibez/issues/new/choose)
+> [Download V4 Beta 2](https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-beta.2) · [Share feedback on GitHub](https://github.com/lecomputeur/vibez/discussions/56) · [Report a bug](https://github.com/lecomputeur/vibez/issues/new/choose)
 >
 > Found a problem, something confusing or an improvement you would like? Please let us know on GitHub. Include your operating system, package format and V4 version. Your feedback is essential to shaping V4. Please also tell us whether the right-hand panel and current layout are clear and convenient, and what you would change.
 
