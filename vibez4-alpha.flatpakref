@@ -1,7 +1,7 @@
 [Flatpak Ref]
 Name=nl.lecomputeur.vibez4.alpha
 Branch=alpha
-Title=VibeZ V4 Alpha
+Title=VibeZ V4 Beta
 SuggestRemoteName=vibez4-alpha-channel
 IsRuntime=false
 Url=https://raw.githubusercontent.com/lecomputeur/vibez/v4-alpha-flatpak/
