@@ -154,7 +154,7 @@ class ManagementTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):m.atomic_directory(output,fail)
         self.assertFalse(output.exists())
     def test_required_formats_and_gates_cannot_silently_change(self):
-        for mutate in [lambda d:d['formats']['windows-x64'].append('msix'),lambda d:d['gates'].remove('maintainer_approval'),lambda d:d.update(source_private=False),lambda d:d.update(replace_published_assets=True)]:
+        for mutate in [lambda d:d['formats']['windows-x64'].append('msix'),lambda d:d['gates'].remove('maintainer_approval'),lambda d:d.update(source_private=True),lambda d:d.update(replace_published_assets=True)]:
             value=copy.deepcopy(self.release);mutate(value);self.save_release(value)
             with self.assertRaises(m.ReleaseError):m.check(self.root)
 

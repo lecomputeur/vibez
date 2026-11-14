@@ -454,6 +454,7 @@
     "tests/standalone/test_remote_language.py",
     "tests/standalone/test_sign_in_backoff.py",
     "tests/standalone/test_single_workspace.py",
+    "tests/standalone/test_sync_public_v4.py",
     "tests/standalone/test_tunnel_reuse.py",
     "tests/standalone/test_web_connector.py",
     "tests/standalone/toolbar_ui_check.py",
@@ -473,6 +474,7 @@
     "tools/prepare-alpha-runtime.py",
     "tools/refresh-alpha-downloads.py",
     "tools/release-alpha.py",
+    "tools/sync-public-v4.py",
     "tools/test-alpha-real-native-update.py"
   ]
 }
