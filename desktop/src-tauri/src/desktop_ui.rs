@@ -1,7 +1,7 @@
 //! Native menus and preview-specific status text share the saved language selection.
 use std::sync::OnceLock;
 use serde_json::Value;
-use tauri::{AppHandle, Manager, menu::{Menu, MenuItem}, tray::TrayIconBuilder};
+use tauri::{AppHandle, Manager, menu::{Menu, MenuItem, PredefinedMenuItem}, tray::TrayIconBuilder};
 use crate::{PreviewState, policy::APP_NAME};
 fn translations() -> &'static Value {
     static DATA: OnceLock<Value> = OnceLock::new();
@@ -87,7 +87,10 @@ pub fn menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     let settings = MenuItem::with_id(app, "settings", label("settings"), true, None::<&str>)?;
     let updates = MenuItem::with_id(app, "updates", label("updates"), true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", label("quit"), true, None::<&str>)?;
-    Menu::with_items(app, &[&open, &capture, &settings, &updates, &quit])
+    let link = |id: &str, key: &str| MenuItem::with_id(app, id, preview_for(&lang, key), true, None::<&str>);
+    let (beta, discussions, issue, repo) = (link("v4beta", "v4TryBeta")?, link("discussions", "v4Discussions")?, link("issue", "v4NewIssue")?, link("repo", "v4Repository")?);
+    let (first, second) = (PredefinedMenuItem::separator(app)?, PredefinedMenuItem::separator(app)?);
+    Menu::with_items(app, &[&open, &capture, &settings, &updates, &first, &beta, &discussions, &issue, &repo, &second, &quit])
 }
 pub fn refresh(app: &AppHandle) -> tauri::Result<()> {
     if let Some(tray) = app.tray_by_id("vibez3") { tray.set_menu(Some(menu(app)?))?; }
@@ -107,6 +110,9 @@ pub fn create_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             }); },
             "capture" => { let app = app.clone(); tauri::async_runtime::spawn(async move { let _ = crate::take_screenshot(&app).await; }); },
             "updates" => crate::preview_updates::check(app.clone(), true),
+            id @ ("v4beta" | "discussions" | "issue" | "repo") => {
+                if let Err(e) = crate::v4_notice::open_link(app, id) { crate::message(app, e); }
+            },
             _ => (),
         });
     builder = builder.icon(tauri::image::Image::from_bytes(include_bytes!("../icons/icon.png"))?);
@@ -120,11 +126,16 @@ pub fn smoke_check(app: &AppHandle) -> Result<(), String> {
     for lang in ["nl", "en", "de", "ar"] {
         app.state::<PreviewState>().settings.lock().map_err(crate::err)?.language = lang.into();
         let menu = menu(app).map_err(crate::err)?;
-        if menu.items().map_err(crate::err)?.len() != 5 { return Err("Tray menu lost an action".into()); }
+        if menu.items().map_err(crate::err)?.len() != 11 { return Err("Tray menu lost an action".into()); }
         for (id, key) in [("open", "open"), ("capture", "screenshot"), ("settings", "settings"), ("updates", "updates"), ("quit", "quit")] {
             let item = menu.get(id).ok_or("Missing tray item")?;
             let actual = item.as_menuitem().ok_or("Wrong tray item kind")?.text().map_err(crate::err)?;
             if actual != menu_label(lang, key) { return Err(format!("Tray translation mismatch: {lang}/{id}")); }
+        }
+        for (id, key) in [("v4beta", "v4TryBeta"), ("discussions", "v4Discussions"), ("issue", "v4NewIssue"), ("repo", "v4Repository")] {
+            let item = menu.get(id).ok_or("Missing tray link")?;
+            let actual = item.as_menuitem().ok_or("Wrong tray item kind")?.text().map_err(crate::err)?;
+            if actual != preview_for(lang, key) || crate::v4_notice::link(id).is_none() { return Err(format!("Tray link mismatch: {lang}/{id}")); }
         }
         if preview_for(lang, "languageButton").is_empty() { return Err(format!("Missing preview language text: {lang}")); }
     }
@@ -150,12 +161,14 @@ pub fn smoke_check(app: &AppHandle) -> Result<(), String> {
                 assert!(!strings[key].as_str().unwrap_or_default().is_empty(), "{code}/{key}");
             }
             let extras = preview.get(code).expect("matching preview language");
-            for key in ["intro", "limits", "saved", "languageButton", "chooseLanguage", "updateManualHelp", "settingsConflict", "settingsRecovered", "siteLanguageFailed", "trayUnavailable", "screenshotFull", "screenshotVisible", "screenshotSelection", "screenshotDrag", "screenshotWorking", "screenshotCancelled", "screenshotHint"] {
+            for key in ["intro", "limits", "saved", "languageButton", "chooseLanguage", "updateManualHelp", "settingsConflict", "settingsRecovered", "siteLanguageFailed", "trayUnavailable", "screenshotFull", "screenshotVisible", "screenshotSelection", "screenshotDrag", "screenshotWorking", "screenshotCancelled", "screenshotHint", "v4NoticeTitle", "v4NoticeBody", "v4NoticeStable", "v4TryBeta", "v4Discussions", "v4NewIssue", "v4Repository", "v4Close"] {
                 assert!(!extras[key].as_str().unwrap_or_default().is_empty(), "{code}/{key}");
             }
         }
         assert_eq!(text_for("nl", "settings"), "Instellingen");
         assert_eq!(preview_for("nl", "languageButton"), "Taal");
         assert_eq!(menu_label("nl", "open"), "VibeZ 3 openen");
+        assert_eq!(preview_for("nl", "v4TryBeta"), "VibeZ V4 Beta proberen");
+        assert_eq!(preview_for("en", "v4NoticeTitle"), "VibeZ V4 Beta is out");
     }
 }

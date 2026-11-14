@@ -12,7 +12,7 @@ pub fn local_url(url: &Url) -> bool {
 }
 
 pub fn trusted_caller(label: &str, url: &Url) -> bool {
-    matches!(label, "shell" | "settings" | "screenshot" | "updates") && local_url(url)
+    matches!(label, "shell" | "settings" | "screenshot" | "updates" | "v4notice") && local_url(url)
 }
 
 fn safe_https(url: &Url) -> bool {
@@ -165,6 +165,8 @@ mod tests {
         assert!(!trusted_caller("shell", &u(HOME)));
         assert!(!trusted_caller("settings", &u("https://localhost/settings.html")));
         assert!(!trusted_caller("auth", &u("tauri://localhost/index.html")));
+        assert!(trusted_caller("v4notice", &u("tauri://localhost/v4notice.html")));
+        assert!(!trusted_caller("v4notice", &u(HOME)));
     }
     #[test] fn embedded_allowlist_rejects_lookalikes_and_unsafe_schemes() {
         assert!(embedded_url(&u(HOME)));

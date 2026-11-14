@@ -9,7 +9,7 @@
 <p>Rewritten from the ground up for VibeZ 3. A rebuilt language engine that directly addresses the earlier language-selection and startup issues.<br>Windows, macOS and Linux — one version, twelve release files.</p>
 
 <p>
-<a href="https://github.com/lecomputeur/vibez/releases/tag/v3.0.9"><strong>Explore VibeZ 3.0.9</strong></a> ·
+<a href="https://github.com/lecomputeur/vibez/releases/tag/v3.1.0"><strong>Explore VibeZ 3.1.0</strong></a> ·
 <a href="https://lecomputeur.github.io/vibez/">Website & installation guides</a> ·
 <a href="V3-RELEASE.md">What's new</a>
 </p>
@@ -22,7 +22,7 @@
 >
 > **The biggest change from VibeZ 3: Mistral can now work with a folder you choose on your computer.** Link one or more local folders to each project or conversation. Browse files and subfolders in the right-hand panel, read supported Office documents and images, and create new Word, Excel, PowerPoint and OpenDocument files in your linked folders. File changes are saved only after your approval; existing Office documents remain read-only.
 >
-> **V4 Beta installs separately. It does not replace VibeZ 3.0.9 and uses its own profile and settings.** Windows, macOS and Linux downloads are available.
+> **V4 Beta installs separately. It does not replace VibeZ 3 and uses its own profile and settings.** Windows, macOS and Linux downloads are available.
 >
 > Beta 3 is available for Linux, Windows, Intel and Apple Silicon Macs. Beta 3 brings back the full screenshot dialog: visible page, full page or a selection, pasted straight into Mistral. VibeZ 4 is the open Beta: Mistral Work and Code with your local project folders, and automatic updates from the Alpha.
 >
@@ -34,6 +34,8 @@
 
 **Not sure where to start? [Open the contributor guide](https://lecomputeur.github.io/vibez/contribute.html).** It points you to bug reports, ideas, testing, translations and code contributions. Follow [release progress](https://github.com/lecomputeur/vibez/milestones) and meet the [community contributors](CONTRIBUTORS.md).
 
+> **VibeZ 3.1.0:** A one-time notice and tray-menu links point to VibeZ V4 Beta, Discussions, new issues and the repository, in all 34 interface languages. Nothing else changed. [Release downloads](https://github.com/lecomputeur/vibez/releases/tag/v3.1.0) · [Release notes](RELEASE-NOTES-3.1.0.md)
+>
 > **VibeZ 3.0.9:** Promote tested Linux Canvas/chart preview and verification navigation improvements, with TLS certificate-trust dependency and version/title updates on every platform. [Release downloads](https://github.com/lecomputeur/vibez/releases/tag/v3.0.9) · [Release notes and validation](V3-RELEASE.md). Microsoft Store delivery remains separate.
 
 **Cloudflare verification frames on Linux stay in the app instead of opening as external browser links.**
@@ -70,16 +72,16 @@ The rebuilt module also prevents stale settings windows from reverting a newer l
 
 ## One version. Every distribution format.
 
-The **VibeZ 3.0.9** build produced and verified all twelve files below from one frozen source commit. The GitHub release asset list records download availability.
+The **VibeZ 3.1.0** build produced and verified all twelve files below from one frozen source commit. The GitHub release asset list records download availability.
 
-> **Installed test.2 or test.3? Uninstall the test version first, then install VibeZ 3.0.9.** Save unfinished drafts and close VibeZ before removing it. Keep saved data from ordinary test.2. The separate Canvas Test app is no longer needed and can be removed. Follow the [test-build installation steps](https://lecomputeur.github.io/vibez/linux.html#test-build-upgrade).
+> **Installed test.2 or test.3? Uninstall the test version first, then install VibeZ 3.1.0.** Save unfinished drafts and close VibeZ before removing it. Keep saved data from ordinary test.2. The separate Canvas Test app is no longer needed and can be removed. Follow the [test-build installation steps](https://lecomputeur.github.io/vibez/linux.html#test-build-upgrade).
 
 | Platform | Downloads |
 |---|---|
-| **Linux x86-64** | [AppImage](https://github.com/lecomputeur/vibez/releases/download/v3.0.9/VibeZ-3.0.9-Linux-x64.AppImage) · [DEB](https://github.com/lecomputeur/vibez/releases/download/v3.0.9/VibeZ-3.0.9-Linux-x64.deb) · [RPM](https://github.com/lecomputeur/vibez/releases/download/v3.0.9/VibeZ-3.0.9-Linux-x64.rpm) · [Arch/Pacman](https://github.com/lecomputeur/vibez/releases/download/v3.0.9/VibeZ-3.0.9-Linux-x64.pkg.tar.zst) · [Flatpak](https://github.com/lecomputeur/vibez/releases/download/v3.0.9/VibeZ-3.0.9-Linux-x64.flatpak) |
-| **Windows x64** | [Setup EXE](https://github.com/lecomputeur/vibez/releases/download/v3.0.9/VibeZ-3.0.9-Windows-x64-Setup.exe) · [MSI](https://github.com/lecomputeur/vibez/releases/download/v3.0.9/VibeZ-3.0.9-Windows-x64.msi) · [Store submission MSIX](https://github.com/lecomputeur/vibez/releases/download/v3.0.9/VibeZ-3.0.9-Windows-x64-Store.msix) |
-| **macOS Apple Silicon** | [DMG](https://github.com/lecomputeur/vibez/releases/download/v3.0.9/VibeZ-3.0.9-macOS-arm64.dmg) · [ZIP](https://github.com/lecomputeur/vibez/releases/download/v3.0.9/VibeZ-3.0.9-macOS-arm64.zip) |
-| **macOS Intel** | [DMG](https://github.com/lecomputeur/vibez/releases/download/v3.0.9/VibeZ-3.0.9-macOS-x64.dmg) · [ZIP](https://github.com/lecomputeur/vibez/releases/download/v3.0.9/VibeZ-3.0.9-macOS-x64.zip) |
+| **Linux x86-64** | [AppImage](https://github.com/lecomputeur/vibez/releases/download/v3.1.0/VibeZ-3.1.0-Linux-x64.AppImage) · [DEB](https://github.com/lecomputeur/vibez/releases/download/v3.1.0/VibeZ-3.1.0-Linux-x64.deb) · [RPM](https://github.com/lecomputeur/vibez/releases/download/v3.1.0/VibeZ-3.1.0-Linux-x64.rpm) · [Arch/Pacman](https://github.com/lecomputeur/vibez/releases/download/v3.1.0/VibeZ-3.1.0-Linux-x64.pkg.tar.zst) · [Flatpak](https://github.com/lecomputeur/vibez/releases/download/v3.1.0/VibeZ-3.1.0-Linux-x64.flatpak) |
+| **Windows x64** | [Setup EXE](https://github.com/lecomputeur/vibez/releases/download/v3.1.0/VibeZ-3.1.0-Windows-x64-Setup.exe) · [MSI](https://github.com/lecomputeur/vibez/releases/download/v3.1.0/VibeZ-3.1.0-Windows-x64.msi) · [Store submission MSIX](https://github.com/lecomputeur/vibez/releases/download/v3.1.0/VibeZ-3.1.0-Windows-x64-Store.msix) |
+| **macOS Apple Silicon** | [DMG](https://github.com/lecomputeur/vibez/releases/download/v3.1.0/VibeZ-3.1.0-macOS-arm64.dmg) · [ZIP](https://github.com/lecomputeur/vibez/releases/download/v3.1.0/VibeZ-3.1.0-macOS-arm64.zip) |
+| **macOS Intel** | [DMG](https://github.com/lecomputeur/vibez/releases/download/v3.1.0/VibeZ-3.1.0-macOS-x64.dmg) · [ZIP](https://github.com/lecomputeur/vibez/releases/download/v3.1.0/VibeZ-3.1.0-macOS-x64.zip) |
 
 macOS publication requires Developer ID signing, notarization and stapling. Direct Windows EXE/MSI installers are unsigned; Windows may show a reputation warning. The unsigned MSIX is for Partner Center submission, not the recommended direct installer. Building it does **not** mean Microsoft has certified or published the update.
 
@@ -101,7 +103,7 @@ Native Linux packages and AppImage require **glibc 2.39 or newer**; DEB targets 
 
 ## What the tests prove — and what they do not
 
-The [verified 3.0.9 build](https://github.com/lecomputeur/vibez/actions/runs/39643498884) passed all nine required platform/security jobs, including native regressions, advisory checks, all twelve packages and Developer ID signing, Apple notarization and stapled-ticket validation for both Mac architectures. Both Mac jobs also verified the native architecture and macOS 14 deployment minimum in Info.plist and Mach-O. Frozen source: `64dbf09e8a24b1d1859b3571cd3b83b87a39f14c`. The [release proof](tools/release-v3/release-proof-3.0.9.json) records the source and run. The files are validated for publication; the GitHub release asset list records public availability. Windows MSIX version: **3.0.9.0**. Microsoft Store submission and certification remain separate. The heavy-conversation high-CPU issue (#42/#49) has since been resolved; see [release notes](RELEASE-NOTES-3.0.9.md). See [Store upload instructions](MICROSOFT-STORE-3.0.9.md).
+The [verified 3.1.0 build](https://github.com/lecomputeur/vibez/actions/runs/43588359115) passed all nine required platform/security jobs, including native regressions, advisory checks, all twelve packages and Developer ID signing, Apple notarization and stapled-ticket validation for both Mac architectures. Both Mac jobs also verified the native architecture and macOS 14 deployment minimum in Info.plist and Mach-O. Frozen source: `f7bf0719d19eaa74ab48f1283a78cb183d3eba87`. The [release proof](tools/release-v3/release-proof-3.1.0.json) records the source and run. The files are validated for publication; the GitHub release asset list records public availability. Windows MSIX version: **3.1.0.0**. Microsoft Store submission and certification remain separate. The heavy-conversation high-CPU issue (#42/#49) has since been resolved; see [release notes](RELEASE-NOTES-3.0.9.md). See [Store upload instructions](MICROSOFT-STORE-3.0.9.md).
 
 Automated native probes are offline tests. They are not a claim that every live sign-in provider, Linux distribution, Wayland session, fractional scale or website feature has been tested. Microphone/camera access, global screenshot shortcuts and unattended installer execution are not enabled in this version. Direct-download updates remain user-confirmed; Microsoft Store updates are delivered by the Store. Screenshots offer native visible-page, full-loaded-page and desktop-area capture, with optional direct paste into a draft. Downloaded updates are installed only after your confirmation.
 

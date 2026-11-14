@@ -47,6 +47,11 @@ pub async fn show(app:&AppHandle)->Result<(),String>{
         .data_directory(app.path().app_data_dir().map_err(err)?.join("controls"))
         .data_store_identifier([118,105,98,101,122,51,0,0,0,0,0,0,0,0,0,1])
         .on_navigation(policy::local_url).on_new_window(|_,_|tauri::webview::NewWindowResponse::Deny).build().map_err(err)?;
+    center_on_main(app,&window)?;
+    window.show().map_err(err)?;window.set_focus().map_err(err)
+}
+/// Places a local dialog over the main window, kept on that window's monitor.
+pub fn center_on_main(app:&AppHandle,window:&tauri::WebviewWindow)->Result<(),String>{
     if let Some(main)=app.get_window("main"){
         if let (Ok(p),Ok(size))=(main.outer_position(),main.outer_size()){
             let ws=window.outer_size().map_err(err)?;
@@ -55,7 +60,7 @@ pub async fn show(app:&AppHandle)->Result<(),String>{
             window.set_position(tauri::PhysicalPosition::new(x as i32,y as i32)).map_err(err)?;
         }
     }
-    window.show().map_err(err)?;window.set_focus().map_err(err)
+    Ok(())
 }
 pub fn check(app:AppHandle,manual:bool){
     if BUSY.swap(true,Ordering::SeqCst){

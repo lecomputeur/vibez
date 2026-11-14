@@ -91,6 +91,13 @@ for(const [code,values] of Object.entries(updateRows)){
   if(values.length!==updateKeys.length||values.some(v=>typeof v!=='string'||!v.trim()))throw new Error('Missing update translation: '+code);
   Object.assign(previewData.translations[code],Object.fromEntries(updateKeys.map((key,i)=>[key,values[i]])));
 }
+const v4Rows=JSON.parse(fs.readFileSync(path.join(project,'v4-notice-i18n.json'),'utf8'));
+const v4Keys=['v4NoticeTitle','v4NoticeBody','v4NoticeStable','v4TryBeta','v4Discussions','v4NewIssue','v4Repository','v4Close'];
+if(JSON.stringify(Object.keys(v4Rows).sort())!==JSON.stringify(Object.keys(TRANSLATIONS).sort()))throw new Error('V4 notice locale codes differ');
+for(const [code,values] of Object.entries(v4Rows)){
+  if(values.length!==v4Keys.length||values.some(v=>typeof v!=='string'||!v.trim()))throw new Error('Missing V4 notice translation: '+code);
+  Object.assign(previewData.translations[code],Object.fromEntries(v4Keys.map((key,i)=>[key,values[i]])));
+}
 const codeHints=JSON.parse(fs.readFileSync(path.join(project,'screenshot-hints-i18n.json'),'utf8'));
 if(JSON.stringify(Object.keys(codeHints).sort())!==JSON.stringify(Object.keys(TRANSLATIONS).sort()))throw new Error('Screenshot hint languages differ');
 for(const [code,hint] of Object.entries(codeHints)){

@@ -1,0 +1,1 @@
+{"identifier":"local-v4notice","description":"Only the bundled VibeZ V4 Beta notice can open its four fixed project links or close itself. No arbitrary URLs.","local":true,"webviews":["v4notice"],"permissions":["allow-get-state","allow-v4-notice-action"]}
