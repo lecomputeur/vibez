@@ -114,7 +114,14 @@ def verify(proof=None, version=None):
             matches = [s for s in job.get('steps', []) if s['name'] == name]
             require(len(matches) == 1 and matches[0]['status'] == 'completed' and matches[0]['conclusion'] == 'success',
                     f'Required step did not succeed: {job["name"]} / {name}')
-    command('git', 'merge-base', '--is-ancestor', source, 'HEAD')
+    # A squash merge puts the validated tree on main without the validated
+    # commit itself. That is accepted only when the published release tag is
+    # exactly the validated commit; the frozen-path diff below still proves
+    # that HEAD carries the same application source.
+    if subprocess.run(['git', 'merge-base', '--is-ancestor', source, 'HEAD'], cwd=ROOT).returncode != 0:
+        tag = json.loads(command('gh', 'api', f'repos/{REPO}/git/ref/tags/v{version}'))['object']
+        require(tag['type'] == 'commit' and tag['sha'] == source,
+                f'Validated commit is neither an ancestor of HEAD nor the published v{version} tag')
     # Post-build publication checks and text may change. Every application,
     # dependency, packaging/signing input and the validation workflow stay frozen.
     exceptions = [
