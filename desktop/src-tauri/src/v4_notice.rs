@@ -7,7 +7,7 @@ use crate::{desktop_ui,err,policy};
 pub const LABEL:&str="v4notice";
 const MARKER:&str="v4-beta-notice-shown";
 pub const LINKS:[(&str,&str);4]=[
-    ("v4beta","https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-beta.2"),
+    ("v4beta","https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-beta.3"),
     ("discussions","https://github.com/lecomputeur/vibez/discussions"),
     ("issue","https://github.com/lecomputeur/vibez/issues/new/choose"),
     ("repo","https://github.com/lecomputeur/vibez"),

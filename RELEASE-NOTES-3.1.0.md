@@ -5,7 +5,7 @@ VibeZ 3.1.0 is a small update to the stable VibeZ 3. Its only change is a pointe
 ## Changes
 
 - **One-time notice.** On the first visible start after updating, VibeZ 3 shows a short window: VibeZ V4 Beta is out, VibeZ 3 remains the stable version, and V4 installs separately with its own settings. The notice appears once per profile. A start hidden in the tray (start at login) postpones it to the next visible start.
-- **Links in the tray menu and in the notice:** Try VibeZ V4 Beta ([v4.0.0-beta.2](https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-beta.2)), [Discussions](https://github.com/lecomputeur/vibez/discussions), Report a problem ([new issue](https://github.com/lecomputeur/vibez/issues/new/choose)) and [VibeZ on GitHub](https://github.com/lecomputeur/vibez). The links open in your default browser. Only these four fixed addresses can be opened.
+- **Links in the tray menu and in the notice:** Try VibeZ V4 Beta ([v4.0.0-beta.3](https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-beta.3)), [Discussions](https://github.com/lecomputeur/vibez/discussions), Report a problem ([new issue](https://github.com/lecomputeur/vibez/issues/new/choose)) and [VibeZ on GitHub](https://github.com/lecomputeur/vibez). The links open in your default browser. Only these four fixed addresses can be opened.
 - The notice and the menu links are translated into all 34 interface languages.
 - Windows/macOS/Linux receive version 3.1.0 and window title VibeZ V3.1.0.
 
@@ -13,7 +13,7 @@ Nothing else changed: app identity, profile, settings, sign-in, screenshots, lin
 
 ## VibeZ V4 Beta
 
-VibeZ V4 is a separate app next to VibeZ 3, with its own identity, profile and update channel. Installing it does not replace or change VibeZ 3. See the [V4 Beta release](https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-beta.2) for downloads, changes and known limits. Feedback is welcome in [Discussions](https://github.com/lecomputeur/vibez/discussions) or as an [issue](https://github.com/lecomputeur/vibez/issues/new/choose).
+VibeZ V4 is a separate app next to VibeZ 3, with its own identity, profile and update channel. Installing it does not replace or change VibeZ 3. See the [V4 Beta release](https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-beta.3) for downloads, changes and known limits. Feedback is welcome in [Discussions](https://github.com/lecomputeur/vibez/discussions) or as an [issue](https://github.com/lecomputeur/vibez/issues/new/choose).
 
 ## Packaging and delivery
 
