@@ -38,7 +38,7 @@ test('only the local notice window may call the link command',()=>{
  assert.ok(read('src-tauri/build.rs').includes('"v4_notice_action"'));
  assert.ok(JSON.parse(read('src-tauri/tauri.conf.json')).app.security.capabilities.includes('local-v4notice'));
  const rust=read('src-tauri/src/v4_notice.rs');
- assert.match(rust,/releases\/tag\/v4\.0\.0-beta\.2/);
+ assert.match(rust,/releases\/tag\/v4\.0\.0-beta\.3/);
  assert.match(rust,/if path\.exists\(\)\{return;\}/);
  assert.match(read('src-tauri/src/main.rs'),/!smoke && !start_hidden \{ v4_notice::schedule/);
 });
