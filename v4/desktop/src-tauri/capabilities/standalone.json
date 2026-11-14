@@ -1,0 +1,38 @@
+{
+  "identifier": "standalone",
+  "description": "Alleen de gebundelde lokale hoofdinterface. Mistral-aanmeldvensters hebben geen native bestandsrechten.",
+  "local": true,
+  "webviews": [
+    "main",
+    "connector-panel"
+  ],
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "allow-app-command",
+    "allow-app-info",
+    "allow-app-choose-folder",
+    "allow-app-open-login",
+    "allow-app-save-export",
+    "allow-app-copy",
+    "allow-web-surface",
+    "allow-web-command",
+    "allow-web-choose-folder",
+    "allow-project-import-choose",
+    "allow-project-import-commit",
+    "allow-project-import-resolve",
+    "allow-project-details-action",
+    "allow-project-rules-edit",
+    "allow-project-open-folder",
+    "allow-web-navigate",
+    "allow-chrome-panel",
+    "allow-chrome-snapshot",
+    "allow-language-get",
+    "allow-language-set",
+    "allow-panel-prefs-get",
+    "allow-panel-prefs-set",
+    "allow-alpha-update-state",
+    "allow-alpha-update-check",
+    "allow-alpha-update-allow"
+  ]
+}

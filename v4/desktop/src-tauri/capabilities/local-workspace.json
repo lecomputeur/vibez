@@ -1,0 +1,17 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "local-workspace",
+  "description": "Alleen het meegeleverde lokale gespreksvenster. Geen externe webpagina krijgt toegang.",
+  "local": true,
+  "webviews": [
+    "workspace"
+  ],
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "allow-workspace-hide",
+    "allow-workspace-command",
+    "allow-workspace-choose-folder",
+    "allow-workspace-open-login"
+  ]
+}

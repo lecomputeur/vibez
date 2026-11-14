@@ -7,12 +7,12 @@ A local candidate, an installed test build and a public release are different st
 ## One version, one source snapshot
 
 - Keep V3 stable and V4 Alpha separate: app identity, profile, packages and update channels. V4 packages must not replace VibeZ 3.0.9. MSIX is outside the V4 Alpha package set.
-- Keep V4 source in private version control. The public `desktop/` source is V3; a public release tag does not make its existing source archive the V4 implementation.
-- Use the private V4 working tree's `management/release.json` as the source of version, source revision, required targets, package names, changes and related issues. Its `management/manage.py` commands `check`, `status`, `plan` and `snapshot` validate and prepare that record. Generate build requests and publication text from it rather than editing independent copies. These management files belong to the private checkout, not the public V3 tree.
+- V4 source is public in [`v4/`](v4/); V3 is in `desktop/`. Pull requests to `v4/` are tested by the **V4 tests** workflow without secrets. Before a V4 release the maintainer brings the merged `v4/` tree into the release working tree.
+- Use the V4 release working tree's `management/release.json` as the source of version, source revision, required targets, package names, changes and related issues. Its `management/manage.py` commands `check`, `status`, `plan` and `snapshot` validate and prepare that record. Generate build requests and publication text from it rather than editing independent copies.
 - Freeze the approved source before building. Save the source revision and a file-hash manifest with the private release record. Validate that delivered resources match that snapshot.
 - A published version keeps the same package bytes. A subsequent code fix gets a new version. Local experiments need a private build reference; they are not a reason to announce another public release.
 
-The existing encrypted V4 build route stays in place until a replacement is implemented and verified. Do not upload plaintext V4 source or private signing keys to this repository. Introducing a release manifest does not by itself make the existing native build or publication steps automatic.
+The native V4 builds still use the existing encrypted build route, which freezes the exact release snapshot. Never upload signing keys, notarization credentials or the update-feed key to this repository. Introducing a release manifest does not by itself make the existing native build or publication steps automatic.
 
 ## Before publication
 

@@ -1,0 +1,17 @@
+{
+  "name": "vibez4-alpha",
+  "version": "4.0.0-beta.3",
+  "private": true,
+  "description": "VibeZ 3 \u2014 Rust/Tauri desktop client for Mistral Vibe",
+  "scripts": {
+    "prepare:assets": "node scripts/prepare.cjs",
+    "test": "node --test standalone-tests/*.test.cjs",
+    "dev": "node scripts/prepare.cjs && tauri dev",
+    "build": "node scripts/prepare.cjs && tauri build --bundles deb -- --offline --locked",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.12.1",
+    "@zumer/snapdom": "3.3.0"
+  }
+}

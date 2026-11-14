@@ -1,0 +1,477 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+mod policy;
+mod workspace;
+#[cfg(target_os = "linux")]
+mod rich_render;
+#[cfg(target_os = "linux")]
+mod native_find;
+#[cfg(target_os = "linux")]
+#[path = "../../test-tools/rich-chat/probe.rs"]
+mod rich_offline_probe;
+mod browser;
+#[cfg(target_os = "linux")]
+mod linux_identity;
+#[cfg(target_os = "linux")]
+mod linux_navigation;
+mod settings_store;
+mod site_language;
+mod status;
+mod smoke;
+mod link_trace;
+mod link_probe;
+#[cfg(target_os = "linux")]
+#[path = "native_layout.rs"]
+mod native_layout;
+#[cfg(any(target_os = "windows", target_os = "macos"))]
+#[path = "native_layout_windows.rs"]
+mod native_layout;
+mod auth;
+mod desktop_ui;
+mod screenshots;
+mod screenshot_dialog;
+mod update_download;
+mod update_install;
+#[path = "release_updates.rs"]
+mod preview_updates;
+
+use policy::{APP_ID, APP_NAME, HOME, TOOLBAR_HEIGHT, Settings};
+use serde_json::{json, Value};
+use std::{fs, path::PathBuf, sync::{Mutex, atomic::{AtomicBool, AtomicU64, Ordering}}};
+use tauri::{AppHandle, Manager, Webview, WebviewUrl, WebviewWindowBuilder, LogicalPosition, LogicalSize};
+use tauri::webview::{WebviewBuilder, NewWindowResponse, PermissionResponse};
+use tauri_plugin_autostart::ManagerExt as AutostartExt;
+#[cfg(not(target_os = "linux"))]
+use tauri_plugin_opener::OpenerExt;
+#[cfg(target_os = "linux")]
+use webkit2gtk::{SettingsExt, WebViewExt};
+
+struct PreviewState {
+    settings: Mutex<Settings>,
+    file: PathBuf,
+    status: Mutex<status::Status>,
+    revision: AtomicU64,
+    save_gate: tokio::sync::Mutex<()>,
+    site_language: site_language::LanguageState,
+    auth_started: Mutex<Option<std::time::Instant>>,
+    capture_busy: AtomicBool,
+    tray_ready: AtomicBool,
+    shell_ready: AtomicBool,
+    smoke: bool,
+    auth_active: AtomicBool,
+}
+fn err(e: impl std::fmt::Display) -> String { e.to_string() }
+fn title() -> String { format!("VibeZ 4 Test · {}", env!("CARGO_PKG_VERSION")) }
+const PAGE_VIEW: &str = "vibe";
+fn require_local(webview: &Webview) -> Result<(), String> {
+    if policy::trusted_caller(webview.label(), &webview.url().map_err(err)?) { Ok(()) }
+    else { Err("Native commands are restricted to the bundled preview controls".into()) }
+}
+fn message(app: &AppHandle, text: impl Into<String>) {
+    if let Ok(mut status) = app.state::<PreviewState>().status.lock() { *status = status::Status::persistent(text); }
+}
+fn saved_message(app: &AppHandle) {
+    if let Ok(mut status) = app.state::<PreviewState>().status.lock() { *status = status::Status::transient("settings_saved"); }
+}
+#[cfg(target_os = "windows")]
+fn os_locale() -> String {
+    use windows::Win32::Globalization::{GetUserDefaultUILanguage, LCIDToLocaleName, LOCALE_ALLOW_NEUTRAL_NAMES, MAX_LOCALE_NAME};
+    unsafe {
+        let lcid = GetUserDefaultUILanguage();
+        let mut buffer = [0u16; MAX_LOCALE_NAME as usize];
+        let len = LCIDToLocaleName(lcid as u32, Some(&mut buffer), LOCALE_ALLOW_NEUTRAL_NAMES);
+        if len > 1 { return String::from_utf16_lossy(&buffer[..len as usize - 1]).replace('_', "-"); }
+    }
+    sys_locale::get_locale().unwrap_or_else(|| "en".into()).replace('_', "-")
+}
+#[cfg(not(target_os = "windows"))]
+fn os_locale() -> String {
+    sys_locale::get_locale()
+        .or_else(|| ["LC_ALL", "LC_MESSAGES", "LANG"].iter().find_map(|k| std::env::var(k).ok().filter(|s| !s.is_empty())))
+        .unwrap_or_else(|| "en".into()).split('.').next().unwrap_or("en").replace('_', "-")
+}
+fn show_main(app: &AppHandle) {
+    if let Some(window) = app.get_window("main") {
+        let _ = window.unminimize(); let _ = window.show(); let _ = window.set_focus(); let _ = layout(app);
+    }
+}
+fn layout(app: &AppHandle) -> Result<(), String> { native_layout::layout(app) }
+
+#[tauri::command]
+async fn get_state(webview: Webview, app: AppHandle) -> Result<Value, String> {
+    require_local(&webview)?;
+    let (settings, revision) = {
+        let state = app.state::<PreviewState>();
+        let settings = state.settings.lock().map_err(err)?;
+        (settings.clone(), state.revision.load(Ordering::SeqCst))
+    };
+    let view = app.get_webview("vibe").ok_or("Vibe view is not ready")?;
+    let (back, forward, loading) = browser::state(&view, &app).await?;
+    let state = app.state::<PreviewState>();
+    if webview.label() == "shell" && !state.shell_ready.swap(true, Ordering::SeqCst) {
+        #[cfg(target_os = "linux")]
+        native_layout::repair(&app)?;
+    }
+    let raw_status = state.status.lock().map_err(err)?.text().to_owned();
+    let status = desktop_ui::status(&app, &raw_status);
+    let screenshot_mode=if webview.label()=="screenshot" {screenshot_dialog::selected_mode(&app).await} else {"unknown".into()};
+    Ok(json!({"settings": settings, "revision": revision, "version": env!("CARGO_PKG_VERSION"), "build_label": "", "os_locale": os_locale(), "platform": std::env::consts::OS, "workspace_supported": cfg!(target_os = "linux"), "workspace_visible": app.state::<workspace::Bridge>().visible.load(Ordering::SeqCst), "test_build": true,
+        "can_go_back": back, "can_go_forward": forward, "loading": loading,
+        "tray_ready": state.tray_ready.load(Ordering::Relaxed), "status": status,
+        "screenshot_code_context": webview.label()=="screenshot" && !matches!(screenshot_mode.as_str(),"chat"|"work"),
+        "screenshot_mode": screenshot_mode,
+        "screenshot_login_required": webview.label()=="screenshot" && screenshot_dialog::login_required(&app).await}))
+}
+#[tauri::command]
+async fn navigate(webview: Webview, app: AppHandle, action: String) -> Result<(), String> {
+    require_local(&webview)?;
+    let view = app.get_webview("vibe").ok_or("Vibe view is not ready")?;
+    match action.as_str() {
+        "back" => browser::history(&view, false).await,
+        "forward" => browser::history(&view, true).await,
+        "reload" => view.reload().map_err(err),
+        "home" => {
+            auth::close_popups(&app); auth::end(&app);
+            link_trace::record("auth-mode-reset-home", &HOME.parse().map_err(err)?);
+            message(&app, "Returning to Vibe. Your preview profile has not been cleared.");
+            view.navigate(HOME.parse().map_err(err)?).map_err(err)
+        },
+        _ => Err("Unsupported navigation action".into()),
+    }
+}
+async fn open_settings(app: &AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("settings") {
+        window.show().map_err(err)?; return window.set_focus().map_err(err);
+    }
+    WebviewWindowBuilder::new(app, "settings", WebviewUrl::App("settings.html".into()))
+        .title(format!("{} · {}", title(), desktop_ui::text(app, "settings"))).inner_size(760., 760.).min_inner_size(600., 500.)
+        .data_directory(app.path().app_data_dir().map_err(err)?.join("controls")).data_store_identifier([118,105,98,101,122,52,0,0,0,0,0,0,0,0,0,1])
+        .on_navigation(policy::local_url).on_new_window(|_, _| NewWindowResponse::Deny).build().map_err(err)?;
+    Ok(())
+}
+#[tauri::command]
+async fn show_settings(webview: Webview, app: AppHandle) -> Result<(), String> { require_local(&webview)?; open_settings(&app).await }
+#[tauri::command]
+async fn save_settings(webview: Webview, app: AppHandle, patch: settings_store::Patch, expected: settings_store::Patch) -> Result<Value, String> {
+    require_local(&webview)?;
+    if patch.auto_updates == Some(true) { return Err("Automatic updates are off in this local test version".into()); }
+    let state = app.state::<PreviewState>();
+    // Serializes the entire read/compare/side-effect/write/commit transaction.
+    let gate = state.save_gate.lock().await;
+    let previous = state.settings.lock().map_err(err)?.clone();
+    let settings = patch.apply(&expected, &previous)?;
+    if settings.close_to_tray && !state.tray_ready.load(Ordering::Relaxed) { return Err("tray_unavailable".into()); }
+    let autostart_changed = settings.start_at_login != previous.start_at_login;
+    let zoom_changed = settings.zoom_factor != previous.zoom_factor;
+    if autostart_changed {
+        if settings.start_at_login { app.autolaunch().enable().map_err(err)?; }
+        else { app.autolaunch().disable().map_err(err)?; }
+    }
+    let result = (|| {
+        if zoom_changed { app.get_webview("vibe").ok_or("Vibe view is not ready")?.set_zoom(settings.zoom_factor).map_err(err)?; }
+        settings_store::write(&state.file, &settings)
+    })();
+    if let Err(error) = result {
+        if autostart_changed {
+            if previous.start_at_login { let _ = app.autolaunch().enable(); } else { let _ = app.autolaunch().disable(); }
+        }
+        if zoom_changed { if let Some(v) = app.get_webview("vibe") { let _ = v.set_zoom(previous.zoom_factor); } }
+        return Err(error);
+    }
+    let revision = {
+        let mut current = state.settings.lock().map_err(err)?;
+        *current = settings.clone(); state.revision.fetch_add(1, Ordering::SeqCst) + 1
+    };
+    let language_changed = settings.language != previous.language;
+    drop(gate);
+    saved_message(&app);
+    if language_changed { site_language::request(&app); }
+    if let Err(error) = desktop_ui::refresh(&app) { message(&app, format!("Menu update failed: {error}")); }
+    Ok(json!({"settings": settings, "revision": revision}))
+}
+#[tauri::command]
+async fn close_settings(webview: Webview) -> Result<(), String> {
+    require_local(&webview)?;
+    if webview.label() != "settings" { return Err("Only settings can close itself".into()); }
+    webview.window().close().map_err(err)
+}
+async fn take_screenshot(app: &AppHandle) -> Result<(), String> {
+    screenshot_dialog::open(app).await
+}
+#[tauri::command]
+async fn capture_screenshot(webview: Webview, app: AppHandle, mode: String, paste: Option<bool>) -> Result<Value, String> {
+    require_local(&webview)?;
+    if webview.label() != "screenshot" { return Err("Use the screenshot dialog".into()); }
+    screenshot_dialog::capture(&app, &mode, paste.unwrap_or(false)).await
+}
+#[tauri::command]
+async fn show_screenshot(webview: Webview, app: AppHandle) -> Result<(), String> {
+    require_local(&webview)?; screenshot_dialog::open(&app).await
+}
+#[tauri::command]
+async fn screenshot_action(webview: Webview, app: AppHandle, action: String) -> Result<Value, String> {
+    require_local(&webview)?;
+    if webview.label() != "screenshot" { return Err("Use the screenshot dialog".into()); }
+    screenshot_dialog::action(&app, &action).await
+}
+#[tauri::command]
+async fn check_for_updates(webview: Webview, app: AppHandle) -> Result<(), String> {
+    require_local(&webview)?;
+    preview_updates::check(app, true);
+    Ok(())
+}
+#[tauri::command]
+async fn update_state(webview:Webview)->Result<Value,String>{
+    require_local(&webview)?;
+    if webview.label()!="updates"{return Err("Use the local update window".into());}
+    preview_updates::snapshot()
+}
+#[tauri::command]
+async fn update_action(webview:Webview,app:AppHandle,action:String,name:Option<String>)->Result<Value,String>{
+    require_local(&webview)?;
+    if webview.label()!="updates"{return Err("Use the local update window".into());}
+    preview_updates::action(&app,&action,name).await
+}
+#[tauri::command]
+async fn get_diagnostics(webview: Webview, app: AppHandle) -> Result<String, String> {
+    require_local(&webview)?;
+    let (engine, os_name, session, desktop, update_text) = if cfg!(target_os = "windows") {
+        ("Tauri 2 / Microsoft WebView2", "Windows", String::new(), String::new(),
+         "Updates: automatic startup checks; Microsoft Store delivery is used for Store installs")
+    } else if cfg!(target_os = "macos") {
+        ("Tauri 2 / Apple WKWebView", "macOS", String::new(), String::new(), "Updates: automatic startup checks; installation remains user-confirmed")
+    } else {
+        ("Tauri 2 / system WebKitGTK", "Linux", std::env::var("XDG_SESSION_TYPE").unwrap_or_default(),
+         std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default(),
+         "Updates: automatic startup checks; installation remains user-confirmed")
+    };
+    let auth_mode = auth::active(&app);
+    let auto_updates = app.state::<PreviewState>().settings.lock().map(|s| s.auto_updates).unwrap_or(false);
+    let site_language = site_language::inspect(&app).await;
+    #[cfg(target_os = "linux")]
+    let rich_status = if let Some(view) = app.get_webview("vibe") {
+        format!("\nLinux conversation rendering: {}", rich_render::diagnostics(&view).await)
+    } else { "\nLinux conversation rendering: unavailable".into() };
+    #[cfg(not(target_os = "linux"))]
+    let rich_status = String::new();
+    Ok(format!("{}\nApplication ID: {}\nEngine: {}\nOS: {} {}\nSystem/UI locale: {}\nSession: {}\nDesktop: {}\nConfig: {}\nData: {}\n{}\nAutomatic update checks: {}; downloads: in-app with SHA-256 verification; automatic installation: disabled\nMicrophone/camera: not enabled in this version\nGlobal shortcut: not registered (does not conflict with other VibeZ versions)\nSign-in popups: related webview; provider restrictions still apply\nAuthentication routing mode: {}\nMistral site language: {}{}\nAutomatic JS link interception: disabled\nRecent navigation (origins only, no credentials or tokens):\n{}\nLink routing (current process, origins only):\n{}",
+        title(), APP_ID, engine, os_name, std::env::consts::ARCH, os_locale(), session, desktop,
+        app.path().app_config_dir().map_err(err)?.display(), app.path().app_data_dir().map_err(err)?.display(),
+        update_text, if auto_updates { "enabled" } else { "disabled" }, if auth_mode { "active" } else { "inactive" }, site_language, rich_status, auth::diagnostics(), link_trace::diagnostics()))
+}
+fn create_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> { desktop_ui::create_tray(app) }
+/// Require an explicit mode and a dedicated, existing profile before starting
+/// the synthetic harness. This check runs before the single-instance plugin.
+#[cfg(target_os = "linux")]
+fn rich_test_mode() -> Result<Option<String>, String> {
+    if !std::env::args().any(|a| a == "--rich-offline-test") { return Ok(None); }
+    let mode = std::env::var("VIBEZ_RICH_TEST_MODE").map_err(|_| "Rich test mode is required")?;
+    if !matches!(mode.as_str(), "lifecycle" | "resize" | "wheel" | "fullscreen" | "mistral") {
+        return Err("Unknown rich test mode".into());
+    }
+    let profile = PathBuf::from(std::env::var("VIBEZ_RICH_TEST_PROFILE").map_err(|_| "An isolated rich test profile is required")?);
+    if !profile.is_absolute() { return Err("Rich test profile must be absolute".into()); }
+    let root = profile.canonicalize().map_err(err)?;
+    for key in ["XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME"] {
+        let path = PathBuf::from(std::env::var(key).map_err(|_| format!("{key} is required for the offline test"))?);
+        let path = path.canonicalize().map_err(err)?;
+        if path == root || !path.starts_with(&root) {
+            return Err(format!("{key} must be a directory inside the isolated rich test profile"));
+        }
+    }
+    // D-Bus single-instance names do not depend on the XDG profile. A separate
+    // session bus prevents test startup from activating a user's live client.
+    if std::env::var_os("VIBEZ_RICH_TEST_BUS").is_none() {
+        return Err("Run rich tests through the isolated session launcher".into());
+    }
+    Ok(Some(mode))
+}
+fn main() {
+    #[cfg(target_os = "linux")]
+    if let Some(result) = update_install::appimage::run_helper() {
+        if let Err(error) = result { eprintln!("Update handoff failed: {error}"); std::process::exit(1); }
+        return;
+    }
+    if std::env::args().any(|a| a == "--version") { println!("{}", title()); return; }
+    #[cfg(target_os = "linux")]
+    let rich_test = rich_test_mode().unwrap_or_else(|error| { eprintln!("Offline test refused: {error}"); std::process::exit(2); });
+    #[cfg(not(target_os = "linux"))]
+    let rich_test: Option<String> = None;
+    let link_probe_only = std::env::args().any(|a| a == "--link-probe-only");
+    let icon_probe = std::env::args().any(|a| a == "--icon-smoke-test");
+    let screenshot_ui_test = std::env::args().any(|a| a == "--screenshot-ui-test");
+    #[cfg(feature = "native-smoke")]
+    let workspace_smoke = std::env::args().any(|a| a == "--workspace-smoke-test");
+    #[cfg(not(feature = "native-smoke"))]
+    let workspace_smoke = false;
+    let smoke = workspace_smoke || rich_test.is_some() || screenshot_ui_test || icon_probe || link_probe_only || std::env::args().any(|a| a == "--smoke-test");
+    let single_instance=tauri_plugin_single_instance::Builder::new().callback(|app, _, _| show_main(app));
+    #[cfg(feature="native-smoke")]
+    let single_instance=if workspace_smoke { single_instance.dbus_id("nl.lecomputeur.vibez4.test.NativeVerification") } else { single_instance };
+    let app = tauri::Builder::default()
+        .manage(workspace::Bridge::default())
+        .plugin(single_instance.build())
+        .plugin(tauri_plugin_opener::Builder::new().open_js_links_on_click(false).build())
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_autostart::Builder::new().app_name(APP_NAME).arg("--hidden").build())
+        .invoke_handler(tauri::generate_handler![get_state, navigate, show_settings, save_settings, close_settings, capture_screenshot, show_screenshot, screenshot_action, check_for_updates, update_state, update_action, get_diagnostics, workspace::workspace_hide, workspace::show_workspace, workspace::workspace_command, workspace::workspace_choose_folder, workspace::workspace_open_login])
+        .setup(move |app| {
+            #[cfg(target_os = "linux")]
+            linux_identity::initialize().map_err(std::io::Error::other)?;
+            let config = app.path().app_config_dir()?; let data = app.path().app_data_dir()?;
+            for dir in [&config, &data] {
+                fs::create_dir_all(dir)?;
+                #[cfg(unix)] { use std::os::unix::fs::PermissionsExt; fs::set_permissions(dir, fs::Permissions::from_mode(0o700))?; }
+            }
+            let file = config.join("settings.json");
+            let loaded = settings_store::read(&file).map_err(std::io::Error::other)?;
+            let mut settings = loaded.settings;
+            settings.auto_updates = false; // Local test builds never use the v3 update channel.
+            app.manage(PreviewState { settings: Mutex::new(settings.clone()), file,
+                status: Mutex::new(status::Status::persistent(if loaded.recovered { "settings_recovered" } else { "" })),
+                revision: AtomicU64::new(0), save_gate: tokio::sync::Mutex::new(()),
+                site_language: site_language::LanguageState::default(), auth_started: Mutex::new(None),
+                capture_busy: AtomicBool::new(false), tray_ready: AtomicBool::new(false), shell_ready: AtomicBool::new(false),
+                auth_active: AtomicBool::new(false), smoke });
+            let window = tauri::window::WindowBuilder::new(app, "main")
+                .title(title()).inner_size(1280., 840.).min_inner_size(760., 560.).visible(false)
+                .icon(tauri::image::Image::from_bytes(include_bytes!("../icons/128x128.png"))?)?.build()?;
+            #[cfg(target_os = "linux")]
+            linux_identity::prepare_window(&window).map_err(std::io::Error::other)?;
+            #[cfg(target_os = "linux")]
+            if rich_test.is_some() { native_layout::place_offline_test(app.handle()).map_err(std::io::Error::other)?; }
+            let controls = WebviewBuilder::new("shell", WebviewUrl::App("index.html".into()))
+                .data_directory(data.join("controls")).data_store_identifier([118,105,98,101,122,52,0,0,0,0,0,0,0,0,0,1]).on_navigation(policy::local_url).on_new_window(|_, _| NewWindowResponse::Deny);
+            window.add_child(controls, LogicalPosition::new(0., 0.), LogicalSize::new(1280., TOOLBAR_HEIGHT))?;
+            #[cfg(not(target_os = "linux"))]
+            let handle = app.handle().clone();
+            let popup_handle = app.handle().clone();
+            let content_url = if smoke { WebviewUrl::App("offline.html".into()) } else { WebviewUrl::External("about:blank".parse()?) };
+            let content = WebviewBuilder::new("vibe", content_url)
+                .data_directory(data.join("webview")).data_store_identifier([118,105,98,101,122,52,0,0,0,0,0,0,0,0,0,2]).disable_drag_drop_handler()
+                .on_permission_request(|_, _| PermissionResponse::Deny)
+                .on_navigation(move |url| {
+                    #[cfg(target_os = "linux")]
+                    { let _ = url; true } // Native policy gate has frame/gesture metadata.
+                    #[cfg(not(target_os = "linux"))]
+                    {
+                    if url.as_str() == "about:blank" && handle.state::<PreviewState>().site_language.bootstrap.load(Ordering::SeqCst) { return true; }
+                    if smoke && policy::local_url(url) { link_trace::record("main-allow-local-test", url); return true; }
+                    if policy::auth_entry_url(url) { auth::begin(&handle); }
+                    if auth::active(&handle) && policy::auth_chain_url(url) {
+                        if policy::auth_return_url(url) { auth::end(&handle); link_trace::record("auth-mode-end", url); }
+                        link_trace::record("main-auth-allow", url); return true;
+                    }
+                    if policy::embedded_url(url) { link_trace::record("main-allow", url); return true; }
+                    if policy::external_url(url) {
+                        link_trace::record("main-open-external", url);
+                        if handle.opener().open_url(url.as_str(), None::<&str>).is_err() {
+                            link_trace::record("main-external-failed", url);
+                            message(&handle, "Could not open the external link in your browser.");
+                        }
+                    } else { link_trace::record("main-block", url); }
+                    false
+                    }
+                })
+                .on_page_load(|view, payload| {
+                    let finished = matches!(payload.event(), tauri::webview::PageLoadEvent::Finished);
+                    link_trace::record(if finished { "main-load-finished" } else { "main-load-started" }, payload.url());
+                    auth::page(payload.url(), finished);
+                    site_language::loaded(view.app_handle(), payload.url(), finished);
+                    #[cfg(target_os = "linux")]
+                    if finished { rich_render::loaded(&view); }
+                })
+                .on_new_window(move |url, features| {
+                    link_trace::record("main-popup-request", &url);
+                    let target = url.clone(); let response = auth::new_window(&popup_handle, url, features);
+                    let created = matches!(&response, NewWindowResponse::Create { .. });
+                    link_trace::record(if created { "main-popup-created" } else { "main-popup-not-created" }, &target); response
+                });
+            let vibe = window.add_child(content, LogicalPosition::new(0., TOOLBAR_HEIGHT), LogicalSize::new(1280., 840. - TOOLBAR_HEIGHT))?;
+            #[cfg(target_os = "linux")]
+            vibe.with_webview(|platform| {
+                if let Some(settings) = platform.inner().settings() {
+                    // Native wheel animation repaints large conversations on
+                    // every frame. Keep wheel scrolling immediate on Linux.
+                    settings.set_enable_smooth_scrolling(false);
+                }
+            })?;
+            #[cfg(target_os = "linux")]
+            linux_navigation::attach_main(app.handle(), &vibe).map_err(std::io::Error::other)?;
+            auth::attach_errors(app.handle(), &vibe).map_err(std::io::Error::other)?;
+            #[cfg(target_os = "linux")]
+            native_find::attach(app.handle(), &vibe).map_err(std::io::Error::other)?;
+            vibe.set_zoom(settings.zoom_factor)?;
+            // Prepare language on a neutral page; no delayed redirect during OAuth.
+            if !smoke { site_language::request(app.handle()); }
+            layout(app.handle()).map_err(std::io::Error::other)?;
+            if !smoke || icon_probe {
+                match create_tray(app.handle()) {
+                    Ok(()) => app.state::<PreviewState>().tray_ready.store(true, Ordering::Relaxed),
+                    Err(error) => message(app.handle(), format!("Tray unavailable: {error}")),
+                }
+            }
+            // Visibility is an explicit startup decision, never a layout side effect.
+            let start_hidden = !smoke && std::env::args().any(|a| a == "--hidden")
+                && app.state::<PreviewState>().tray_ready.load(Ordering::Relaxed);
+            if !start_hidden { window.show()?; }
+            if !smoke { preview_updates::schedule(app.handle().clone()); }
+            // The external icon probe inspects a real, offline running app.
+            #[cfg(target_os = "linux")]
+            if let Some(mode) = rich_test.as_deref() { rich_offline_probe::start(app.handle().clone(), mode); }
+            if smoke && !workspace_smoke && rich_test.is_none() && !icon_probe && !screenshot_ui_test { link_probe::start(app.handle().clone(), link_probe_only); }
+            #[cfg(feature = "native-smoke")]
+            if workspace_smoke { workspace::smoke_from_toolbar(app.handle()); }
+            if screenshot_ui_test {
+                let handle=app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                    if let Some(view)=handle.get_webview("vibe") {
+                        let _=view.eval(include_str!("screenshot_fixture.js"));
+                        if let Ok(dir)=std::env::var("SHOT_OUTPUT") {
+                            for _ in 0..1000 {
+                                tokio::time::sleep(std::time::Duration::from_millis(120)).await;
+                                if let Ok(value)=screenshots::eval_value(&view,"JSON.stringify(window.__shotPasteEvents || [])").await {
+                                    let target=std::path::Path::new(&dir).join("paste-events.json");
+                                    let temporary=target.with_extension("tmp");
+                                    let _=std::fs::write(&temporary,value);
+                                    let _=std::fs::rename(temporary,target);
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            Ok(())
+        })
+        .on_window_event(|window, event| {
+            if window.label() == "workspace-login" {
+                if matches!(event,tauri::WindowEvent::CloseRequested{..}) { workspace::login_closed(window.app_handle()); }
+                return;
+            }
+            if window.label() == "workspace" {
+                if matches!(event, tauri::WindowEvent::Destroyed) { workspace::stop_engine(window.app_handle()); }
+                return;
+            }
+            if window.label() == "screenshot" {
+                if matches!(event, tauri::WindowEvent::CloseRequested { .. }) {
+                    screenshots::cancel_active(window.app_handle()); screenshot_dialog::clear();
+                }
+                return;
+            }
+            if window.label() != "main" { return; }
+            let app = window.app_handle();
+            match event {
+                tauri::WindowEvent::Resized(_) | tauri::WindowEvent::ScaleFactorChanged { .. } => { if let Err(e) = layout(app) { message(app, e); } },
+                tauri::WindowEvent::CloseRequested { api, .. } => {
+                    let state = app.state::<PreviewState>();
+                    let hide = state.settings.lock().map(|s| s.close_to_tray).unwrap_or(false) && state.tray_ready.load(Ordering::Relaxed) && !state.smoke;
+                    if hide { api.prevent_close(); let _ = window.hide(); } else { app.exit(0); }
+                },
+                _ => (),
+            }
+        })
+        .build(tauri::generate_context!()).expect("VibeZ 4 Test could not start");
+    app.run(|app,event| {
+        if matches!(event,tauri::RunEvent::ExitRequested{..}|tauri::RunEvent::Exit) { workspace::stop_engine(app); }
+    });
+}

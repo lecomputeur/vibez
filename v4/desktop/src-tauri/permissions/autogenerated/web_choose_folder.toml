@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-web-choose-folder"
+description = "Enables the web_choose_folder command without any pre-configured scope."
+commands.allow = ["web_choose_folder"]
+
+[[permission]]
+identifier = "deny-web-choose-folder"
+description = "Denies the web_choose_folder command without any pre-configured scope."
+commands.deny = ["web_choose_folder"]

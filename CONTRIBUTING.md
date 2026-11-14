@@ -9,7 +9,7 @@ Testing, clear bug reports, wording suggestions and code all help. You do not ne
 | Report something broken | [Open a bug report](https://github.com/lecomputeur/vibez/issues/new/choose) |
 | Suggest a feature or discuss a change | [Ideas](https://github.com/lecomputeur/vibez/discussions/categories/ideas) |
 | Ask how something works | [Questions and answers](https://github.com/lecomputeur/vibez/discussions/categories/q-a) |
-| Help test V4 Alpha | [The V4 testing discussion](https://github.com/lecomputeur/vibez/discussions/56) |
+| Help test V4 Beta | [The V4 testing discussion](https://github.com/lecomputeur/vibez/discussions/56) |
 | Improve a translation | [Start a wording discussion](https://github.com/lecomputeur/vibez/discussions/new?category=ideas) with the language, current wording and your suggestion |
 | Contribute code or documentation | Read [Code and documentation](#code-and-documentation), then [open a pull request](https://github.com/lecomputeur/vibez/compare) |
 
@@ -17,7 +17,7 @@ English makes reports easier to share, but your own language is welcome. Please 
 
 ## Test a release
 
-Use an installer linked from the [published releases](https://github.com/lecomputeur/vibez/releases), and record its full version. V4 Alpha installs separately from stable VibeZ 3.0.9. Start with copies of files in a temporary folder.
+Use an installer linked from the [published releases](https://github.com/lecomputeur/vibez/releases), and record its full version. V4 Beta installs separately from VibeZ 3 and never changes it. Start with copies of files in a temporary folder.
 
 Useful checks include choosing or creating a folder, connecting it to a project or conversation, switching between them, reading a file, approving or refusing an edit, and downloading a generated file. Include whether you were using Work or Code. A result on one system does not establish that every other system works.
 
@@ -49,13 +49,19 @@ A proposed fix is not automatically a released fix. Please confirm again using t
 
 ## Code and documentation
 
-**Check the version before changing code.** The public [`desktop/`](desktop/) source is VibeZ 3. The V4 Alpha implementation is currently maintained separately and is not included in GitHub's automatic “Source code” downloads for Alpha releases.
+**Check the version before changing code.** This repository holds two apps side by side:
 
-- **Public V3 code, website or documentation:** fork this repository, create a focused branch and open a pull request against `main`. Link the related issue and describe what changed and how you checked it. For a larger change, discuss it in an issue first.
-- **V4 implementation:** describe the proposed change in an issue before starting. The maintainer can clarify the correct source and review route. Opening an issue does not grant access to private code. A patch to the public V3 source is not automatically a V4 patch.
+| Folder | App |
+|---|---|
+| [`v4/`](v4/) | VibeZ V4 (beta): Rust/Tauri app with a Python file connector. Build and test steps are in [`v4/README.md`](v4/README.md). |
+| [`desktop/`](desktop/) | VibeZ 3, the stable app. |
+
+- **How a contribution works:** fork this repository, create a focused branch and open a pull request against `main`. Link the related issue and describe what changed and how you checked it. For a larger change, discuss it in an issue first. The **V4 tests** workflow runs the Node, Python and Rust tests for every pull request that touches `v4/`; it needs no secrets. The maintainer reviews, merges and later ships the change in a signed release.
+- **V4 rules:** a new V4 source file must be added to `v4/management/source-files.json` and to the allowlist in `v4/.gitignore`. User-facing technical messages are in English and translated through the existing catalogs. Never commit keys, tokens, account data or personal project IDs; the live self-test reads its test projects from an untracked local file.
+- **V3 and V4 are separate:** a patch to `desktop/` (V3) is not a V4 patch, and the other way round.
 - **Wording or translations:** you can suggest the existing text and replacement in a discussion; no coding tools are needed. Say whether the text is in VibeZ or on Mistral's website, because Mistral controls its own translations.
 
-For public V3 desktop changes, install the native Tauri prerequisites for your OS, then run:
+For VibeZ 3 desktop changes, install the native Tauri prerequisites for your OS, then run:
 
 ```sh
 cd desktop

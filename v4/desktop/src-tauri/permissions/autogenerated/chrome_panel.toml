@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-chrome-panel"
+description = "Enables the chrome_panel command without any pre-configured scope."
+commands.allow = ["chrome_panel"]
+
+[[permission]]
+identifier = "deny-chrome-panel"
+description = "Denies the chrome_panel command without any pre-configured scope."
+commands.deny = ["chrome_panel"]

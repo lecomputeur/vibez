@@ -7,11 +7,9 @@ Describe the problem and the resulting behaviour. Link the related issue or disc
 Which public source version or documentation does this change apply to?
 
 <!--
-The public desktop/ tree currently contains VibeZ 3. The separate V4 Alpha
-implementation is not in this repository's source archives. For V4 implementation
-work, first agree the exact accessible source and base branch in an issue.
-Documentation, reproducible reports and testing are welcome for both versions.
-Do not attach private V4 source, account data or signing keys to this pull request.
+v4/ is VibeZ V4 (beta); desktop/ is VibeZ 3. Say which one this changes.
+New V4 source files also go in v4/management/source-files.json and v4/.gitignore.
+Do not attach account data, personal project IDs or signing keys to this pull request.
 -->
 
 ## Validation

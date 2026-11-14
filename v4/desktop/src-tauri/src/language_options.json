@@ -1,0 +1,138 @@
+[
+  {
+    "code": "system",
+    "name": "System"
+  },
+  {
+    "code": "en",
+    "name": "English"
+  },
+  {
+    "code": "nl",
+    "name": "Nederlands"
+  },
+  {
+    "code": "de",
+    "name": "Deutsch"
+  },
+  {
+    "code": "fr",
+    "name": "Français"
+  },
+  {
+    "code": "es",
+    "name": "Español"
+  },
+  {
+    "code": "it",
+    "name": "Italiano"
+  },
+  {
+    "code": "pt",
+    "name": "Português"
+  },
+  {
+    "code": "pl",
+    "name": "Polski"
+  },
+  {
+    "code": "uk",
+    "name": "Українська"
+  },
+  {
+    "code": "tr",
+    "name": "Türkçe"
+  },
+  {
+    "code": "zh-CN",
+    "name": "简体中文"
+  },
+  {
+    "code": "zh-TW",
+    "name": "繁體中文"
+  },
+  {
+    "code": "ja",
+    "name": "日本語"
+  },
+  {
+    "code": "ko",
+    "name": "한국어"
+  },
+  {
+    "code": "hi",
+    "name": "हिन्दी"
+  },
+  {
+    "code": "bn",
+    "name": "বাংলা"
+  },
+  {
+    "code": "pa",
+    "name": "ਪੰਜਾਬੀ"
+  },
+  {
+    "code": "mr",
+    "name": "मराठी"
+  },
+  {
+    "code": "te",
+    "name": "తెలుగు"
+  },
+  {
+    "code": "ta",
+    "name": "தமிழ்"
+  },
+  {
+    "code": "gu",
+    "name": "ગુજરાતી"
+  },
+  {
+    "code": "id",
+    "name": "Bahasa Indonesia"
+  },
+  {
+    "code": "vi",
+    "name": "Tiếng Việt"
+  },
+  {
+    "code": "th",
+    "name": "ไทย"
+  },
+  {
+    "code": "fil",
+    "name": "Filipino"
+  },
+  {
+    "code": "jv",
+    "name": "Basa Jawa"
+  },
+  {
+    "code": "sw",
+    "name": "Kiswahili"
+  },
+  {
+    "code": "ha",
+    "name": "Hausa"
+  },
+  {
+    "code": "am",
+    "name": "አማርኛ"
+  },
+  {
+    "code": "ar",
+    "name": "العربية"
+  },
+  {
+    "code": "he",
+    "name": "עברית"
+  },
+  {
+    "code": "fa",
+    "name": "فارسی"
+  },
+  {
+    "code": "ur",
+    "name": "اردو"
+  }
+]

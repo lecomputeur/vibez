@@ -109,7 +109,7 @@ Automated native probes are offline tests. They are not a claim that every live 
 
 ## Build, contribute, make it better
 
-Start with [CONTRIBUTING.md](CONTRIBUTING.md) to choose the right route and version. The public VibeZ 3 application lives in [`desktop/`](desktop/); V4 is maintained separately. The original root JavaScript/package files retain the Electron 2.x source, and [`tauri-preview/`](tauri-preview/) retains the preview history.
+Start with [CONTRIBUTING.md](CONTRIBUTING.md) to choose the right route and version. VibeZ V4 lives in [`v4/`](v4/) (build and test steps in [`v4/README.md`](v4/README.md)); the VibeZ 3 application lives in [`desktop/`](desktop/). The original root JavaScript/package files retain the Electron 2.x source, and [`tauri-preview/`](tauri-preview/) retains the preview history.
 
 ```sh
 cd desktop

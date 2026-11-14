@@ -1,0 +1,12 @@
+[Unit]
+Description=Check VibeZ V4 Alpha updates
+
+[Timer]
+OnBootSec=3min
+OnUnitInactiveSec=5min
+RandomizedDelaySec=30s
+Persistent=true
+Unit=vibez4-alpha-update.service
+
+[Install]
+WantedBy=timers.target

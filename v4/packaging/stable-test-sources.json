@@ -1,0 +1,7 @@
+{
+  "windows_msi": {
+    "url": "https://github.com/lecomputeur/vibez/releases/download/v3.0.9/VibeZ-3.0.9-Windows-x64.msi",
+    "sha256": "e0348d56a65ad8c1c27358982605357fb98991a0132f6010d282bd01763a706f",
+    "size": 7184384
+  }
+}

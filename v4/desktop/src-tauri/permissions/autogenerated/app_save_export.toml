@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-app-save-export"
+description = "Enables the app_save_export command without any pre-configured scope."
+commands.allow = ["app_save_export"]
+
+[[permission]]
+identifier = "deny-app-save-export"
+description = "Denies the app_save_export command without any pre-configured scope."
+commands.deny = ["app_save_export"]

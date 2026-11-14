@@ -1,0 +1,1 @@
+{"identifier":"local-updates","description":"Only the bundled local update window can download a validated offered artifact or open its verified file. No arbitrary URLs or paths.","local":true,"webviews":["updates"],"permissions":["allow-get-state","allow-update-state","allow-update-action"]}

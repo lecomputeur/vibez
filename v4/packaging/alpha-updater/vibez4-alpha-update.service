@@ -1,0 +1,16 @@
+[Unit]
+Description=VibeZ V4 Alpha updates
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/bin/python3 -I /usr/lib/vibez4-alpha-updater/update.py
+StateDirectory=vibez4-alpha-updater
+StateDirectoryMode=0755
+PrivateTmp=true
+ProtectHome=true
+NoNewPrivileges=true
+UMask=0022
+TimeoutStartSec=15min

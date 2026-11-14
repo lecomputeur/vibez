@@ -1,0 +1,2 @@
+# Preserve the exact tested Alpha15 bytes when committing and checking out.
+* -text
