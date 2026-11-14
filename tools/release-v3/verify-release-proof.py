@@ -16,6 +16,7 @@ RELEASES = {
     '3.0.7': ('.github/workflows/v3.0.7-validation.yml', 'vibe/linux-rich-render-307'),
     '3.0.9': ('.github/workflows/v3.0.9-validation.yml', 'release/v3.0.9-20261021'),
     '3.0.8': ('.github/workflows/v3.0.8-validation.yml', 'vibe/linux-turnstile-308-b46e90'),
+    '3.1.0': ('.github/workflows/v3.1.0-validation.yml', 'release/v3.1.0-20261114'),
 }
 NAMES = {
     'Track v3 source and freeze dependencies', 'Dependency security gate',
@@ -63,7 +64,7 @@ def proof_path(version):
 
 def required_steps(version):
     required = {name: list(steps) for name, steps in REQUIRED_STEPS.items()}
-    if version in ('3.0.7', '3.0.8', '3.0.9'):
+    if version in ('3.0.7', '3.0.8', '3.0.9', '3.1.0'):
         required.update({
             'Track v3 source and freeze dependencies': [f'Verify immutable {version} build inputs'],
             'Linux — AppImage, DEB and RPM': [
@@ -77,9 +78,9 @@ def required_steps(version):
             'Linux — Arch/Pacman': ['Build and verify Arch/Pacman package'],
             'Linux — Flatpak': ['Build and verify Flatpak package'],
         })
-    if version in ('3.0.8', '3.0.9'):
+    if version in ('3.0.8', '3.0.9', '3.1.0'):
         required['Linux — AppImage, DEB and RPM'].append('Native Cloudflare frame and popup routing regression')
-    if version == '3.0.9':
+    if version in ('3.0.9', '3.1.0'):
         required['Linux — AppImage, DEB and RPM'].append('Native structural navigation, auth boundary, chart pixels and Wry lifecycle')
         for arch in ('x64', 'arm64'):
             required[f'macOS — {arch} signed DMG and ZIP'].append('Verify native Mac architecture and macOS 14 deployment minimum')

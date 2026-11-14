@@ -30,6 +30,7 @@ mod screenshots;
 mod screenshot_dialog;
 mod update_download;
 mod update_install;
+mod v4_notice;
 #[path = "release_updates.rs"]
 mod preview_updates;
 
@@ -229,6 +230,12 @@ async fn update_action(webview:Webview,app:AppHandle,action:String,name:Option<S
     preview_updates::action(&app,&action,name).await
 }
 #[tauri::command]
+async fn v4_notice_action(webview:Webview,app:AppHandle,action:String)->Result<(),String>{
+    require_local(&webview)?;
+    if webview.label()!=v4_notice::LABEL{return Err("Use the local notice window".into());}
+    v4_notice::action(&app,&action).await
+}
+#[tauri::command]
 async fn get_diagnostics(webview: Webview, app: AppHandle) -> Result<String, String> {
     require_local(&webview)?;
     let (engine, os_name, session, desktop, update_text) = if cfg!(target_os = "windows") {
@@ -302,7 +309,7 @@ fn main() {
         .plugin(tauri_plugin_opener::Builder::new().open_js_links_on_click(false).build())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_autostart::Builder::new().app_name(APP_NAME).arg("--hidden").build())
-        .invoke_handler(tauri::generate_handler![get_state, navigate, show_settings, save_settings, close_settings, capture_screenshot, show_screenshot, screenshot_action, check_for_updates, update_state, update_action, get_diagnostics])
+        .invoke_handler(tauri::generate_handler![get_state, navigate, show_settings, save_settings, close_settings, capture_screenshot, show_screenshot, screenshot_action, check_for_updates, update_state, update_action, v4_notice_action, get_diagnostics])
         .setup(move |app| {
             #[cfg(target_os = "linux")]
             linux_identity::initialize().map_err(std::io::Error::other)?;
@@ -403,6 +410,7 @@ fn main() {
                 && app.state::<PreviewState>().tray_ready.load(Ordering::Relaxed);
             if !start_hidden { window.show()?; }
             if !smoke { preview_updates::schedule(app.handle().clone()); }
+            if !smoke && !start_hidden { v4_notice::schedule(app.handle().clone()); }
             // The external icon probe inspects a real, offline running app.
             #[cfg(target_os = "linux")]
             if let Some(mode) = rich_test.as_deref() { rich_offline_probe::start(app.handle().clone(), mode); }
