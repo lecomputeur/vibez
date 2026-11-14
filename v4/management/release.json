@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "version": "4.0.0-beta.3",
+  "stage": "development",
+  "installed_version": "4.0.0-alpha.26",
+  "published_version": "4.0.0-beta.3",
+  "stable_version": "3.0.9",
+  "channel": "v4-alpha",
+  "source_private": true,
+  "replace_published_assets": false,
+  "formats": {
+    "linux-x64": [
+      "AppImage",
+      "deb",
+      "rpm",
+      "pkg.tar.zst",
+      "flatpak"
+    ],
+    "windows-x64": [
+      "Setup.exe",
+      "msi"
+    ],
+    "macos-x64": [
+      "dmg",
+      "app.tar.gz"
+    ],
+    "macos-arm64": [
+      "dmg",
+      "app.tar.gz"
+    ]
+  },
+  "gates": [
+    "frozen_source",
+    "native_tests",
+    "package_tests",
+    "signatures",
+    "macos_notarization",
+    "all_required_packages",
+    "maintainer_approval"
+  ],
+  "source_revision": "HEAD",
+  "required_targets": [
+    "linux-x64",
+    "windows-x64",
+    "macos-x64",
+    "macos-arm64"
+  ],
+  "changes": [
+    "The Screenshot button opens the full screenshot dialog from VibeZ 3 again: Visible page, Full page or Selection, with Paste directly into Mistral, Copy, Save PNG and New. Beta 2 only copied the page to the clipboard, and on Linux an image copied that way could not be pasted into Mistral. VibeZ now hands the image to the Mistral input field itself, so it appears there as an attachment.",
+    "The \"Selected folder\" label in the file browser now follows a language change and is translated in all languages.",
+    "A message typed before linking a folder for the first time is kept. After a new connector is set up VibeZ reloads the Mistral page so its connector list is current; this reload cleared the draft since Alpha 31. VibeZ now puts the typed text back in the input field after the reload."
+  ],
+  "related_issues": [],
+  "download_highlights": "Beta 3 brings back the full screenshot dialog: visible page, full page or a selection, pasted straight into Mistral. VibeZ 4 is the open Beta: Mistral Work and Code with your local project folders, and automatic updates from the Alpha"
+}

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>VibeZ V4 Beta</title><link rel="stylesheet" href="shell.css"><link rel="stylesheet" href="preview.css"><link rel="stylesheet" href="toolbar.css"><script src="translations.js" defer></script><script src="language.js" defer></script><script src="connection-status.js" defer></script><script src="chrome.js" defer></script></head>
+<body><header class="toolbar">
+  <div class="brand-wrap"><img class="brand-icon" src="icon.png" alt="VibeZ"><div class="brand-copy"><div class="brand-row"><span class="brand">VibeZ</span><span class="preview-badge">V4 Beta</span></div><span class="subtitle"> <span id="version">…</span></span></div></div>
+  <nav class="nav-controls" data-title-key="navigation" aria-label="Navigation">
+    <button class="icon-button" id="back" data-title-key="back" title="Back" aria-label="Back"><svg viewBox="0 0 24 24"><path d="m14 6-6 6 6 6"/></svg></button>
+    <button class="icon-button" id="forward" data-title-key="forward" title="Forward" aria-label="Forward"><svg viewBox="0 0 24 24"><path d="m10 6 6 6-6 6"/></svg></button>
+    <button class="icon-button" id="reload" data-title-key="reload" title="Reload" aria-label="Reload"><svg viewBox="0 0 24 24"><path d="M20 7v5h-5M19 12a7 7 0 1 0-2 5"/></svg></button>
+    <button class="icon-button" id="home" data-title-key="home" title="Home" aria-label="Home"><svg viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-8h6v8"/></svg></button>
+  </nav>
+  <div class="toolbar-spacer">
+    <button id="connection-indicator" class="connection-indicator" type="button" data-state="no_project" aria-expanded="false">
+      <span id="connection-project-name" class="connection-name connection-project-name" dir="auto" hidden></span>
+      <span class="connection-visual connection-diagram" aria-hidden="true">
+      <svg class="connection-globe" viewBox="0 0 28 28">
+        <circle cx="14" cy="14" r="7.5"/>
+        <path d="M6.5 14h15M14 6.5c2.5 2.5 3.333 5 3.333 7.5s-.833 5-3.333 7.5M14 6.5c-2.5 2.5-3.333 5-3.333 7.5s.833 5 3.333 7.5"/>
+      </svg>
+      <span class="connection-wire">
+        <svg class="connection-wire-svg" viewBox="0 0 100 28" preserveAspectRatio="none"><path class="connection-link" d="M5 14H95" vector-effect="non-scaling-stroke"/></svg>
+        <svg class="connection-cross" viewBox="0 0 28 28"><path d="m9.833 9.833 8.334 8.334m0-8.334-8.334 8.334"/></svg>
+      </span>
+      <svg class="connection-folder-icon" viewBox="0 0 28 28"><path class="connection-folder" d="M5.667 6.5H11.5L14 9h8.333v12.5H5.667z"/></svg>
+      </span>
+      <span id="connection-folder-name" class="connection-name connection-folder-name" dir="auto" hidden></span>
+      <span id="connection-label" class="connection-label" role="status" aria-live="polite" aria-atomic="true"></span>
+    </button>
+    <span id="status" class="preview-status" role="status"></span>
+  </div>
+  <div class="toolbar-actions">
+    <div class="language-control"><div class="toolbar-action" id="language-button" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 4 6 4 9s-1 6-4 9M12 3c-3 3-4 6-4 9s1 6 4 9"/></svg><span id="language-code">EN</span></div><select id="quick-language" data-title-key="languageButton" aria-label="Language" title="Language"></select></div>
+    <button class="toolbar-action" id="screenshot" data-title-key="screenshot" type="button" title="Screenshot"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h5l2-3h4l2 3h5v13H3z"/><circle cx="12" cy="13" r="3"/></svg><span class="action-label" data-i18n="screenshot">Screenshot</span></button>
+    <button class="toolbar-action" id="settings" aria-expanded="false" data-title-key="settings" title="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 3-1 3-3 1-2 5 2 5 3 1 1 3h6l1-3 3-1 2-5-2-5-3-1-1-3z"/><circle cx="12" cy="12" r="3"/></svg><span class="action-label" data-i18n="settings">Settings</span></button>
+  </div><div id="loading" class="loading-line"></div>
+</header></body></html>

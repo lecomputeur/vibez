@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-workspace-hide"
+description = "Enables the workspace_hide command without any pre-configured scope."
+commands.allow = ["workspace_hide"]
+
+[[permission]]
+identifier = "deny-workspace-hide"
+description = "Denies the workspace_hide command without any pre-configured scope."
+commands.deny = ["workspace_hide"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-chrome-snapshot"
+description = "Enables the chrome_snapshot command without any pre-configured scope."
+commands.allow = ["chrome_snapshot"]
+
+[[permission]]
+identifier = "deny-chrome-snapshot"
+description = "Denies the chrome_snapshot command without any pre-configured scope."
+commands.deny = ["chrome_snapshot"]

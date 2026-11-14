@@ -1,0 +1,74 @@
+name: V4 tests
+
+# Runs the VibeZ V4 test suites for every pull request and push that touches
+# v4/. It needs no secrets: signing and releases stay with the maintainer.
+on:
+  pull_request:
+    paths:
+      - 'v4/**'
+      - '.github/workflows/v4-tests.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'v4/**'
+      - '.github/workflows/v4-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v4-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: v4
+    env:
+      CARGO_TERM_COLOR: never
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: System libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential pkg-config \
+            libwebkit2gtk-4.1-dev libgtk-3-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev \
+            librsvg2-dev libayatana-appindicator3-dev libssl-dev
+      - name: Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            v4/desktop/src-tauri/target
+          key: v4-cargo-${{ runner.os }}-${{ hashFiles('v4/desktop/src-tauri/Cargo.lock') }}
+      - name: Prepare the frontend
+        working-directory: v4/desktop
+        run: |
+          npm ci --ignore-scripts
+          node scripts/prepare.cjs
+      - name: Node tests
+        working-directory: v4/desktop
+        run: node --test standalone-tests/*.test.cjs
+      - name: Python tests
+        run: |
+          python -B -X utf8 -m unittest discover -s tests/standalone
+          python -B -X utf8 -m unittest discover -s management -p 'test_*.py'
+      - name: Rust tests
+        working-directory: v4/desktop/src-tauri
+        run: cargo test --locked --bin vibez4-alpha

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-alpha-update-state"
+description = "Enables the alpha_update_state command without any pre-configured scope."
+commands.allow = ["alpha_update_state"]
+
+[[permission]]
+identifier = "deny-alpha-update-state"
+description = "Denies the alpha_update_state command without any pre-configured scope."
+commands.deny = ["alpha_update_state"]

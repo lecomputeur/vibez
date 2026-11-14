@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=VibeZ V4 Beta
+Exec=vibez4-alpha
+Icon=nl.lecomputeur.vibez4.alpha
+Categories=Development;
+Terminal=false
+StartupWMClass=nl.lecomputeur.vibez4.alpha

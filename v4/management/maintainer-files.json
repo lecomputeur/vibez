@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "scope": "Private Git history only; not the approved native build archive",
+  "files": [
+    "README.md",
+    "desktop/.gitignore",
+    "tests/session-bus.conf",
+    "tools/alpha-arch.py",
+    "tools/alpha-rpm-gui-check.py",
+    "tools/alpha-rpm-runtime-check.py",
+    "tools/alpha-rpm.py",
+    "tools/alpha_linux_payload.py",
+    "tools/check-alpha-flatpak-appstream.py",
+    "tools/finish-alpha-appimage.py",
+    "tools/package-alpha-linux.py",
+    "tools/prepare-alpha-private-build.py",
+    "tools/prepare-alpha-update-feeds.py",
+    "tools/test-alpha-appimage-startup.py",
+    "tools/test-alpha-flatpak-migration.py",
+    "tools/test-alpha-flatpak-public-origin.py",
+    "tools/test-alpha-flatpak-updates.py",
+    "tools/test-alpha-linux-updates.py",
+    "tools/test-alpha-login-window.py",
+    "tools/test-alpha-native-updater.py",
+    "tools/validate-alpha-flatpak.py",
+    "tools/windows-capfs-check.py"
+  ]
+}

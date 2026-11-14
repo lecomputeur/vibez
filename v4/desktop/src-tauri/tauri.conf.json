@@ -1,0 +1,104 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "VibeZ V4 Alpha",
+  "version": "4.0.0-beta.3",
+  "identifier": "nl.lecomputeur.vibez4.alpha",
+  "mainBinaryName": "vibez4-alpha",
+  "build": {
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "enableGTKAppId": false,
+    "windows": [],
+    "withGlobalTauri": true,
+    "security": {
+      "capabilities": [
+        "standalone",
+        "local-screenshot"
+      ],
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src ipc: http://ipc.localhost; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "deb"
+    ],
+    "category": "Development",
+    "shortDescription": "VibeZ V4 Beta: Mistral with local project folders",
+    "longDescription": "Public beta of the Mistral desktop client. Existing web conversations and one chosen local workspace per project or conversation. Changes require approval. Installed separately from VibeZ 3.0.9.",
+    "icon": [
+      "icons/128x128.png",
+      "icons/icon.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "linux": {
+      "deb": {
+        "depends": [
+          "python3 (>= 3.10)",
+          "xdg-desktop-portal",
+          "xdg-utils",
+          "ca-certificates"
+        ],
+        "recommends": [
+          "xdg-desktop-portal-gtk"
+        ],
+        "desktopTemplate": "linux/alpha.desktop.hbs",
+        "files": {
+          "/usr/share/applications/nl.lecomputeur.vibez4.alpha.desktop": "linux/nl.lecomputeur.vibez4.alpha.desktop",
+          "/usr/share/icons/hicolor/512x512/apps/nl.lecomputeur.vibez4.alpha.png": "icons/icon.png",
+          "/usr/share/pixmaps/nl.lecomputeur.vibez4.alpha.png": "icons/icon.png"
+        }
+      },
+      "appimage": {
+        "bundleMediaFramework": true
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "14.0",
+      "entitlements": "macos/Entitlements.plist"
+    },
+    "windows": {
+      "webviewInstallMode": {
+        "type": "embedBootstrapper"
+      },
+      "nsis": {
+        "languages": [
+          "English",
+          "Dutch",
+          "German",
+          "French",
+          "Spanish"
+        ],
+        "displayLanguageSelector": true,
+        "installMode": "currentUser"
+      }
+    },
+    "resources": {
+      "../../backend/workspace_engine.py": "backend/workspace_engine.py",
+      "../../backend/standalone_engine.py": "backend/standalone_engine.py",
+      "../../backend/web_connector.py": "backend/web_connector.py",
+      "../../backend/vendor/": "backend/vendor/",
+      "../../backend/automatic_connector.py": "backend/automatic_connector.py",
+      "../../backend/project_import.py": "backend/project_import.py",
+      "../../backend/multi_workspace.py": "backend/multi_workspace.py",
+      "../../backend/capfs.py": "backend/capfs.py",
+      "../../backend/document_reader.py": "backend/document_reader.py",
+      "../../backend/document_writer.py": "backend/document_writer.py"
+    },
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQyNTQ5MjNBOUYxRUE2MkEKUldRcXBoNmZPcEpVMHBuT2FqRlVicVJmcUtnWlo2RWlwYjdadmJFU1RmcVdPZnUvQ1ZSQm9ZVzQK",
+      "endpoints": [
+        "https://github.com/lecomputeur/vibez/releases/download/v4-alpha-channel/alpha.json"
+      ],
+      "requireSignedVersion": true,
+      "windows": {
+        "installMode": "quiet"
+      }
+    }
+  }
+}

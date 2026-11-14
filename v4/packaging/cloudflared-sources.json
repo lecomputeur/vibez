@@ -1,0 +1,29 @@
+{
+  "version": "2026.10.4",
+  "targets": {
+    "linux-x64": {
+      "asset": "cloudflared-linux-amd64",
+      "url": "https://github.com/cloudflare/cloudflared/releases/download/2026.10.4/cloudflared-linux-amd64",
+      "archive_sha256": "ae5e8add7884b0531d66bbca4570d1de491ff6da51e4ebe7eb160cdf241d9e42",
+      "file": "cloudflared-linux-amd64"
+    },
+    "windows-x64": {
+      "asset": "cloudflared-windows-amd64.exe",
+      "url": "https://github.com/cloudflare/cloudflared/releases/download/2026.10.4/cloudflared-windows-amd64.exe",
+      "archive_sha256": "411b16d40c8d872243efeb52c550053d00af0a8a97fbb32e730fb8aba429eaa8",
+      "file": "cloudflared-windows-amd64.exe"
+    },
+    "macos-x64": {
+      "asset": "cloudflared-darwin-amd64.tgz",
+      "url": "https://github.com/cloudflare/cloudflared/releases/download/2026.10.4/cloudflared-darwin-amd64.tgz",
+      "archive_sha256": "f11fbef4207d715892331917dafd437f032cf4b7137ed64dea3008338c1c613d",
+      "file": "cloudflared-darwin-amd64"
+    },
+    "macos-arm64": {
+      "asset": "cloudflared-darwin-arm64.tgz",
+      "url": "https://github.com/cloudflare/cloudflared/releases/download/2026.10.4/cloudflared-darwin-arm64.tgz",
+      "archive_sha256": "68b6bc4080ac1330234db2a9002d07f98b000537a1bd531a687b660d4160fa7f",
+      "file": "cloudflared-darwin-arm64"
+    }
+  }
+}

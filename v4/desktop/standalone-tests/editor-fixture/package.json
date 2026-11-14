@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "prosemirror-model": "1.25.12",
+    "prosemirror-state": "1.4.4",
+    "prosemirror-view": "1.42.9"
+  },
+  "name": "vibez-editor-test-fixture",
+  "private": true,
+  "description": "Real editor library for isolated browser regressions; not bundled with VibeZ."
+}
