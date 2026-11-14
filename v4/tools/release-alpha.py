@@ -239,6 +239,11 @@ class Release:
         self.say('planning %s from %s' % (self.args.next, current))
         if self.dry:
             return
+        # The V4 source is public; a release must contain what was merged there.
+        sync = subprocess.run([sys.executable, str(BASE / 'tools/sync-public-v4.py'), 'check'], capture_output=True, text=True)
+        if sync.returncode:
+            raise StepError('public v4/ is ahead of this tree or conflicts with it:\n' + sync.stdout.strip())
+        self.say('public v4/: ' + (sync.stdout.strip().splitlines() or ['checked'])[0].lstrip('* '))
         # The source folder has no .git; the plan needs a committed checkout,
         # so the next release's private repo starts here with today's sources.
         repo = self.private_repo(BUILD / ('release-' + tag(self.args.next)), self.dir)

@@ -46,7 +46,7 @@ Source files are allow-listed. A new source file must be added to `management/so
 
 ## Releases and signing
 
-Releases are built and signed by the maintainer with `tools/release-alpha.py` (version bump, frozen source, native CI, Linux packages, signed update feeds, draft prerelease). Signing keys, notarization credentials and the update-feed key are never in this repository; a pull request never needs them. VibeZ 3 releases are not affected by V4 releases: the VibeZ 3 updater only accepts 3.x versions.
+Releases are built and signed by the maintainer with `tools/release-alpha.py` (version bump, frozen source, native CI, Linux packages, signed update feeds, draft prerelease). The maintainer's release working tree is kept in step with this folder by `tools/sync-public-v4.py`: `pull` brings merged pull requests in (and stops when a file changed on both sides), `push --pr` offers the maintainer's own changes as a pull request, and `release-alpha.py bump` refuses to start while merged changes are missing. Signing keys, notarization credentials and the update-feed key are never in this repository; a pull request never needs them. VibeZ 3 releases are not affected by V4 releases: the VibeZ 3 updater only accepts 3.x versions.
 
 ## MCP protocol versions
 

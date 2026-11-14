@@ -6,7 +6,7 @@
   "published_version": "4.0.0-beta.3",
   "stable_version": "3.0.9",
   "channel": "v4-alpha",
-  "source_private": true,
+  "source_private": false,
   "replace_published_assets": false,
   "formats": {
     "linux-x64": [

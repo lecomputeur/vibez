@@ -113,8 +113,9 @@ def validate_release(spec):
     require(spec.get('source_revision') == 'HEAD', 'Source revision must resolve from the clean local Git HEAD')
     require(isinstance(spec.get('changes'), list) and all(isinstance(x, str) and 0 < len(x) <= 1000 for x in spec['changes']), 'Invalid release change list')
     require(isinstance(spec.get('related_issues'), list) and all(isinstance(x, int) and not isinstance(x, bool) and x > 0 for x in spec['related_issues']), 'Invalid related issue list')
-    require(spec.get('source_private') is True and spec.get('replace_published_assets') is False,
-            'Private source and published-package policy changed')
+    # Since 14 Nov 2026 the V4 source is public in lecomputeur/vibez under v4/.
+    require(spec.get('source_private') is False and spec.get('replace_published_assets') is False,
+            'Public source and published-package policy changed')
     return spec
 
 def source_paths(root):
@@ -280,10 +281,10 @@ def plan(root, next_version, output):
     proposed_spec = dict(spec, version=next_version, stage='development', changes=[], related_issues=[])
     records = [{'path': name, 'before_sha256': digest(safe_file(root, name)), 'after_sha256': digest(data)} for name, data in sorted(changed.items())]
     result = {'version': next_version, 'base_version': checked['version'], 'source_commit': commit,
-              'source_private': True, 'applied': False, 'built': False, 'published': False,
+              'source_private': False, 'applied': False, 'built': False, 'published': False,
               'changed_files': records, 'required_gates': GATES, 'formats': EXPECTED_FORMATS,
               'required_targets': list(EXPECTED_FORMATS), 'package_names': package_names(proposed_spec),
-              'instructions': 'Review these files, then copy them into the private source checkout and commit. Build only from a new frozen snapshot. Do not upload this directory to the public repository.'}
+              'instructions': 'Review these files, then copy them into the release working tree and commit. Build only from a new frozen snapshot.'}
     def producer(temp):
         for name, data in changed.items():
             p=temp/'files'/name;p.parent.mkdir(parents=True, exist_ok=True);p.write_bytes(data);p.chmod(0o600)
@@ -300,7 +301,7 @@ def snapshot(root, output):
         data=git(root, 'show', commit+':'+name)
         require(data == safe_file(root, name), 'Working source differs from its Git commit: '+name)
         content[name]=data;entries.append({'path':name,'sha256':digest(data),'size':len(data)})
-    result={'version':checked['version'],'source_commit':commit,'source_private':True,
+    result={'version':checked['version'],'source_commit':commit,'source_private':False,
             'files':entries,'source_manifest_sha256':digest(canonical(entries)),
             'built':False,'published':False,'required_gates':GATES,'formats':EXPECTED_FORMATS,
             'required_targets':list(EXPECTED_FORMATS),'package_names':package_names(load_json(root,'management/release.json')),
