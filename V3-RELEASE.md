@@ -2,7 +2,7 @@
 
 VibeZ 3.1.0 adds a one-time notice that VibeZ V4 Beta is available, plus tray-menu links to the V4 Beta, Discussions, new issues and the repository, translated into all 34 interface languages. Nothing else changed. See the [release notes](RELEASE-NOTES-3.1.0.md).
 
-The [verified 3.1.0 build](https://github.com/lecomputeur/vibez/actions/runs/43563658791) passed all nine required platform/security jobs, including native regressions, advisory checks, all twelve packages and Developer ID signing, Apple notarization and stapled-ticket validation for both Mac architectures. Frozen source: `bddc99ada0402efced6cfec6f6a85a878de87ac3`. The [release proof](tools/release-v3/release-proof-3.1.0.json) records the source and run. Windows MSIX version: **3.1.0.0**. Microsoft Store submission and certification remain separate.
+The [verified 3.1.0 build](https://github.com/lecomputeur/vibez/actions/runs/43588359115) passed all nine required platform/security jobs, including native regressions, advisory checks, all twelve packages and Developer ID signing, Apple notarization and stapled-ticket validation for both Mac architectures. Frozen source: `f7bf0719d19eaa74ab48f1283a78cb183d3eba87`. The [release proof](tools/release-v3/release-proof-3.1.0.json) records the source and run. Windows MSIX version: **3.1.0.0**. Microsoft Store submission and certification remain separate.
 
 # VibeZ 3.0.9 — Linux Canvas and verification navigation
 
