@@ -63,6 +63,9 @@ def profile_env(profile, output):
     # Ordinary startup, with update checks disabled only in our disposable profile.
     config = profile / 'config' / 'nl.lecomputeur.vibez3'
     config.mkdir(mode=0o700)
+    # The one-time 3.1 V4 Beta notice is a second own window; mark it seen so
+    # window-count checks observe only the fixture's windows.
+    (config / 'v4-beta-notice-shown').write_text('1\n')
     write(config / 'settings.json', {'schema_version': 1, 'settings': {
         'language': 'en', 'zoom_factor': 1.0, 'show_screenshot': True,
         'close_to_tray': False, 'start_at_login': False, 'auto_updates': False}})
