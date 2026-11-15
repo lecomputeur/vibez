@@ -136,19 +136,23 @@ def workflow_for(previous_text, previous, version, file_count):
 
 def release_body(spec, previous):
     changes = ''.join('- %s\n' % line for line in spec['changes'])
-    store = ('The Microsoft Store version (VibeZ Desktop V4) follows separately and is updated by the Store.' if stage_of(spec['version'])[0] == 'beta'
+    beta = stage_of(spec['version'])[0] == 'beta'
+    store = ('The Microsoft Store version (VibeZ Desktop V4) follows separately and is updated by the Store.' if beta
              else 'No MSIX is included.')
+    # The tester agreed to be thanked by username only (issue 49, 2026-11-13).
+    thanks = ('### Thanks\n\nThank you to [ActiveUser435](https://github.com/ActiveUser435) for testing nearly every Alpha in depth; those reports shaped the V4 Beta.\n\n'
+              if beta else '')
     return ('## VibeZ V4 %s\n\n**Available for Linux, Windows, Intel Mac and Apple Silicon.**\n\n'
             'The main difference from VibeZ 3 is local-folder access: keep your existing Mistral web conversations and link folders on your computer to a project or conversation. '
             'Browse those files in the right-hand panel and review proposed changes before saving them.\n\n'
             'V4 installs separately from VibeZ 3.0.9 and keeps its own profile and settings. It does not overwrite or remove 3.0.9.\n\n'
-            '### Changes since %s\n\n%s\n### Please help test V4\n\n'
+            '### Changes since %s\n\n%s\n%s### Please help test V4\n\n'
             'Try it with copies of test files. Feedback on automatic folder linking in Mistral Work, especially how long a link takes after restarting VibeZ, is very welcome. '
             'The Diagnostics window (Settings → Diagnostics) has a **Copy report** button with the step timing and connection facts, without keys or full addresses; pasting that report helps a lot.\n\n'
             '[Share feedback](https://github.com/lecomputeur/vibez/discussions/56) or [report a bug](https://github.com/lecomputeur/vibez/issues/new/choose), '
             'including your operating system, package format and exact version.\n\n'
             'Automatic updates use the separate V4 channels, apart from VibeZ 3. Use an installer for the first installation. On macOS, choose the DMG for your processor; '
-            '`.app.tar.gz` files are used by automatic updates. %s\n') % (label(spec['version']), label(previous), changes, store)
+            '`.app.tar.gz` files are used by automatic updates. %s\n') % (label(spec['version']), label(previous), changes, thanks, store)
 
 
 def source_manifest(archive):
