@@ -140,7 +140,7 @@ def release_body(spec, previous):
     store = ('The Microsoft Store version (VibeZ Desktop V4) follows separately and is updated by the Store.' if beta
              else 'No MSIX is included.')
     # The tester agreed to be thanked by username only (issue 49, 2026-11-13).
-    thanks = ('### Thanks\n\nThank you to ActiveUser435 for testing nearly every Alpha in depth; those reports shaped the V4 Beta.\n\n'
+    thanks = ('### Thanks\n\nThank you to [ActiveUser435](https://github.com/ActiveUser435) for testing nearly every Alpha in depth; those reports shaped the V4 Beta.\n\n'
               if beta else '')
     return ('## VibeZ V4 %s\n\n**Available for Linux, Windows, Intel Mac and Apple Silicon.**\n\n'
             'The main difference from VibeZ 3 is local-folder access: keep your existing Mistral web conversations and link folders on your computer to a project or conversation. '
