@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "version": "4.0.0-beta.3",
+  "version": "4.0.0-beta.4",
   "stage": "development",
   "installed_version": "4.0.0-alpha.26",
-  "published_version": "4.0.0-beta.3",
+  "published_version": "4.0.0-beta.4",
   "stable_version": "3.0.9",
   "channel": "v4-alpha",
   "source_private": false,
@@ -46,10 +46,14 @@
     "macos-arm64"
   ],
   "changes": [
-    "The Screenshot button opens the full screenshot dialog from VibeZ 3 again: Visible page, Full page or Selection, with Paste directly into Mistral, Copy, Save PNG and New. Beta 2 only copied the page to the clipboard, and on Linux an image copied that way could not be pasted into Mistral. VibeZ now hands the image to the Mistral input field itself, so it appears there as an attachment.",
-    "The \"Selected folder\" label in the file browser now follows a language change and is translated in all languages.",
-    "A message typed before linking a folder for the first time is kept. After a new connector is set up VibeZ reloads the Mistral page so its connector list is current; this reload cleared the draft since Alpha 31. VibeZ now puts the typed text back in the input field after the reload."
+    "Mistral can search the linked folders: file and folder names, and lines of text with their line numbers. Large text files of up to 10 MiB can be read in parts, so Mistral no longer has to open files one by one.",
+    "Mistral can propose changing one part of a file, moving or renaming a file or folder, and deleting a single file. Each change is a proposal that you approve in VibeZ, as before; folders are never deleted.",
+    "When several proposals are waiting, Save all and Reject all handle them at once. Move and delete proposals have their own card and button.",
+    "Code projects show their project rules under Advanced, and you can add or change them there. The rules are saved in Mistral, so the browser shows them too.",
+    "After an update VibeZ shows What's new once, with the changes of every version you missed. Settings has a What's new entry to read them again.",
+    "Settings is a short menu: Report a problem and Share feedback open GitHub, and About VibeZ shows the version, licence and credits. The language is chosen in the toolbar, the update block appears only when something needs you, and closing Settings returns to the project panel.",
+    "The local file connector also accepts MCP protocol version 2025-11-25."
   ],
   "related_issues": [],
-  "download_highlights": "Beta 3 brings back the full screenshot dialog: visible page, full page or a selection, pasted straight into Mistral. VibeZ 4 is the open Beta: Mistral Work and Code with your local project folders, and automatic updates from the Alpha"
+  "download_highlights": "Beta 4 lets Mistral search your project folder, read large files in parts, and propose edits, moves and deletions that you approve in VibeZ, all at once with Save all. VibeZ 4 is the open Beta: Mistral Work and Code with your local project folders, and automatic updates from the Alpha"
 }

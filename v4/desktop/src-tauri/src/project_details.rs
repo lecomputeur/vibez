@@ -41,6 +41,8 @@ fn cache()->&'static Mutex<DetailsCache> {
 fn valid_id(id:&str)->bool {
     id.len()==36&&id.chars().enumerate().all(|(i,c)|if [8,13,18,23].contains(&i){c=='-'}else{c.is_ascii_hexdigit()})
 }
+/// A Mistral Code project, as VibeZ names it: "code-" and the project UUID.
+fn valid_code_id(id:&str)->bool {id.strip_prefix("code-").is_some_and(valid_id)}
 
 fn origin(url: &url::Url) -> bool {
     url.scheme() == "https" && matches!(url.host_str(), Some("chat.mistral.ai" | "vibe.mistral.ai"))
@@ -180,7 +182,9 @@ async fn wait_rules_form(app:&tauri::AppHandle,view:&Webview,url:&url::Url,proje
 pub async fn project_rules_edit(webview:Webview,app:tauri::AppHandle,project_id:String,action:String,value:Option<String>,nonce:Option<String>)->Result<Value,String> {
     require_local(&webview)?;
     if webview.label()!="connector-panel" {return Err("Use the project panel".into());}
-    if !valid_id(&project_id)||!matches!(action.as_str(),"open"|"save"|"cancel"|"api-read"|"api-save") {return Err("Onbekende projecthandeling".into());}
+    let api=matches!(action.as_str(),"api-read"|"api-save");
+    // Code projects have no instructions form in VibeZ; their rules go through Mistral's Code project request only.
+    if !(valid_id(&project_id)||api&&valid_code_id(&project_id))||!matches!(action.as_str(),"open"|"save"|"cancel"|"api-read"|"api-save") {return Err("Onbekende projecthandeling".into());}
     let state=app.state::<official_web::WebState>();
     let _gate=state.gate.lock().await;
     if action=="cancel" {
@@ -365,6 +369,13 @@ mod tests {
         assert!(!overview(&format!("https://chat.mistral.ai/work/projects/{ID}").parse().unwrap(),"../project"));
     }
     #[test]
+    fn code_project_ids_are_accepted_only_with_the_code_prefix_and_a_uuid() {
+        assert!(valid_code_id(&format!("code-{ID}")));
+        for id in [ID.to_string(),format!("code-code-{ID}"),format!("work-{ID}"),format!("code-{}",&ID[..35]),format!("code-{ID}/x"),"code-".into()] {
+            assert!(!valid_code_id(&id),"{id}");
+        }
+    }
+    #[test]
     fn action_inputs_are_json_literals_and_no_arbitrary_selector_is_accepted() {
         let value=script(Some(ID),Some("context"),Some(true));
         assert!(!value.contains("__VIBEZ_PROJECT_"));
@@ -479,7 +490,9 @@ async fn rules_api(app:&tauri::AppHandle,view:&Webview,url:&url::Url,project:&st
     let current=||view.url().is_ok_and(|now|now==*url)&&official_web::confirmed_project(app,url,project);
     if !current() {return Err("Open a conversation or the overview of this Mistral project first".into());}
     let value=if action=="api-save" {Some(value.filter(|value|valid_rules_text(value)).ok_or("Use at most 8000 characters for the project rules")?)} else {None};
-    let input=json!({"id":project,"save":value.is_some(),"instructions":value});
+    // The page knows a project by its bare id; the "raw" name is taken by the page answer below.
+    let (kind,remote_id)=project.strip_prefix("code-").map_or(("work",project),|id|("code",id));
+    let input=json!({"id":remote_id,"kind":kind,"save":value.is_some(),"instructions":value});
     let start=format!("({})({})",include_str!("project_rules_api.js"),input);
     let started=official_web::eval(view,&start).await?;
     if started!="started" {return Err("The project rules could not be retrieved".into());}
@@ -491,7 +504,7 @@ async fn rules_api(app:&tauri::AppHandle,view:&Webview,url:&url::Url,project:&st
         let result:Value=serde_json::from_str(&raw).map_err(err)?;
         match result["state"].as_str() {
             Some("pending")=>continue,
-            Some("done") if result["id"]==project=>{
+            Some("done") if result["id"]==remote_id=>{
                 let text=result["instructions"].as_str().unwrap_or("");
                 if !valid_rules_text(text) {return Err("The project rules could not be read safely".into());}
                 if let Some(expected)=input["instructions"].as_str() {

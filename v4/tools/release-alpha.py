@@ -105,6 +105,18 @@ def save_release(spec):
     (BASE / 'management/release.json').write_text(json.dumps(spec, indent=2, ensure_ascii=False) + '\n')
 
 
+CHANGELOG = BASE / 'desktop/src-tauri/src/changelog.json'
+
+
+def record_changelog(version, changes, today=None):
+    """Put this version's changes at the top of the changelog the app shows after an update (a rerun replaces them)."""
+    data = json.loads(CHANGELOG.read_text())
+    versions = [entry for entry in data.get('versions', []) if entry.get('version') != version]
+    versions.insert(0, {'version': version, 'date': today or time.strftime('%Y-%m-%d'), 'changes': list(changes)})
+    data['versions'] = versions
+    CHANGELOG.write_text(json.dumps(data, indent=1, ensure_ascii=False) + '\n')
+
+
 def asset_names(version):
     return ['VibeZ-%s-%s' % (version, suffix) for suffix in RELEASE_ASSETS]
 
@@ -264,6 +276,7 @@ class Release:
         if self.args.highlights:
             spec['download_highlights'] = ' '.join(self.args.highlights.split())
         save_release(spec)
+        record_changelog(self.args.next, changes)
         shutil.rmtree(output)
         result = m.check(BASE)
         self.say('manage.py check: version %s, passed %s' % (result['version'], result['passed']))
@@ -510,7 +523,8 @@ class Release:
         self.run(['gh', 'release', 'edit', 'v' + self.version, '--repo', REPO, '--draft=false', '--prerelease', '--latest=false'])
         if not self.dry:
             latest = self.run(['gh', 'api', 'repos/%s/releases/latest' % REPO, '-q', '.tag_name'], capture=True).stdout.strip()
-            if latest != 'v3.0.9':
+            # Latest is always the stable VibeZ 3 line (3.1.0 since 2026-11-14); a V4 release must never be Latest.
+            if not re.fullmatch(r'v3\.\d+\.\d+', latest):
                 raise StepError('Latest release changed to %s; stop and check' % latest)
         before = self.dir / 'channel-before'
         if not self.dry: before.mkdir(exist_ok=True)
@@ -541,6 +555,11 @@ class Release:
         self.run([sys.executable, 'tools/refresh-alpha-downloads.py', '--site', gh_repo, '--check-links'], cwd=BASE)
         self.run(['git', 'add', 'README.md', 'docs/index.html', 'docs/linux.html', 'docs/macos.html', 'docs/windows.html'], cwd=gh_repo)
         self.run(['git'] + AUTHOR + ['commit', '-q', '-m', 'Refresh V4 %s downloads and highlights' % self.label], cwd=gh_repo)
+        # The site check wants each sitemap date to be the page's last change: today's commit.
+        if (gh_repo / 'tools/site/sitemap-lastmod.py').exists():
+            self.run([sys.executable, 'tools/site/sitemap-lastmod.py'], cwd=gh_repo)
+            self.run(['git', 'add', 'docs/sitemap.xml'], cwd=gh_repo)
+            self.run(['git'] + AUTHOR + ['commit', '-q', '--amend', '--no-edit'], cwd=gh_repo)
         self.run(['git', '-C', gh_repo, 'push', 'origin', branch])
         self.run(['gh', 'pr', 'create', '--repo', REPO, '--base', 'main', '--head', branch, '--title', 'Refresh V4 %s downloads and highlights' % self.label,
                   '--body', 'Points the V4 Alpha download buttons in README.md and docs/ to the published v%s prerelease and refreshes the highlights. '

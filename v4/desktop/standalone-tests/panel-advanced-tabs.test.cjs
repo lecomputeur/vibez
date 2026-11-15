@@ -87,11 +87,11 @@ function dom(){
  const document={getElementById:id=>byId.get(id)||null,createElement:tag=>new Node(tag),addEventListener(type,fn){(this.listeners[type]??=[]).push(fn);},listeners:{},body:{},documentElement:{},querySelector:()=>new Node('option')};
  return {document,byId,body};
 }
-function panel({prefs,storage={}}={}){
+function panel({prefs,storage={},answers={}}={}){
  const {document,byId}=dom(),calls=[],listeners={};let locale='en';
  const language={t:key=>messages[locale]?.[key]||messages.en[key]||key,errorText:(e,key)=>e?messages.en[key]||key:'',ready:async()=>{},onChange(){},state:()=>({resolved:'en'})};
- const invoke=async(name,args)=>{calls.push({name,args});if(name==='panel_prefs_get')return prefs;if(name==='app_info')return {version:'test'};return undefined;};
- const context={window:{vibezLanguage:language,vibezConnectionFeedback:{connectionFeedback},VIBEZ_TRANSLATIONS:{options:[]},__TAURI__:{core:{invoke},event:{listen:async(name,fn)=>{(listeners[name]??=[]).push(fn);}}}},document,console,Intl,Date,
+ const invoke=async(name,args)=>{calls.push({name,args});if(answers[name])return answers[name](args);if(name==='panel_prefs_get')return prefs;if(name==='app_info')return {version:'test'};return undefined;};
+ const context={window:{vibezLanguage:language,vibezConnectionFeedback:{connectionFeedback},VIBEZ_TRANSLATIONS:{options:[]},__TAURI__:{core:{invoke},event:{listen:async(name,fn)=>{(listeners[name]??=[]).push(fn);}}}},document,console,Intl,Date,setTimeout,clearTimeout,
   localStorage:{getItem:k=>storage[k]??null,setItem:(k,v)=>{storage[k]=v;}}};
  context.window.window=context.window;
  vm.createContext(context);
@@ -243,4 +243,95 @@ test('every new Advanced key exists in all 33 languages and the HTML uses only k
  assert.ok(!html.includes('advanced-details-slot')&&!html.includes('panel-tabs-more')&&!html.includes('advanced-allow'),'the Advanced tab holds no permission switch');
  const dialogAt=html.indexOf('<dialog id="diagnostics-dialog"');assert.ok(dialogAt>0&&html.indexOf('id="advanced-connection"')>dialogAt&&html.indexOf('id="advanced-activity"')>dialogAt,'connection and activity live in the dialog');
  for(const match of html.matchAll(/data-v4="([^"]+)"/g))assert.ok(typeof messages.en[match[1]]==='string'||match[1] in (require(path.join(root,'standalone-ui/language-extra.json')).en),match[1]);
+});
+
+test('move and delete proposals have their own wording and several proposals can be saved at once',async()=>{
+ const p=panel();await p.settle();
+ const base={project_id:ID,project_name:'Fixture',diff:'',new:false};
+ p.renderWeb({folder:'/fixtures/Main',workspace_binding:'b1',pending:[
+  {...base,id:'m1',action:'move',path:'old.txt',new_path:'archive/new.txt',before:'',after:''},
+  {...base,id:'d1',action:'delete',path:'gone.txt',before:'Old text',after:''},
+  {...base,id:'w1',path:'notes.md',before:'a',after:'b'}]});
+ const list=p.byId.get('web-proposals').children,all=list[0];
+ assert.equal(all.className,'approval-actions approval-all');assert.deepEqual(all.children.map(b=>b.textContent),['Save all','Reject all']);
+ const cards=list.slice(1),title=c=>c.children[0].children[1].textContent,primary=c=>c.children.at(-1).children[0].textContent;
+ assert.equal(title(cards[0]),'old.txt → archive/new.txt');assert.equal(primary(cards[0]),'Move');assert.equal(cards[0].children.length,2,'a move shows no text comparison');
+ assert.equal(primary(cards[1]),'Delete');assert.equal(cards[1].children[1].children.length,1,'a delete shows only the current text');
+ assert.equal(primary(cards[2]),'Save');assert.equal(cards[2].children[1].children.length,2);
+ assert.match(cards[0].children[0].children[2].textContent,/Nothing is replaced/);assert.match(cards[1].children[0].children[2].textContent,/cannot be undone/);
+ all.children[0].dispatch('click');await p.settle();
+ assert.deepEqual(p.calls.filter(c=>c.args?.payload?.action==='web_approve').map(c=>[c.args.payload.id,c.args.payload.allow]),[['m1',true],['d1',true],['w1',true]]);
+ p.renderWeb({folder:'/fixtures/Main',workspace_binding:'b1',pending:[{...base,id:'w2',path:'one.md',before:'',after:'x'}]});
+ assert.equal(p.byId.get('web-proposals').children.length,1,'one proposal needs no Save all');
+});
+
+test('a Code project shows its project rules under Advanced and reads them from Mistral',async()=>{
+ const p=panel();await p.settle();
+ p.renderWeb({project:{id:'code-'+ID,name:'Code fixture',kind:'project'},folder:'/fixtures/Main',workspace_binding:'b1'});await p.settle();
+ assert.equal(p.byId.get('project-rules').hidden,false);
+ assert.ok(p.calls.some(c=>c.name==='project_rules_edit'&&c.args.projectId==='code-'+ID&&c.args.action==='api-read'));
+ p.renderWeb({project:{id:'chat-'+ID,name:'Chat',kind:'conversation'},folder:null});
+ assert.equal(p.byId.get('project-rules').hidden,true,'a conversation has no project rules');
+});
+
+test('after an update the panel opens once with every missed version, and Settings shows all versions again',async()=>{
+ const missed={current:'4.0.0-beta.5',versions:[{version:'4.0.0-beta.5',date:'2026-11-20',changes:['Five.']},{version:'4.0.0-beta.4',date:'2026-11-18',changes:['Four a.','Four b.']}]};
+ const all={current:'4.0.0-beta.5',versions:[...missed.versions,{version:'4.0.0-beta.3',changes:['Three.']}]};
+ const p=panel({answers:{whats_new_get:args=>args.all?all:missed}});await p.settle();await new Promise(r=>setTimeout(r,1600));
+ const dialog=p.byId.get('whats-new-dialog');
+ assert.equal(dialog.open,true);assert.ok(p.calls.some(c=>c.name==='chrome_panel'&&c.args.mode==='files'),'the panel opens to show it');
+ assert.match(p.byId.get('whats-new-intro').textContent,/updated to V4 Beta 5/);
+ const sections=p.byId.get('whats-new-list').children;
+ assert.deepEqual(sections.map(s=>s.children[0].textContent),['V4 Beta 5 \u00b7 2026-11-20','V4 Beta 4 \u00b7 2026-11-18']);
+ assert.deepEqual(sections[1].children[1].children.map(li=>li.textContent),['Four a.','Four b.']);
+ assert.equal(p.byId.get('whats-new-english').hidden,true,'no English note in English');
+ p.byId.get('whats-new-done').dispatch('click');dialog.dispatch('close');await p.settle();
+ assert.ok(p.calls.some(c=>c.name==='whats_new_seen'),'closing records the version as shown');
+ p.byId.get('settings-whats-new').dispatch('click');await p.settle();
+ assert.equal(p.byId.get('whats-new-list').children.length,3);assert.equal(p.byId.get('whats-new-intro').textContent,'The changes in each version of VibeZ V4.');
+ const quiet=panel({answers:{whats_new_get:()=>({current:'4.0.0-beta.5',versions:[]})}});await quiet.settle();await new Promise(r=>setTimeout(r,1600));
+ assert.equal(quiet.byId.get('whats-new-dialog').open,false);assert.ok(!quiet.calls.some(c=>c.name==='chrome_panel'),'nothing new: the panel stays as it is');
+});
+
+test('closing Settings returns to the project panel when it was open, and closes the panel otherwise',async()=>{
+ const p=panel();await p.settle();
+ const closeTo=()=>{p.calls.length=0;p.byId.get('close-settings-panel').dispatch('click');return p.calls.find(c=>c.name==='chrome_panel')?.args.mode;};
+ p.emit('chrome-panel','files');p.emit('chrome-panel','settings');
+ assert.equal(closeTo(),'files');
+ p.emit('chrome-panel','closed');p.emit('chrome-panel','settings');
+ assert.equal(closeTo(),'closed');
+ p.emit('chrome-panel','files');p.emit('chrome-panel','language');
+ assert.equal(closeTo(),'files','the language shortcut opens Settings too');
+ const html=fs.readFileSync(path.join(root,'standalone-ui/panel.html'),'utf8'),settings=html.slice(html.indexOf('id="panel-settings"'),html.indexOf('<dialog'));
+ for(const key of ['accountNote','languageHelp','autoConnectHelp','tabOrderHelp','diagnosticsHelp','whatsNewHelp'])assert.ok(!settings.includes('data-v4="'+key+'"'),key+' is no longer a paragraph in Settings');
+ for(const key of ['autoConnectHelp','tabOrderHelp','diagnosticsHelp','whatsNewHelp'])assert.ok(settings.includes('data-help-key="'+key+'"'),key+' remains as a tooltip');
+ assert.ok(!settings.includes('id="language"'),'the language is chosen in the toolbar');
+ for(const id of ['panel-auto-connect','settings-diagnostics','settings-whats-new','panel-tabs-reset'])assert.ok(settings.slice(settings.indexOf('settings-menu')).includes('id="'+id+'"'),id+' is in the menu');
+});
+
+test('Settings offers Report a problem, Share feedback and About, and links only name fixed pages',async()=>{
+ const p=panel();await p.settle();
+ p.byId.get('settings-about').dispatch('click');
+ assert.equal(p.byId.get('about-dialog').open,true);
+ const thanks=p.byId.get('about-thanks');assert.match(thanks.textContent,/ActiveUser435/);
+ thanks.children.find(c=>c.tagName==='BUTTON').dispatch('click');await p.settle();
+ assert.deepEqual(JSON.parse(JSON.stringify(p.calls.filter(c=>c.name==='app_open_link').map(c=>c.args))),[{link:'tester'}]);
+ p.byId.get('about-close').dispatch('click');assert.equal(p.byId.get('about-dialog').open,false);
+ const html=fs.readFileSync(path.join(root,'standalone-ui/panel.html'),'utf8'),rust=fs.readFileSync(path.join(root,'desktop/src-tauri/src/app_links.rs'),'utf8');
+ assert.match(html,/© 2026 Le Computeur/,'the maker is named as in the licence');
+ const links=[...html.matchAll(/data-link="([^"]+)"/g)].map(m=>m[1]);
+ assert.deepEqual(links.sort(),['feedback','license','report','source','website']);
+ for(const link of links)assert.ok(rust.includes('"'+link+'"=>"https://'),link+' is a fixed address in the app');
+ for(const key of ['menuReport','menuFeedback','aboutTitle','aboutThanks'])for(const [code,d]of Object.entries(messages))assert.ok(d[key],code+':'+key);
+});
+
+test('a failed read of the project rules is tried again later instead of being kept',async()=>{
+ let fail=true;const p=panel({answers:{project_rules_edit:async args=>{if(fail)throw new Error('not yet');return {project_id:args.projectId,value:'Rule'};}}});await p.settle();
+ p.renderWeb({project:{id:'code-'+ID,name:'Code',kind:'project'},folder:'/f',workspace_binding:'b1'});await p.settle();
+ assert.equal(p.run("apiRules.failed"),true);const reads=()=>p.calls.filter(c=>c.name==='project_rules_edit').length;const first=reads();
+ p.renderWeb({project:{id:'code-'+ID,name:'Code',kind:'project'},folder:'/f',workspace_binding:'b1'});await p.settle();
+ assert.equal(reads(),first,'no new read straight away');
+ fail=false;p.run('apiRules.at=Date.now()-9000');
+ p.renderWeb({project:{id:'code-'+ID,name:'Code',kind:'project'},folder:'/f',workspace_binding:'b1'});await p.settle();
+ assert.equal(reads(),first+1);assert.equal(p.run('apiRules.value'),'Rule');assert.equal(p.byId.get('project-rules-edit').hidden,false,'the edit button appears after the retry');
 });

@@ -114,9 +114,20 @@ class MultiWorkspace:
         workspace, _, inner = self._route(path, directory=True)
         return workspace.listing(inner)
 
-    def read(self, path):
+    def read(self, path, start_line=None, end_line=None):
         workspace, _, inner = self._route(path)
-        return {**workspace.read(inner), 'path': path}
+        return {**workspace.read(inner, start_line, end_line), 'path': path}
+
+    def move_proposal(self, path, new_path):
+        workspace, key, inner = self._route(path)
+        _, target_key, target = self._route(new_path)
+        if target_key != key: raise ValueError(self.base.MOVE_ACROSS)
+        return {**workspace.move_proposal(inner, target), 'path': path, 'new_path': new_path,
+                '_workspace_id': key, '_workspace_path': inner, '_workspace_new_path': target}
+
+    def delete_proposal(self, path):
+        workspace, key, inner = self._route(path)
+        return {**workspace.delete_proposal(inner), 'path': path, '_workspace_id': key, '_workspace_path': inner}
 
     def read_image(self, path):
         workspace, _, inner = self._route(path)
@@ -132,6 +143,27 @@ class MultiWorkspace:
         return {**workspace.create_document(inner, content), 'path': path,
                 '_workspace_id': key, '_workspace_path': inner}
 
+    def edit_proposal(self, path, old_text, new_text):
+        workspace, key, inner = self._route(path)
+        return {**workspace.edit_proposal(inner, old_text, new_text), 'path': path,
+                '_workspace_id': key, '_workspace_path': inner}
+
+    def search(self, query, path='.'):
+        if path in ('', '.'):
+            targets = [(item['alias'], self.workspaces[item['id']], '.') for item in self.entries]
+        else:
+            workspace, key, inner = self._route(path, directory=True)
+            targets = [(next(a for a, k in self.aliases.items() if k == key), workspace, inner)]
+        combined = {'query': query, 'names': [], 'matches': [], 'truncated': False}
+        for alias, workspace, inner in targets:
+            value = workspace.search(query, inner)
+            combined['names'] += [{**item, 'path': alias + '/' + item['path']} for item in value['names']]
+            combined['matches'] += [{**item, 'path': alias + '/' + item['path']} for item in value['matches']]
+            combined['truncated'] = combined['truncated'] or value['truncated']
+            combined['note'] = value['note']
+        combined['names'], combined['matches'] = combined['names'][:100], combined['matches'][:200]
+        return combined
+
     def validate(self, proposal):
         workspace, key, inner = self._route(proposal['path'])
         if proposal.get('_workspace_id') != key or proposal.get('_workspace_path') != inner:
@@ -146,6 +178,12 @@ class MultiWorkspace:
         workspace, inner = self.validate(proposal)
         local = {key: value for key, value in proposal.items() if not key.startswith('_workspace_')}
         local['path'] = inner
+        if proposal.get('action') == 'move':
+            _, target_key, target = self._route(proposal['new_path'])
+            if target_key != proposal.get('_workspace_id') or target != proposal.get('_workspace_new_path'):
+                raise ValueError('The workspace folder of this proposal has changed')
+            local['new_path'] = target
+            return {**workspace.commit(local), 'path': proposal['path'], 'new_path': proposal['new_path']}
         return {**workspace.commit(local), 'path': proposal['path']}
 
     def overview(self):

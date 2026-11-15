@@ -252,7 +252,7 @@ class ConnectorTests(unittest.TestCase):
  def test_official_http_handshake_notifications_listing_delete(self):
   d=self.init();self.assertEqual(d['result']['protocolVersion'],'2025-06-18')
   code,_,_=self.request({'jsonrpc':'2.0','method':'notifications/initialized'});self.assertEqual(code,202)
-  self.assertEqual({t['name'] for t in self.rpc('tools/list')[2]['result']['tools']},{'read_file','read_image','write_file','create_document','list_directory','workspace_overview','change_status'})
+  self.assertEqual({t['name'] for t in self.rpc('tools/list')[2]['result']['tools']},{'read_file','read_image','write_file','create_document','list_directory','workspace_overview','change_status','search_files','edit_file','move_file','delete_file'})
   with patch.object(web,'SSE_SECONDS',.3):code,h,body=self.request(method='GET')
   self.assertEqual((code,h['Content-Type'],body),(200,'text/event-stream',': vibez\n\n'))
   self.assertEqual(self.request(method='DELETE')[0],204)
@@ -665,5 +665,86 @@ class ConnectorTests(unittest.TestCase):
    _,pending=self.tool('write_file',{'path':'last.txt','content':'x'})
    self.assertLessEqual(len(self.c.proposals),6);self.assertIn(pending['proposal_id'],self.c.proposals);self.assertIn(pids[-1],self.c.proposals)
   self.assertEqual((self.a/'n10.txt').read_text(),'x');self.assertFalse((self.a/'n11.txt').exists())
+
+ def test_search_files_finds_names_and_lines_and_skips_hidden_build_and_binary_files(self):
+  (self.a/'src').mkdir();(self.a/'src'/'main.rs').write_text('fn main() {\n    println!("Hello VibeZ");\n}\n')
+  (self.a/'src'/'notes.md').write_text('nothing here\nvibez again\n')
+  (self.a/'.secret').mkdir();(self.a/'.secret'/'key.txt').write_text('VibeZ hidden')
+  (self.a/'node_modules').mkdir();(self.a/'node_modules'/'x.js').write_text('VibeZ dependency')
+  (self.a/'vibez-logo.png').write_bytes(b'\x89PNG VibeZ')
+  self.init()
+  result,value=self.tool('search_files',{'query':'vibez'})
+  self.assertTrue(result['content'][0]['type']=='text')
+  self.assertEqual({(m['path'],m['line']) for m in value['matches']},{('src/main.rs',2),('src/notes.md',2)})
+  self.assertEqual(value['names'],[{'path':'vibez-logo.png','type':'file'}])
+  self.assertFalse(value['truncated'])
+  _,value=self.tool('search_files',{'query':'HELLO','path':'src'})
+  self.assertEqual(value['matches'],[{'path':'src/main.rs','line':2,'text':'println!("Hello VibeZ");'}])
+  for bad in ({'query':''},{'query':'x','path':'../Beta'},{'query':'x','path':'.secret'}):
+   self.assertTrue(self.rpc('tools/call',{'name':'search_files','arguments':bad})[2]['result']['isError'])
+  self.assertFalse(any(p['status']=='pending' for p in self.c.proposals.values()))
+ def test_edit_file_proposes_one_unique_replacement_and_saves_after_approval(self):
+  (self.a/'app.py').write_text('a = 1\nb = 2\nc = 1\n');(self.a/'win.txt').write_bytes(b'one\r\ntwo\r\n')
+  self.init()
+  _,value=self.tool('edit_file',{'path':'app.py','old_text':'b = 2','new_text':'b = 3'})
+  self.assertEqual(value['status'],'pending');self.assertEqual((self.a/'app.py').read_text(),'a = 1\nb = 2\nc = 1\n')
+  self.assertIn('+b = 3',self.c.proposals[value['proposal_id']]['data']['diff'])
+  self.c.resolve(value['proposal_id'],True)
+  self.assertTrue(self.tool('change_status',{'proposal_id':value['proposal_id']})[1]['written'])
+  self.assertEqual((self.a/'app.py').read_text(),'a = 1\nb = 3\nc = 1\n')
+  _,value=self.tool('edit_file',{'path':'win.txt','old_text':'one\ntwo','new_text':'een\ntwee'})
+  self.c.resolve(value['proposal_id'],True);self.assertEqual((self.a/'win.txt').read_bytes(),b'een\r\ntwee\r\n')
+  for args,message in (({'path':'app.py','old_text':'= 1','new_text':'= 9'},'more than once'),
+                       ({'path':'app.py','old_text':'zzz','new_text':'y'},'not found'),
+                       ({'path':'app.py','old_text':'','new_text':'y'},'non-empty'),
+                       ({'path':'missing.py','old_text':'a','new_text':'b'},None),
+                       ({'path':'../Beta/tekst.txt','old_text':'Alleen','new_text':'Ook'},None)):
+   d=self.rpc('tools/call',{'name':'edit_file','arguments':args})[2]['result']
+   self.assertTrue(d['isError'],args)
+   if message:self.assertIn(message,d['content'][0]['text'])
+  self.assertEqual((self.b/'tekst.txt').read_text(),'Alleen B')
+ def test_tool_list_marks_only_proposal_tools_as_writing_and_accepts_the_2025_11_25_handshake(self):
+  code,h,d=self.request({'jsonrpc':'2.0','id':1,'method':'initialize','params':{'protocolVersion':'2025-11-25','capabilities':{},'clientInfo':{'name':'Test','version':'1'}}})
+  self.assertEqual((code,d['result']['protocolVersion']),(200,'2025-11-25'));self.sid=h['Mcp-Session-Id']
+  tools={t['name']:t for t in self.rpc('tools/list')[2]['result']['tools']}
+  self.assertLessEqual({'search_files','edit_file','read_file','write_file'},set(tools))
+  self.assertEqual({n for n,t in tools.items() if not t['annotations']['readOnlyHint']},{'write_file','create_document','edit_file','move_file','delete_file'})
+  self.assertEqual({n for n,t in tools.items() if t['annotations']['destructiveHint']},set(),'VibeZ asks for every change itself')
+  self.assertEqual(tools['search_files']['inputSchema']['required'],['query'])
+ def test_read_file_returns_line_ranges_of_large_text_files(self):
+  big=''.join('line %05d %s\n'%(n,'x'*60) for n in range(1,6001));(self.a/'big.log').write_text(big)
+  self.init()
+  d=self.rpc('tools/call',{'name':'read_file','arguments':{'path':'big.log'}})[2]['result']
+  self.assertTrue(d['isError']);self.assertIn('start_line',d['content'][0]['text'])
+  _,value=self.tool('read_file',{'path':'big.log','start_line':2999,'end_line':3001})
+  self.assertEqual(value['content'].splitlines()[0][:10],'line 02999');self.assertEqual((value['start_line'],value['end_line'],value['total_lines'],value['complete']),(2999,3001,6000,False))
+  _,value=self.tool('read_file',{'path':'big.log','start_line':1})
+  self.assertEqual(value['end_line'],2000);self.assertLessEqual(len(value['content'].encode()),256*1024)
+  _,value=self.tool('read_file',{'path':'tekst.txt','start_line':1});self.assertTrue(value['complete'])
+  self.assertEqual(self.tool('write_file',{'path':'tekst.txt','content':'Na bereik'})[1]['status'],'pending')
+  for bad in ({'start_line':0},{'start_line':'1'},{'start_line':True},{'start_line':5,'end_line':4}):
+   self.assertTrue(self.rpc('tools/call',{'name':'read_file','arguments':{'path':'big.log',**bad}})[2]['result']['isError'],bad)
+ def test_move_and_delete_are_proposals_that_change_nothing_until_approved(self):
+  (self.a/'old.txt').write_text('move me');(self.a/'gone.txt').write_text('delete me');(self.a/'keep').mkdir()
+  self.init()
+  _,move=self.tool('move_file',{'path':'old.txt','new_path':'archive/2026/new.txt'})
+  _,delete=self.tool('delete_file',{'path':'gone.txt'})
+  self.assertEqual((move['status'],delete['status']),('pending','pending'))
+  self.assertTrue((self.a/'old.txt').exists());self.assertTrue((self.a/'gone.txt').exists())
+  shown={p['action']:p for p in self.c.snapshot().get('pending',[]) or [dict(id=k,**v['data']) for k,v in self.c.proposals.items() if v['status']=='pending']}
+  self.assertEqual(shown['delete']['before'],'delete me');self.assertEqual(shown['move']['new_path'],'archive/2026/new.txt')
+  self.c.resolve(move['proposal_id'],True);self.c.resolve(delete['proposal_id'],True)
+  self.assertEqual((self.a/'archive/2026/new.txt').read_text(),'move me');self.assertFalse((self.a/'old.txt').exists());self.assertFalse((self.a/'gone.txt').exists())
+  self.assertTrue(self.tool('change_status',{'proposal_id':delete['proposal_id']})[1]['written'])
+  _,rejected=self.tool('delete_file',{'path':'archive/2026/new.txt'});self.c.resolve(rejected['proposal_id'],False)
+  self.assertTrue((self.a/'archive/2026/new.txt').exists())
+  (self.a/'changed.txt').write_text('v1');_,late=self.tool('delete_file',{'path':'changed.txt'})
+  (self.a/'changed.txt').write_text('v2 is longer')
+  with self.assertRaises(ValueError):self.c.resolve(late['proposal_id'],True)
+  self.assertEqual((self.a/'changed.txt').read_text(),'v2 is longer')
+  for name,args in (('delete_file',{'path':'keep'}),('move_file',{'path':'keep','new_path':'keep/inner'}),('move_file',{'path':'changed.txt','new_path':'archive/2026/new.txt'}),
+                    ('move_file',{'path':'changed.txt','new_path':'../Beta/x.txt'}),('delete_file',{'path':'../Beta/tekst.txt'}),('delete_file',{'path':'missing.txt'})):
+   self.assertTrue(self.rpc('tools/call',{'name':name,'arguments':args})[2]['result']['isError'],(name,args))
+  self.assertTrue((self.a/'keep').is_dir());self.assertEqual((self.b/'tekst.txt').read_text(),'Alleen B')
 
 if __name__=='__main__':unittest.main()

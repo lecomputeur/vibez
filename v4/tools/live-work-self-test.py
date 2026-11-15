@@ -18,6 +18,12 @@ profile and one fixed test project, and exercises the Work route end to end:
 6. with --code-project-id: link a folder to a Code project, check that the
    "VibeZ · <project>" title chip is hidden in the composer and in a sent
    message, then remove the test connectors again
+7. file tools in a real Work chat: search_files, read_file by lines in a file
+   over 256 KiB, then six proposals (edit, move, delete, three new files)
+   approved together with Save all          -> every change is on disk
+8. with --code-project-id: the Code project's rules are shown under
+   Advanced, saved from the panel, read back from Mistral and restored
+   (--only-tools runs 7 and 8 alone; --skip-tools leaves them out)
 
 Only step names, seconds, counts and booleans are recorded. Addresses, keys,
 tokens, cookies and page text never enter the report or the log.
@@ -152,6 +158,9 @@ return 'installed';})()"""
 AGENT_SNAPSHOT = r"""JSON.stringify((()=>{const s=window.__vibezLiveWork;if(!s)return {missing:true};let language=null;try{language=window.vibezLanguage?.state?.()||null;}catch(e){}return {ready:s.ready,connector:s.connector,auto:s.auto,auto_start:s.auto_start||null,auth:s.auth,selftest:s.selftest,errors:s.errors.slice(-5),language};})())"""
 MISTRAL_CHIPS = r"""JSON.stringify((()=>{const eds=[...document.querySelectorAll('div.ProseMirror[contenteditable="true"]')].filter(e=>e.getClientRects().length);if(eds.length!==1)return {editors:eds.length};const doc=eds[0].pmViewDesc?.node;if(!doc||typeof doc.descendants!=='function')return {editors:1,no_doc:true};const chips=[];doc.descendants(n=>{if(n.isText||!n.isInline||!n.isAtom)return;if(n.type.name==='slash'&&n.attrs?.subType==='connection'&&/^vibezwork[a-f0-9]{16}$/.test(n.attrs.selectedLabel||''))chips.push({id:n.attrs.selectedValue||null});});return {editors:1,chips,text:String(doc.textContent||'').trim().slice(0,80),path:location.pathname.split('/').slice(0,3).join('/')};})())"""
 PROJECT_SCRIPT = (BASE / 'desktop/src-tauri/src/workspace_project.js').read_text()
+# Read in the project panel (its own top-level state): the rules block and the pending proposals.
+PANEL_RULES = r"""JSON.stringify((()=>{const id=webState.project?.id||null,a=typeof apiRules!=='undefined'?apiRules:null,own=a&&a.project_id===id;return {project:id,hidden:document.getElementById('project-rules').hidden,api_state:own?(typeof a.value==='string'?'value':a.failed?'failed':'loading'):'none',api_value:own&&typeof a.value==='string'?a.value.slice(0,400):null,edit_visible:!document.getElementById('project-rules-edit').hidden,busy:Boolean(rulesOperation),notice:rulesNotice?.key||null,editing:Boolean(rulesEdit),status:document.getElementById('project-rules-status').textContent.slice(0,120)};})())"""
+PANEL_PROPOSALS = r"""JSON.stringify({pending:(webState.pending||[]).length,bar:!!document.querySelector('#web-proposals .approval-all'),cards:(webState.pending||[]).map(p=>({action:p.action||'write',path:String(p.path||'').slice(0,60)}))})"""
 # Type a message into the only visible composer and press its send button
 # (pointerdown + click, as a person would); nothing else on the page is touched.
 MISTRAL_SEND = r"""JSON.stringify((()=>{const eds=[...document.querySelectorAll('div.ProseMirror[contenteditable="true"]')].filter(e=>e.getClientRects().length);if(eds.length!==1)return {ok:false,editors:eds.length};const ed=eds[0];ed.focus();const sel=window.getSelection();const range=document.createRange();range.selectNodeContents(ed);range.collapse(false);sel.removeAllRanges();sel.addRange(range);const ok=document.execCommand('insertText',false,__TEXT__);return {ok};})())"""
@@ -1025,6 +1034,218 @@ return 'ok'})()"""
         scenario['passed'] = all(checks.values())
         return scenario
 
+    # ---- file tools and project rules (Beta 4) ---------------------------
+    def panel_call(self, app, name, args, timeout=45):
+        """Invoke an app command from the project panel itself (some commands only answer the panel)."""
+        key = uuid.uuid4().hex[:10]
+        app.eval('panel', '(window.__vibezPanelCalls=window.__vibezPanelCalls||{},window.__vibezPanelCalls[%s]={pending:true},'
+                 'window.__TAURI__.core.invoke(%s,%s).then(v=>{window.__vibezPanelCalls[%s]={ok:true,value:v===undefined?null:v};})'
+                 '.catch(e=>{window.__vibezPanelCalls[%s]={ok:false,error:String(e&&e.message||e).slice(0,200)};}),"sent")'
+                 % (json.dumps(key), json.dumps(name), json.dumps(args), json.dumps(key), json.dumps(key)))
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            result = json.loads(app.eval('panel', 'JSON.stringify((window.__vibezPanelCalls||{})[%s]||{missing:true})' % json.dumps(key)))
+            if not result.get('pending'):
+                return result
+            time.sleep(0.4)
+        return {'ok': False, 'error': 'timeout'}
+
+    def panel_rules(self, app):
+        return json.loads(app.eval('panel', PANEL_RULES))
+
+    def scenario_code_rules(self, app):
+        """Project rules of a Code project: shown under Advanced, edited in the panel, saved at Mistral, cleared again."""
+        scenario = {'name': 'code_project_rules', 'passed': False, 'checks': {}}
+        key = 'code-' + self.args.code_project_id
+        rule = 'VibeZ live self-test rule %s: answer briefly.' % uuid.uuid4().hex[:8]
+        self.goto_code_project(app)
+        checks = scenario['checks']
+        deadline = time.time() + 45
+        state = {}
+        while time.time() < deadline:
+            state = self.panel_rules(app)
+            if state.get('project') == key and state.get('api_state') in ('value', 'failed') and not state.get('busy'):
+                break
+            time.sleep(1)
+        scenario['shown'] = state
+        checks['rules_section_visible'] = state.get('project') == key and state.get('hidden') is False
+        checks['rules_read_from_mistral'] = state.get('api_state') == 'value'
+        if not checks['rules_read_from_mistral']:
+            scenario['direct_read'] = self.panel_call(app, 'project_rules_edit', {'projectId': key, 'action': 'api-read'})
+        checks['edit_offered'] = state.get('edit_visible') is True
+        original = state.get('api_value') if checks['rules_read_from_mistral'] else None
+
+        def edit_and_save(value):
+            app.eval('panel', "document.getElementById('project-rules-edit').click();'ok'")
+            time.sleep(0.8)
+            app.eval('panel', "(()=>{const i=document.getElementById('project-rules-input');i.value=%s;document.getElementById('project-rules-form').requestSubmit();return 'ok';})()" % json.dumps(value))
+            end = time.time() + 45
+            seen = {}
+            while time.time() < end:
+                time.sleep(1)
+                seen = self.panel_rules(app)
+                if not seen.get('busy') and seen.get('notice'):
+                    break
+            return seen
+
+        if checks['edit_offered']:
+            saved = edit_and_save(rule)
+            scenario['saved'] = saved
+            checks['saved_via_panel'] = saved.get('notice') == 'projectRulesSaved'
+            back = self.panel_call(app, 'project_rules_edit', {'projectId': key, 'action': 'api-read'})
+            checks['read_back_from_mistral'] = back.get('ok') is True and (back.get('value') or {}).get('value') == rule
+            cleared = edit_and_save(original or '')
+            back = self.panel_call(app, 'project_rules_edit', {'projectId': key, 'action': 'api-read'})
+            scenario['restored'] = {'notice': cleared.get('notice'), 'ok': back.get('ok'), 'equal': (back.get('value') or {}).get('value') == (original or '')}
+            checks['original_rules_restored'] = scenario['restored']['equal'] is True
+        scenario['passed'] = all(checks.values())
+        return scenario
+
+    def tools_workspace(self, folder, token, mark):
+        """Test files for the file-tools scenario; earlier results are removed first."""
+        for name in ('notes.txt', 'big.log', 'old.txt', 'gone.txt', 'a.txt', 'b.txt', 'c.txt'):
+            (folder / name).unlink(missing_ok=True)
+        shutil.rmtree(folder / 'archive', ignore_errors=True)
+        (folder / 'notes.txt').write_text('Self-test notes\nshape: round\ncolour: red\nsecret word: %s\n' % token)
+        lines = ['log line %05d %s\n' % (n, 'x' * 56) for n in range(1, 6001)]
+        lines[3999] = 'log line 04000 %s\n' % mark
+        (folder / 'big.log').write_text(''.join(lines))
+        (folder / 'old.txt').write_text('move me\n')
+        (folder / 'gone.txt').write_text('delete me\n')
+
+    def put_instruction(self, app, text):
+        """Put a long instruction in the composer at once. Typed key by key it is still being typed when
+        Send is clicked, and Mistral receives half a sentence (measured on 15 November)."""
+        inserted = json.loads(app.eval('mistral', MISTRAL_SEND.replace('__TEXT__', json.dumps(text))))
+        time.sleep(2)
+        length = json.loads(app.eval('mistral', 'JSON.stringify({n:String([...document.querySelectorAll(\'div.ProseMirror[contenteditable="true"]\')].filter(e=>e.getClientRects().length)[0]?.pmViewDesc?.node?.textContent||"").trim().length})')).get('n')
+        if not inserted.get('ok') or (length or 0) < len(text) - 2:
+            raise SelfTestError('The instruction did not reach the composer in full (%s of %d characters)' % (length, len(text)))
+
+    def ask(self, app, text, timeout=180, done=None):
+        """Send one instruction to Mistral and wait until `done()` is true or the time is up; returns the seconds taken."""
+        self.put_instruction(app, text)
+        self.press_send(app, 'click')
+        start = time.time()
+        while time.time() - start < timeout:
+            time.sleep(3)
+            if done and done():
+                return round(time.time() - start, 1)
+        return None
+
+    def scenario_file_tools(self, app):
+        """search_files, read_file by lines, edit_file, move_file, delete_file and Save all, through a real Work chat."""
+        scenario = {'name': 'file_tools', 'passed': False, 'checks': {}}
+        checks = scenario['checks']
+        snap = self.goto_project(app)
+        connector = snap['connector']
+        folder = Path(self.args.workspace_a)
+        if os.path.realpath(connector.get('folder') or '') != os.path.realpath(str(folder)):
+            self.link_folder(app, connector, self.project, folder)
+        token = 'zebra%s' % uuid.uuid4().hex[:6]
+        mark = 'MARK%s' % uuid.uuid4().hex[:10].upper()
+        self.tools_workspace(folder, token, mark)
+        auto = app.snapshot().get('auto') or {}
+        if not (auto.get('project_id') == self.project and auto.get('status') == 'connected'):
+            record = self.connect(app, manual=True, label='tools_link', timeout=self.args.connect_timeout)
+            scenario['connection'] = {'status': record.get('status')}
+            if record.get('status') != 'connected':
+                raise SelfTestError('The test project did not connect for the file-tools scenario')
+        time.sleep(4)
+        tools = set()
+
+        def collect():
+            for row in self.diagnostics.transport_since(since):
+                if row.get('tool'):
+                    tools.add(row['tool'])
+
+        # 1. Read-only: search and a line of a large file.
+        since = time.time()
+        page = lambda: app.eval('mistral', 'document.body.innerText')
+        took = self.ask(app, ('VibeZ live self-test %s. Use only the VibeZ local folder tools. 1) Use search_files to find the word %s and tell me '
+                              'the file name and line number. 2) big.log is larger than 256 KiB: use read_file on big.log with start_line 4000 and '
+                              'end_line 4000 and quote that line exactly. Answer in one short paragraph.') % (uuid.uuid4().hex[:6], token),
+                        done=lambda: (collect() or True) and mark in page() and 'notes.txt' in page())
+        collect()
+        scenario['read_answer_s'] = took
+        checks['search_files_used'] = 'search_files' in tools
+        checks['read_by_lines_used'] = 'read_file' in tools
+        checks['answer_names_file_and_line'] = took is not None
+        time.sleep(5)
+
+        # 2. Changes: six proposals, approved together with Save all.
+        since = time.time()
+        before = {name: (folder / name).read_text() for name in ('notes.txt',)}
+        expected = lambda: ((folder / 'notes.txt').exists() and 'colour: blue' in (folder / 'notes.txt').read_text()
+                            and (folder / 'archive/new.txt').exists() and not (folder / 'old.txt').exists() and not (folder / 'gone.txt').exists()
+                            and all((folder / n).exists() for n in ('a.txt', 'b.txt', 'c.txt')))
+        approval = {'max_pending': 0, 'save_all_clicks': 0, 'single_clicks': 0, 'bar_seen_with': None, 'cards': []}
+        instruction = ('VibeZ live self-test %s. Use only the VibeZ local folder tools and do not wait for my approval between the steps: '
+                       'I approve all proposals together in VibeZ afterwards. Make these six proposals now, one tool call each: '
+                       '1) edit_file on notes.txt: replace "colour: red" with "colour: blue". 2) move_file old.txt to archive/new.txt. '
+                       '3) delete_file gone.txt. 4) write_file a.txt with the text one. 5) write_file b.txt with the text two. '
+                       '6) write_file c.txt with the text three.') % uuid.uuid4().hex[:6]
+        self.put_instruction(app, instruction)
+        self.press_send(app, 'click')
+        start, last_change, last_count = time.time(), time.time(), 0
+        while time.time() - start < 420 and not expected():
+            time.sleep(2)
+            collect()
+            state = json.loads(app.eval('panel', PANEL_PROPOSALS))
+            count = state.get('pending', 0)
+            approval['max_pending'] = max(approval['max_pending'], count)
+            for card in state.get('cards', []):
+                if card not in approval['cards']:
+                    approval['cards'].append(card)
+            if count != last_count:
+                last_change, last_count = time.time(), count
+            if count >= 3 and state.get('bar') and approval['save_all_clicks'] == 0:
+                approval['bar_seen_with'] = count
+                app.eval('panel', "document.querySelector('#web-proposals .approval-all .primary').click();'ok'")
+                approval['save_all_clicks'] += 1
+            elif count >= 1 and time.time() - last_change > 30:
+                # Mistral stopped proposing: approve what is left, as a person would.
+                if state.get('bar'):
+                    app.eval('panel', "document.querySelector('#web-proposals .approval-all .primary').click();'ok'")
+                    approval['save_all_clicks'] += 1
+                else:
+                    app.eval('panel', "document.querySelector('#web-proposals .approval .approval-actions .primary').click();'ok'")
+                    approval['single_clicks'] += 1
+                last_change = time.time()
+        collect()
+        scenario['approval'] = approval
+        scenario['tools_seen'] = sorted(tools)
+        scenario['changes_s'] = round(time.time() - start, 1)
+        actions = {card.get('action') for card in approval['cards']}
+        checks['edit_file_used'] = 'edit_file' in tools
+        checks['move_file_used'] = 'move_file' in tools
+        checks['delete_file_used'] = 'delete_file' in tools
+        checks['move_card_shown'] = 'move' in actions
+        checks['delete_card_shown'] = 'delete' in actions
+        checks['save_all_used'] = approval['save_all_clicks'] >= 1 and (approval['bar_seen_with'] or 0) >= 2
+        checks['all_changes_on_disk'] = expected()
+        checks['edit_kept_other_lines'] = 'shape: round' in (folder / 'notes.txt').read_text() and before['notes.txt'] != (folder / 'notes.txt').read_text()
+        scenario['passed'] = all(checks.values())
+        return scenario
+
+    def tools_scenarios(self, app):
+        """Run the file-tools scenario (Work) and, with a Code test project, the project-rules scenario; True when all passed."""
+        ok = True
+        for name, method, wanted in (('file_tools', self.scenario_file_tools, not self.args.skip_send),
+                                     ('code_project_rules', self.scenario_code_rules, bool(self.args.code_project_id))):
+            if not wanted:
+                continue
+            try:
+                scenario = method(app)
+            except SelfTestError as error:
+                scenario = {'name': name, 'passed': False, 'error': str(error)[:300]}
+            self.report[name] = scenario
+            self.save()
+            if not scenario['passed']:
+                ok = False
+                self.report['errors'].append('Scenario %s failed: %s' % (name, scenario.get('error') or ', '.join(k for k, v in scenario.get('checks', {}).items() if not v)))
+        return ok
+
     # ---- a person's order of actions -------------------------------------
     def message_checks(self, sending, state):
         checks = {'typed': sending.get('typed') is True, 'sent': bool(state and state.get('found'))}
@@ -1306,6 +1527,8 @@ def main():
     parser.add_argument('--switch-rounds', type=int, default=3)
     parser.add_argument('--switch-dwell', type=int, default=45, help='seconds to stay on each project before switching')
     parser.add_argument('--skip-send', action='store_true', help='do not send real messages (skips the sent-message checks)')
+    parser.add_argument('--only-tools', action='store_true', help='run only the file-tools and Code project-rules scenarios')
+    parser.add_argument('--skip-tools', action='store_true', help='skip the file-tools and Code project-rules scenarios')
     args = parser.parse_args()
     if not UUID_RE.fullmatch(args.project_id):
         parser.error('--project-id must be a Work project UUID (or set project_id in tools/live-work-self-test.local.json)')
@@ -1396,6 +1619,10 @@ def main():
             # Process plan: each language run needs one restart between scenario 1 and 2.
             # P1: L1-s1 | restart | P2: L1-s2, L1-s3, L2-s1 | restart | P3: L2-s2, L2-s3, L3-s1 | restart | P4: L3-s2, L3-s3, final count
             previous = None  # (language, connector id after scenario 1)
+            if args.only_tools:
+                passed = run.tools_scenarios(app)
+                run.restore_folders(app)
+                raise StopIteration
             for index, language in enumerate([] if args.only_human else languages):
                 record = {'language': language, 'scenarios': []}
                 run.report['runs'].append(record)
@@ -1459,6 +1686,8 @@ def main():
                     if not scenario['passed']:
                         passed = False
                         run.report['errors'].append('Scenario code_draft_before_link failed')
+            if not args.skip_tools and not args.skip_send and not run.tools_scenarios(app):
+                passed = False
             run.restore_folders(app)
     except StopIteration:
         pass

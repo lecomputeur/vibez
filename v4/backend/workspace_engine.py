@@ -50,11 +50,27 @@ document_writer = _cap_importlib.module_from_spec(_writer_spec)
 _writer_spec.loader.exec_module(document_writer)
 
 MAX_FILE = 256 * 1024
+# search_files skips dependency and build folders, which are large and rarely what is asked about.
+SEARCH_SKIP = frozenset({"node_modules", "__pycache__", "target", "venv"})
+SEARCH_BINARY = frozenset({".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".pdf", ".zip", ".gz", ".tar", ".zst",
+                           ".exe", ".msi", ".dmg", ".deb", ".rpm", ".so", ".dll", ".woff", ".woff2", ".ttf", ".otf",
+                           ".mp3", ".mp4", ".wav", ".webm", ".sqlite", ".db"})
+SEARCH_QUERY_ERROR = "Use a search query of 1 to 200 characters."
+EDIT_EMPTY = "old_text must be non-empty text copied from the current file."
+EDIT_NOT_FOUND = "old_text was not found in the file. Read the file again and copy the text exactly."
+EDIT_NOT_UNIQUE = "old_text occurs more than once. Include more surrounding lines so it is unique."
+EDIT_OFFICE = "Office documents cannot be edited. Use create_document for a new document."
+RANGE_ERROR = "start_line and end_line must be whole line numbers from 1, with end_line not before start_line."
+MOVE_EXISTS = "The destination already exists. Choose a new name."
+MOVE_INTO_ITSELF = "A folder cannot be moved into itself."
+MOVE_ACROSS = "Move within one linked folder."
+DELETE_KIND = "Only single files can be deleted, not folders, links or special files."
+CHANGED_SINCE = "The item changed or moved after the proposal. Make a new proposal."
 MAX_CONTEXT = 650_000
 MAX_LINE = 1_200_000
 API = "https://api.mistral.ai/v1"
 CONSOLE = "https://console.mistral.ai"
-VERSION = "4.0.0-beta.3"
+VERSION = "4.0.0-beta.4"
 MCP_SERVER_NAME = "VibeZ-local-files"
 WORKSPACE_SOURCE = "Local MCP server · VibeZ workspace"
 # Protocol text can also be shown by Mistral, outside VibeZ's translated local
@@ -64,7 +80,14 @@ _REMOTE_ERRORS = {
     "Invalid relative path": ("invalid_path", "Use a valid relative path within the selected workspace."),
     "Only visible files inside the workspace are accessible": ("scope_denied", "Only visible files within the selected workspace are accessible."),
     "Only regular files without links are allowed": ("unsupported_file", "Only ordinary files without links are supported."),
-    "File is larger than 256 KiB; choose a smaller text file": ("file_too_large", "Choose a UTF-8 text file of at most 256 KiB."),
+    "File is larger than 256 KiB; choose a smaller text file": ("file_too_large", "The file is larger than 256 KiB. Read it in parts with start_line and end_line."),
+    "Documents and images must be at most 10 MiB.": ("file_too_large", "Files must be at most 10 MiB."),
+    RANGE_ERROR: ("invalid_range", RANGE_ERROR),
+    MOVE_EXISTS: ("destination_exists", MOVE_EXISTS),
+    MOVE_INTO_ITSELF: ("invalid_move", MOVE_INTO_ITSELF),
+    MOVE_ACROSS: ("invalid_move", MOVE_ACROSS),
+    DELETE_KIND: ("unsupported_file", DELETE_KIND),
+    CHANGED_SINCE: ("file_changed", CHANGED_SINCE),
     "This test version supports only UTF-8 text files": ("unsupported_text", "Only UTF-8 text files are supported."),
     "New content must be UTF-8 text of at most 256 KiB": ("invalid_content", "New content must be UTF-8 text of at most 256 KiB."),
     "Read the current file again with read_file first": ("read_required", "Read the current file with read_file before proposing a change."),
@@ -90,6 +113,11 @@ _REMOTE_ERRORS = {
     document_writer.ROWS_ERROR: ("document_limit", document_writer.ROWS_ERROR),
     document_writer.SLIDES_ERROR: ("document_limit", document_writer.SLIDES_ERROR),
     document_writer.BUDGET_ERROR: ("document_limit", document_writer.BUDGET_ERROR),
+    SEARCH_QUERY_ERROR: ("invalid_query", SEARCH_QUERY_ERROR),
+    EDIT_EMPTY: ("edit_invalid", EDIT_EMPTY),
+    EDIT_NOT_FOUND: ("edit_not_found", EDIT_NOT_FOUND),
+    EDIT_NOT_UNIQUE: ("edit_not_unique", EDIT_NOT_UNIQUE),
+    EDIT_OFFICE: ("document_format", EDIT_OFFICE),
     "Invalid MCP request": ("invalid_request", "The MCP request is invalid."),
     "Initialize the MCP connection first": ("not_initialized", "Initialize the MCP connection first."),
     "Onbekende MCP-methode of tool": ("unknown_method", "The requested MCP method or tool is not available."),
@@ -231,15 +259,38 @@ class Workspace:
     def read_image(self, path):
         return documents.image(self.binary(path), Path(path).suffix.lower())
 
-    def read(self, path):
+    def read(self, path, start_line=None, end_line=None):
         if Path(path).suffix.lower() in documents.OFFICE:
             raw = self.binary(path)
             return {'path': path, 'sha256': hashlib.sha256(raw).hexdigest(), **documents.document(raw, Path(path).suffix.lower())}
+        if start_line is not None or end_line is not None:
+            return self.read_lines(path, 1 if start_line is None else start_line, end_line)
         parts = self.parts(path)
         with self.directory(parts[:-1]) as fd:
             text, digest, _ = self._read_at(fd, parts[-1])
         self.seen[path] = digest
         return {"path": path, "content": text, "sha256": digest}
+
+    def read_lines(self, path, start_line, end_line=None):
+        """A line range of a UTF-8 text file of up to 10 MiB; one reply holds at most 2000 lines and 256 KiB."""
+        if not isinstance(start_line, int) or isinstance(start_line, bool) or start_line < 1 or \
+                end_line is not None and (not isinstance(end_line, int) or isinstance(end_line, bool) or end_line < start_line):
+            raise ValueError(RANGE_ERROR)
+        raw = self.binary(path)
+        if b"\x00" in raw:
+            raise ValueError("This test version supports only UTF-8 text files")
+        lines = raw.decode("utf-8").splitlines(True)
+        last = min(len(lines), end_line or len(lines), start_line + 1999)
+        chunk, size, stop = [], 0, start_line - 1
+        for line in lines[start_line - 1:last]:
+            size += len(line.encode("utf-8"))
+            if size > MAX_FILE and chunk: break
+            chunk.append(line); stop += 1
+        digest = hashlib.sha256(raw).hexdigest()
+        if start_line == 1 and stop >= len(lines) and len(raw) <= MAX_FILE:
+            self.seen[path] = digest  # the whole file was returned, so write_file may follow
+        return {"path": path, "content": "".join(chunk), "start_line": start_line, "end_line": stop,
+                "total_lines": len(lines), "complete": stop >= len(lines), "sha256": digest}
 
     def create_document(self, path, content):
         parts = self.parts(path)
@@ -313,7 +364,146 @@ class Workspace:
         return {"path": path, "before": old, "after": content, "digest": digest, "mode": mode,
                 "diff": diff, "new": digest is None}
 
+    def edit_proposal(self, path, old_text, new_text):
+        """Propose replacing one exact, unique piece of a text file; the whole new file goes through approval."""
+        if Path(path).suffix.lower() in documents.OFFICE or Path(path).suffix.lower() in document_writer.FORMATS:
+            raise ValueError(EDIT_OFFICE)
+        if not isinstance(old_text, str) or not old_text or "\x00" in old_text or not isinstance(new_text, str) or "\x00" in new_text:
+            raise ValueError(EDIT_EMPTY)
+        parts = self.parts(path)
+        with self.directory(parts[:-1]) as fd:
+            old, digest, mode = self._read_at(fd, parts[-1])
+        count = old.count(old_text)
+        if not count and "\r\n" in old and "\r\n" not in old_text:
+            # A file with Windows line endings, quoted with plain newlines.
+            old_text, new_text = old_text.replace("\n", "\r\n"), new_text.replace("\n", "\r\n")
+            count = old.count(old_text)
+        if count != 1:
+            raise ValueError(EDIT_NOT_FOUND if not count else EDIT_NOT_UNIQUE)
+        content = old.replace(old_text, new_text, 1)
+        if len(content.encode("utf-8")) > MAX_FILE:
+            raise ValueError("New content must be UTF-8 text of at most 256 KiB")
+        if content == old:
+            return {"unchanged": True, "path": path}
+        diff = "".join(difflib.unified_diff(old.splitlines(True), content.splitlines(True),
+                     fromfile=path + " (current)", tofile=path + " (proposed)"))
+        return {"path": path, "before": old, "after": content, "digest": digest, "mode": mode, "diff": diff, "new": False}
+
+    def search(self, query, path="."):
+        """Case-insensitive search in file and folder names and in the lines of UTF-8 text files."""
+        if not isinstance(query, str) or not query.strip() or len(query) > 200 or "\x00" in query:
+            raise ValueError(SEARCH_QUERY_ERROR)
+        needle = query.casefold()
+        names, lines = [], []
+        scanned, budget, deadline, truncated = 0, 32 * 1024 * 1024, time.monotonic() + 8, False
+        start = self.parts(path, True)
+        prefix = "/".join(start)
+        pending = [(start, 0)]
+        while pending:
+            parts, depth = pending.pop(0)
+            relative = "/".join(parts[len(start):])
+            try:
+                opened = contextlib.ExitStack(); fd = opened.enter_context(self.directory(parts))
+            except (OSError, ValueError):
+                if parts == start: raise
+                truncated = True; continue
+            with opened:
+                try: entries = sorted(os.listdir(fd))
+                except OSError:
+                    if parts == start: raise
+                    truncated = True; continue
+                for name in entries:
+                    if name.startswith(".") or name in SEARCH_SKIP:
+                        continue
+                    shown = "/".join(p for p in (prefix, relative, name) if p)
+                    try: info = os.stat(name, dir_fd=fd, follow_symlinks=False)
+                    except (OSError, ValueError): continue
+                    is_dir = stat.S_ISDIR(info.st_mode)
+                    if not is_dir and not (stat.S_ISREG(info.st_mode) and info.st_nlink == 1):
+                        continue
+                    if needle in name.casefold() and len(names) < 100:
+                        names.append({"path": shown, "type": "directory" if is_dir else "file"})
+                    if is_dir:
+                        if depth < 12: pending.append((parts + [name], depth + 1))
+                        else: truncated = True
+                        continue
+                    scanned += 1
+                    if (scanned > 20000 or budget <= 0 or time.monotonic() > deadline or len(lines) >= 200):
+                        truncated = True; pending.clear(); break
+                    if info.st_size > MAX_FILE or Path(name).suffix.lower() in SEARCH_BINARY:
+                        continue
+                    try:
+                        with self._open_file(name, fd) as stream: raw = stream.read(MAX_FILE + 1)
+                    except (OSError, ValueError): continue
+                    budget -= len(raw)
+                    if b"\x00" in raw: continue
+                    try: text = raw.decode("utf-8")
+                    except UnicodeDecodeError: continue
+                    if needle not in text.casefold(): continue
+                    for number, line in enumerate(text.splitlines(), 1):
+                        if needle in line.casefold():
+                            lines.append({"path": shown, "line": number, "text": line.strip()[:240]})
+                            if len(lines) >= 200: break
+        return {"query": query, "names": names, "matches": lines, "truncated": truncated,
+                "note": "Hidden files and the folders %s are not searched." % ", ".join(sorted(SEARCH_SKIP))}
+
+    def _identity(self, parts):
+        with self.directory(parts[:-1]) as fd:
+            info = os.stat(parts[-1], dir_fd=fd, follow_symlinks=False)
+        if stat.S_ISDIR(info.st_mode): kind = "directory"
+        elif stat.S_ISREG(info.st_mode) and info.st_nlink == 1: kind = "file"
+        else: raise ValueError("Only regular files without links are allowed")
+        return kind, [info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns]
+
+    def move_proposal(self, path, new_path):
+        """Propose moving or renaming a file or folder inside the workspace; nothing is replaced."""
+        source, target = self.parts(path), self.parts(new_path)
+        if target[:len(source)] == source: raise ValueError(MOVE_INTO_ITSELF)
+        kind, identity = self._identity(source)
+        try:
+            self._identity(target)
+        except FileNotFoundError:
+            pass
+        else:
+            raise ValueError(MOVE_EXISTS)
+        return {"path": path, "action": "move", "new_path": new_path, "kind": kind, "identity": identity,
+                "before": "", "after": "", "diff": "", "new": False}
+
+    def delete_proposal(self, path):
+        """Propose deleting one regular file; folders are never deleted by a remote request."""
+        parts = self.parts(path)
+        kind, identity = self._identity(parts)
+        if kind != "file": raise ValueError(DELETE_KIND)
+        try:
+            with self.directory(parts[:-1]) as fd: before = self._read_at(fd, parts[-1])[0]
+        except (ValueError, UnicodeError):
+            before = ""  # binary or large: the card shows the name only
+        return {"path": path, "action": "delete", "kind": kind, "identity": identity,
+                "before": before, "after": "", "diff": "", "new": False}
+
+    def _commit_move_or_delete(self, proposal):
+        parts = self.parts(proposal["path"])
+        try:
+            kind, identity = self._identity(parts)
+        except FileNotFoundError:
+            raise ValueError(CHANGED_SINCE) from None
+        if [kind, identity] != [proposal["kind"], proposal["identity"]]: raise ValueError(CHANGED_SINCE)
+        if proposal["action"] == "delete":
+            with self.directory(parts[:-1]) as fd: os.unlink(parts[-1], dir_fd=fd)
+            self.seen.pop(proposal["path"], None)
+            return {"written": True, "path": proposal["path"], "deleted": True}
+        target = self.parts(proposal["new_path"])
+        with self.directory(parts[:-1]) as source, self.directory(target[:-1], create=True) as dest:
+            try:
+                os.rename_noreplace(source, parts[-1], target[-1], target_root=dest)
+            except FileExistsError:
+                raise ValueError(MOVE_EXISTS) from None
+        self.seen.pop(proposal["path"], None)
+        return {"written": True, "path": proposal["path"], "new_path": proposal["new_path"]}
+
     def commit(self, proposal):
+        if proposal.get("action") in ("move", "delete"):
+            return self._commit_move_or_delete(proposal)
         if "document_format" in proposal:
             return self._commit_document(proposal)
         path, content, expected = proposal["path"], proposal["after"], proposal["digest"]

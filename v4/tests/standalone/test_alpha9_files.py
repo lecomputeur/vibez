@@ -39,6 +39,32 @@ class FilesTests(unittest.TestCase):
         self.c.pause(A); self.c.close();self.c=web.Connector(lambda event:None,self.root/'private',approval_wait=0)
         self.assertEqual(len(self.c.projects[A]['folders']),2);self.assertTrue(self.c.projects[A]['manually_paused'])
 
+    def test_search_and_edit_route_through_the_folder_prefix_with_several_folders(self):
+        # Bytes, not write_text: on Windows text mode would write CRLF, which edit_proposal keeps.
+        (self.b/'other.txt').write_bytes(b'beta line\nsecond line\n')
+        self.c.add_folder(A,str(self.b),self.c.workspace_binding(A))
+        alias_a=next(r['alias'] for r in self.c.snapshot()['folders'] if r['path']==str(self.a))
+        alias_b=next(r['alias'] for r in self.c.snapshot()['folders'] if r['path']==str(self.b))
+        ws=self.c.project_workspace(A)
+        try:
+            found=ws.search('LINE')
+            self.assertEqual([(m['path'],m['line']) for m in found['matches']],[(alias_b+'/other.txt',1),(alias_b+'/other.txt',2)])
+            self.assertEqual(ws.search('untouched',alias_a)['matches'],[{'path':alias_a+'/sentinel.txt','line':1,'text':'untouched'}])
+            proposal=ws.edit_proposal(alias_b+'/other.txt','second','third')
+            self.assertEqual((proposal['_workspace_path'],proposal['after']),('other.txt','beta line\nthird line\n'))
+            ws.commit(proposal)
+            self.assertEqual((self.b/'other.txt').read_bytes(),b'beta line\nthird line\n')
+            with self.assertRaises(ValueError):ws.edit_proposal('other.txt','beta','x')
+            with self.assertRaises(ValueError):ws.search('x','../Beta')
+            move=ws.move_proposal(alias_b+'/other.txt',alias_b+'/sub/renamed.txt')
+            ws.validate(move);ws.commit(move)
+            self.assertEqual((self.b/'sub/renamed.txt').read_bytes(),b'beta line\nthird line\n');self.assertFalse((self.b/'other.txt').exists())
+            with self.assertRaises(ValueError):ws.move_proposal(alias_b+'/sub/renamed.txt',alias_a+'/renamed.txt')
+            delete=ws.delete_proposal(alias_a+'/sentinel.txt');self.assertEqual(delete['before'],'untouched')
+            ws.validate(delete);ws.commit(delete);self.assertFalse((self.a/'sentinel.txt').exists())
+            self.assertEqual(ws.read(alias_b+'/sub/renamed.txt',2,2)['content'],'third line\n')
+        finally: ws.close()
+
     def test_local_browser_moves_without_clobber_and_rejects_escape_links_stale_context(self):
         rev=self.c.workspace_binding(A); (self.a/'child').mkdir()
         self.c.local_files(A,rev,'move','sentinel.txt','child')

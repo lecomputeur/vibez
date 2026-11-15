@@ -16,6 +16,10 @@ mod classic_layout;
 mod classic_language;
 #[path="panel_prefs.rs"]
 mod panel_prefs;
+#[path="whats_new.rs"]
+mod whats_new;
+#[path="app_links.rs"]
+mod app_links;
 #[path="project_import.rs"]
 mod project_import;
 #[path="project_details.rs"]
@@ -888,6 +892,9 @@ fn main() {
             classic_language::language_set,
             panel_prefs::panel_prefs_get,
             panel_prefs::panel_prefs_set,
+            whats_new::whats_new_get,
+            whats_new::whats_new_seen,
+            app_links::app_open_link,
             official_web::web_command,
             official_web::web_choose_folder,
             project_import::project_import_choose,
@@ -905,6 +912,8 @@ fn main() {
             if !skip_updates{alpha_updates::startup(app.handle());}
             let config = app.path().app_config_dir()?;
             let data = app.path().app_data_dir()?;
+            // Before anything is created: an existing profile means this start follows an update.
+            let used_before = data.join("standalone").exists();
             std::fs::create_dir_all(&config)?;
             std::fs::create_dir_all(&data)?;
             #[cfg(unix)]
@@ -922,6 +931,7 @@ fn main() {
             }
             app.manage(classic_language::Language::load(&config).map_err(std::io::Error::other)?);
             app.manage(panel_prefs::PanelPrefs::load(&config));
+            app.manage(whats_new::WhatsNew::load(&config, used_before));
             screenshot_v4::manage(app.handle());
             #[cfg(target_os = "linux")]
             {

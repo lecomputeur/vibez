@@ -18,19 +18,24 @@ function presentation(value,pending=false){
  else if(kind==='flatpak'&&state.consent_required)key='updatePermission';
  else if(['current','installed','updated'].includes(phase)||(phase==='ready'&&kind==='flatpak'))key='updateCurrent';
  // A Microsoft Store install is updated by the Store; there is nothing to check here.
- return {key,busy,store:kind==='store',allow:kind==='flatpak'&&state.consent_required===true&&!restricted&&!disabled,
+ // Settings shows the update block only when something needs the person: a quiet "all is well" stays out of sight.
+ const attention=!['updateAutomatic','updateCurrent'].includes(key);
+ return {key,busy,attention,store:kind==='store',allow:kind==='flatpak'&&state.consent_required===true&&!restricted&&!disabled,
   error:state.error||''};
 }
 async function attach({document,tauri,language}){
  const status=document.getElementById('alpha-update-status'),check=document.getElementById('alpha-update-check'),allow=document.getElementById('alpha-update-allow');
  if(!status||!check||!allow)return;
- let state={status:'idle'},pending=false,revision=0;
+ const block=document.getElementById('alpha-updates');
+ let state={status:'idle'},pending=false,revision=0,asked=false;
  function render(){
   const view=presentation(state,pending);
   status.textContent=language.t(view.key);status.title=view.error?(language.errorText?language.errorText(view.error,'updateError'):language.t('updateError')).slice(0,2048):'';
   status.setAttribute('aria-busy',String(view.busy));
   check.textContent=language.t('updateCheck');check.disabled=view.busy;check.hidden=view.store;
   allow.textContent=language.t('updateAllow');allow.hidden=!view.allow;allow.disabled=view.busy;
+  // After Check now the answer stays visible, also when it is "you have the latest version".
+  if(block)block.hidden=!(view.attention||asked);
  }
  function receive(value){if(!accepted(value))return;state=value;revision++;render();}
  async function request(command){
@@ -41,7 +46,7 @@ async function attach({document,tauri,language}){
   catch(error){if(before===revision)state={...state,status:'error',error};}
   finally{pending=false;render();}
  }
- check.addEventListener('click',()=>request('alpha_update_check'));
+ check.addEventListener('click',()=>{asked=true;request('alpha_update_check');});
  allow.addEventListener('click',()=>request('alpha_update_allow'));
  language.onChange(render);
  for(const event of ['alpha-update','alpha-flatpak-update'])await tauri.event.listen(event,e=>receive(e.payload));
