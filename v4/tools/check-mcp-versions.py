@@ -42,8 +42,10 @@ def fetch(url, timeout=20):
         return response.read().decode('utf-8', 'replace')
 
 
-def published_versions(fetcher=fetch):
+def published_versions(fetcher=None):
     """Dated specification versions, newest first, and where they came from."""
+    # Looked up at call time, so tests that patch fetch never reach the network.
+    fetcher = fetcher or fetch
     try:
         entries = json.loads(fetcher(LISTING))
         names = [e.get('name', '') for e in entries if isinstance(e, dict) and e.get('type') == 'dir']
