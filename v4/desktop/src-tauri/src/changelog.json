@@ -1,0 +1,43 @@
+{
+ "versions": [
+  {
+   "version": "4.0.0-beta.4",
+   "date": "2026-11-15",
+   "changes": [
+    "Mistral can search the linked folders: file and folder names, and lines of text with their line numbers. Large text files of up to 10 MiB can be read in parts, so Mistral no longer has to open files one by one.",
+    "Mistral can propose changing one part of a file, moving or renaming a file or folder, and deleting a single file. Each change is a proposal that you approve in VibeZ, as before; folders are never deleted.",
+    "When several proposals are waiting, Save all and Reject all handle them at once. Move and delete proposals have their own card and button.",
+    "Code projects show their project rules under Advanced, and you can add or change them there. The rules are saved in Mistral, so the browser shows them too.",
+    "After an update VibeZ shows What's new once, with the changes of every version you missed. Settings has a What's new entry to read them again.",
+    "Settings is a short menu: Report a problem and Share feedback open GitHub, and About VibeZ shows the version, licence and credits. The language is chosen in the toolbar, the update block appears only when something needs you, and closing Settings returns to the project panel.",
+    "The local file connector also accepts MCP protocol version 2025-11-25."
+   ]
+  },
+  {
+   "version": "4.0.0-beta.3",
+   "date": "2026-11-14",
+   "changes": [
+    "The Screenshot button opens the full screenshot dialog from VibeZ 3 again: Visible page, Full page or Selection, with Paste directly into Mistral, Copy, Save PNG and New. Beta 2 only copied the page to the clipboard, and on Linux an image copied that way could not be pasted into Mistral. VibeZ now hands the image to the Mistral input field itself, so it appears there as an attachment.",
+    "The \"Selected folder\" label in the file browser now follows a language change and is translated in all languages.",
+    "A message typed before linking a folder for the first time is kept. After a new connector is set up VibeZ reloads the Mistral page so its connector list is current; this reload cleared the draft since Alpha 31. VibeZ now puts the typed text back in the input field after the reload."
+   ]
+  },
+  {
+   "version": "4.0.0-beta.2",
+   "date": "2026-11-13",
+   "changes": [
+    "Linking a folder works again when VibeZ is wide or maximized. In a wide window Mistral opens the Connectors list only from the pointer moving over and pressing the item, so the plain click of Beta 1 left it closed and the link stopped after about 50 seconds with no-picker. VibeZ now presses the item the way a mouse does; in a 1600 pixel window the link completes in about 11 seconds, and narrow windows work as before."
+   ]
+  },
+  {
+   "version": "4.0.0-beta.1",
+   "date": "2026-11-13",
+   "changes": [
+    "VibeZ 4 is now an open Beta. The app, its windows, the Linux launchers and the package descriptions say VibeZ V4 Beta. Installations, profiles and settings stay where they are, so Alpha users move on to the Beta through the normal automatic update.",
+    "A Microsoft Store version, VibeZ Desktop V4, is prepared next to VibeZ Desktop 3.0.9. A Store installation is updated by the Store; VibeZ does not download or install updates itself there, and the Updates section says so instead of offering Check now.",
+    "On Linux deb, rpm and Arch installations, the Updates section now shows what the system update service found within a minute, such as an update waiting for VibeZ to close, instead of only after pressing Check now.",
+    "The message for an up-to-date installation now reads \"You have the latest version.\" in all 33 languages, without naming the Alpha."
+   ]
+  }
+ ]
+}

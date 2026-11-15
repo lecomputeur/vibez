@@ -63,6 +63,21 @@ class ReleaseToolTests(unittest.TestCase):
         self.assertIn('does not overwrite or remove 3.0.9', body)
         self.assertIn('No MSIX is included', body)
 
+    def test_bump_puts_the_changes_on_top_of_the_in_app_changelog_and_a_rerun_replaces_them(self):
+        import tempfile
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as temp:
+            changelog = Path(temp) / 'changelog.json'
+            changelog.write_text(json.dumps({'versions': [{'version': '4.0.0-beta.3', 'date': '2026-11-14', 'changes': ['Old.']}]}))
+            with patch.object(tool, 'CHANGELOG', changelog):
+                tool.record_changelog('4.0.0-beta.4', ['First.'], today='2026-11-20')
+                tool.record_changelog('4.0.0-beta.4', ['First.', 'Second.'], today='2026-11-21')
+            versions = json.loads(changelog.read_text())['versions']
+            self.assertEqual([v['version'] for v in versions], ['4.0.0-beta.4', '4.0.0-beta.3'])
+            self.assertEqual(versions[0], {'version': '4.0.0-beta.4', 'date': '2026-11-21', 'changes': ['First.', 'Second.']})
+        bundled = json.loads(tool.CHANGELOG.read_text())['versions']
+        self.assertTrue(all(v['changes'] and all(isinstance(c, str) and c for c in v['changes']) for v in bundled))
+
     def test_dry_run_prints_commands_and_runs_nothing(self):
         out = io.StringIO()
         with redirect_stdout(out):

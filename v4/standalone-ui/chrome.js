@@ -19,7 +19,9 @@ function setPanel(mode){panel=mode;if(mode!=='files'){pendingProjectOpen=null;la
 function openPanel(mode){const previous=panel;setPanel(mode);invoke('chrome_panel',{mode}).catch(error=>{if(panel===mode)setPanel(previous);showError(error);});}
 for(const action of ['back','forward','reload','home'])$(action).addEventListener('click',()=>invoke('web_navigate',{destination:action}).catch(showError));
 $('connection-indicator').addEventListener('click',()=>openPanel('files'));
-$('settings').addEventListener('click',()=>openPanel(panel==='settings'?'closed':'settings'));
+// A second press on Settings goes back to the project panel when that was open before.
+let beforeSettings='closed';
+$('settings').addEventListener('click',()=>{if(panel==='settings')openPanel(beforeSettings==='files'?'files':'closed');else{beforeSettings=panel==='files'?'files':'closed';openPanel('settings');}});
 $('screenshot').addEventListener('click',async()=>{const button=$('screenshot');clearTimeout(screenshotHighlight);button.dataset.active='true';button.disabled=true;try{await invoke('chrome_snapshot');}catch(e){showError(e);}finally{button.disabled=false;screenshotHighlight=setTimeout(()=>delete button.dataset.active,1600);}});
 $('quick-language').addEventListener('change',async()=>{const menu=$('quick-language');menu.disabled=true;try{await window.vibezLanguage.set(menu.value);}catch(e){menu.value=window.vibezLanguage.state().language;showError(e);}finally{menu.disabled=false;}});
 async function boot(){

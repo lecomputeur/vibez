@@ -157,3 +157,29 @@ test('asynchronous close and temporarily disabled save are confirmed without dup
  const h=rulesFixture();h.run('fill',{expected:h.field.value,value:'Changed'});h.checkbox.checked=!h.checkbox.checked;
  assert.equal(h.run('submit').reason,'form_changed');assert.equal(h.submit.clicked,0);assert.equal(h.run('abort').cancelled,true);
 });
+
+// project_rules_api.js runs in the signed-in Mistral page: Work and Code projects use separate routes.
+async function rulesApi(input,{status=200,stored=null}={}){
+ const apiSource=fs.readFileSync(path.join(__dirname,'../src-tauri/src/project_rules_api.js'),'utf8'),calls=[];let instructions=stored;
+ const fetch=async(url,options={})=>{calls.push({url,method:options.method||'GET',body:options.body});
+  if(options.method==='POST'){instructions=JSON.parse(options.body)[0].json.instructions;return {ok:status===200,json:async()=>[]};}
+  const id=JSON.parse(decodeURIComponent(url.split('input=')[1]))[0].json.id;
+  return {ok:status===200,json:async()=>[{result:{data:{json:{id,instructions}}}}]};};
+ const window={};window.top=window;
+ const context={window,location:{origin:'https://chat.mistral.ai'},fetch,encodeURIComponent,JSON};vm.createContext(context);
+ const started=vm.runInContext('('+apiSource+')('+JSON.stringify(input)+')',context);
+ for(let i=0;i<20&&window.__vibezRulesApi?.state==='pending';i++)await new Promise(r=>setImmediate(r));
+ return {started,result:window.__vibezRulesApi,calls};
+}
+test('project rules of a Code project are read and saved through the Code project routes',async()=>{
+ const read=await rulesApi({id:ID,kind:'code'},{stored:null});
+ assert.equal(read.started,'started');assert.deepEqual(JSON.parse(JSON.stringify(read.result)),{state:'done',id:ID,instructions:''},'no rules yet reads as empty text');
+ assert.match(read.calls[0].url,/^\/api\/code-trpc\/projects\.byId\?batch=1&input=/);
+ const saved=await rulesApi({id:ID,kind:'code',save:true,instructions:'Answer in Dutch.'});
+ assert.deepEqual(saved.calls.map(c=>[c.method,c.url.split('?')[0]]),[['POST','/api/code-trpc/projects.update'],['GET','/api/code-trpc/projects.byId']]);
+ assert.deepEqual(JSON.parse(saved.calls[0].body),{0:{json:{id:ID,instructions:'Answer in Dutch.'}}});assert.equal(saved.result.instructions,'Answer in Dutch.');
+ const work=await rulesApi({id:ID,save:true,instructions:'Work rule'});
+ assert.deepEqual(work.calls.map(c=>c.url.split('?')[0]),['/api/trpc/project.updateOneById','/api/trpc/project.byId'],'Work keeps its own routes');
+ assert.equal((await rulesApi({id:ID,kind:'code'},{status:500})).result.state,'error');
+ for(const input of [{id:'code-'+ID,kind:'code'},{id:ID,kind:'other'},{id:ID,kind:'code',save:true,instructions:'x'.repeat(8001)}])assert.equal((await rulesApi(input)).started,'refused');
+});

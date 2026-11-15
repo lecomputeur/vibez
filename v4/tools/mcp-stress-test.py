@@ -471,19 +471,25 @@ class Bench:
                   '.hidden', '.env', '.git/config', 'sub/.hidden', '*', '?', '[a-z]*', 'plain.txt:stream', 'plain.txt::$DATA', ' plain.txt', 'plain.txt ', 'plain.txt.', '\ud83d', '\u202eplain.txt', '\ufeffplain.txt',
                   'new\nline.txt', 'tab\tname', '-rf', '--help', '.', './', '/', '//', '/.', 'many/../many/f0001.txt', 'proc/self/environ', '/proc/self/environ', '/dev/stdin']
         for path in tricky:
-            for tool in ('read_file', 'read_image', 'list_directory', 'write_file', 'create_document'):
+            for tool in ('read_file', 'read_image', 'list_directory', 'write_file', 'create_document', 'search_files', 'edit_file', 'move_file', 'delete_file'):
                 def one(path=path, tool=tool):
                     args = {'path': path}
                     if tool in ('write_file', 'create_document'): args['content'] = 'stress content'
+                    if tool == 'search_files': args['query'] = CANARY[:12]
+                    if tool == 'edit_file': args.update(old_text='Hello', new_text='stress content')
+                    if tool == 'move_file': args['new_path'] = 'moved-by-stress.txt'
                     try: json.dumps(args).encode()
                     except UnicodeEncodeError: return
                     before = set(os.listdir(self.outside))
                     error, value = self.call(sid, tool, args, timeout=30)
                     text = json.dumps(value)
-                    if tool in ('write_file', 'create_document') and not error:
+                    found = json.dumps([value.get('names'), value.get('matches')]) if tool == 'search_files' and isinstance(value, dict) else text
+                    if CANARY[:12] in found: raise Fail('%s %r: returned content from outside the workspace' % (tool, path))
+                    if tool in ('write_file', 'create_document', 'edit_file', 'move_file', 'delete_file') and not error:
                         pid = value.get('proposal_id')
                         if pid:
-                            try: self.c.resolve(pid, True)
+                            # Moves and deletes are rejected: accepting them would take away the fixtures of later groups.
+                            try: self.c.resolve(pid, tool not in ('move_file', 'delete_file'))
                             except (ValueError, OSError): pass
                     if set(os.listdir(self.outside)) != before: raise Fail('%s %r: changed the folder outside the workspace' % (tool, path))
                     if (self.outside / 'secret.txt').read_text() != CANARY: raise Fail('%s %r: changed a file outside the workspace' % (tool, path))

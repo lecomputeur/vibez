@@ -224,6 +224,9 @@
 !/desktop/src-tauri/src/native_layout_windows.rs
 !/desktop/src-tauri/src/official_web.rs
 !/desktop/src-tauri/src/panel_prefs.rs
+!/desktop/src-tauri/src/whats_new.rs
+!/desktop/src-tauri/src/app_links.rs
+!/desktop/src-tauri/src/changelog.json
 !/desktop/src-tauri/src/paste_composer.js
 !/desktop/src-tauri/src/paste_file_input.js
 !/desktop/src-tauri/src/paste_png_bridge.js

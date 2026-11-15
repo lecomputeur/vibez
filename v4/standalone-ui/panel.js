@@ -4,7 +4,7 @@ const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className
 const t=key=>window.vibezLanguage.t(key),errorText=(error,key='operationFailed')=>window.vibezLanguage.errorText(error,key);
 const connectionFeedback=window.vibezConnectionFeedback.connectionFeedback;
 const labels={read_image:'readImage',move_file:'moveItem',read_file:'readFile',propose_file:'fileActionProposed',save_file:'fileActionSaved',import_file:'addFiles',import_folder:'addFolder',create_folder:'newFolder'};
-let webState={project:null,pending:[],activity:[]},auto={status:'idle'},loginURL='',actionError='',technicalError='',autoBusySince=0;
+let panelBeforeSettings='closed',webState={project:null,pending:[],activity:[]},auto={status:'idle'},loginURL='',actionError='',technicalError='',autoBusySince=0;
 const BUSY_STATUSES=['starting','authorizing','connecting','registering'],PHASE_KEYS={tunnel:'phaseTunnel',tunnel_retry:'phaseTunnelRetry',reachable:'phaseReachable',permission:'phasePermission',register:'phaseRegister',enroll:'phaseEnroll',attach:'phaseAttach',refresh:'phaseRefresh'};
 // While a link runs, the status line names the current part and counts the seconds.
 if(typeof setInterval==='function')setInterval(()=>{if(BUSY_STATUSES.includes(auto.status))renderAutomatic();},1000);
@@ -12,7 +12,7 @@ let importBusy=false,importCancelling=false,importMessage=null,projectDetails=nu
 let importConflict=null,conflictChoices={},conflictApplyAll=false,conflictSubmitting=false,conflictFailure='',projectPanelMode='files';
 let openWorkspaceBusy=false,folderPicking=false;
 let folderRequest=null,folderNotice=null,folderRequestSerial=0;
-let rulesEdit=null,rulesOperation=null,rulesNotice=null,apiRules=null;
+let rulesEdit=null,rulesOperation=null,rulesNotice=null,apiRules=null;const RULES_RETRY_MS=8000;
 const isConversation=()=>webState.project?.kind==='conversation';
 function folderMessage(key){const folder=webState.folder?(webState.folder.split(/[\\/]/).filter(Boolean).pop()||webState.folder):'';return t(key).split('{folder}').join(folder);}
 function contextLabel(id,key){const node=$(id);node.dataset.v4=key;node.textContent=folderMessage(key);}
@@ -39,7 +39,7 @@ function renderWeb(data){
  $('web-enable').hidden=data.enabled;$('web-enable').disabled=!linked;$('web-tunnel-choice').hidden=!data.enabled||running||data.tunnel_status==='starting';$('web-stop').hidden=!['running','starting'].includes(data.tunnel_status);$('web-setup').hidden=!linked||!data.url;
  $('web-connector-name').value=p?'VibeZ'+p.name.replace(/[^a-zA-Z0-9]/g,'').slice(0,45)+p.id.slice(0,8):'';$('web-endpoint').value=data.url||'';$('web-token').value=data.token||'';
  $('web-status').textContent=data.tunnel_status==='failed'?t('failed'):data.tunnel_status==='starting'?t('starting'):data.enabled&&running?t('active'):data.enabled?t('allowed'):linked?t('paused'):t(isConversation()?'conversationChooseFirst':'chooseFirst');
-$('web-review').hidden=!data.pending?.length;$('web-proposals').replaceChildren();$('web-no-proposals').hidden=Boolean(data.pending?.length);for(const proposal of data.pending||[]){const card=el('article','approval'),head=el('div','approval-head');head.append(el('span','eyebrow',proposal.project_name),el('h3','',proposal.path),el('p','',proposalHelp(proposal)));card.append(head);const comparison=el('div','comparison');for(const [title,text]of [[t('currentText'),proposal.before],[t('proposal'),proposal.after]]){const section=el('section');section.append(el('h4','',title),el('pre','',text));comparison.append(section);}card.append(comparison);const actions=el('div','approval-actions'),yes=el('button','primary',t('filesSave')),no=el('button','secondary',t('reject'));for(const [b,allow]of [[yes,true],[no,false]])b.addEventListener('click',async()=>{yes.disabled=no.disabled=true;const ok=await webCommand('web_approve',{id:proposal.id,allow});if(!ok)yes.disabled=no.disabled=false;});actions.append(yes,no);card.append(actions);$('web-proposals').append(card);}
+$('web-review').hidden=!data.pending?.length;$('web-proposals').replaceChildren();$('web-no-proposals').hidden=Boolean(data.pending?.length);if((data.pending||[]).length>1){const bar=el('div','approval-actions approval-all'),all=el('button','primary',t('filesSaveAll')),none=el('button','secondary',t('rejectAll'));for(const [b,allow]of [[all,true],[none,false]])b.addEventListener('click',async()=>{all.disabled=none.disabled=true;for(const proposal of data.pending){if(!await webCommand('web_approve',{id:proposal.id,allow}))break;}all.disabled=none.disabled=false;});bar.append(all,none);$('web-proposals').append(bar);}for(const proposal of data.pending||[]){const card=el('article','approval'),head=el('div','approval-head'),moving=proposal.action==='move',deleting=proposal.action==='delete';head.append(el('span','eyebrow',proposal.project_name),el('h3','',moving?proposal.path+' \u2192 '+proposal.new_path:proposal.path),el('p','',moving?t('moveProposalNote'):deleting?t('deleteProposalNote'):proposalHelp(proposal)));card.append(head);const comparison=el('div','comparison');for(const [title,text]of moving?[]:deleting?(proposal.before?[[t('currentText'),proposal.before]]:[]):[[t('currentText'),proposal.before],[t('proposal'),proposal.after]]){const section=el('section');section.append(el('h4','',title),el('pre','',text));comparison.append(section);}if(comparison.children.length)card.append(comparison);const actions=el('div','approval-actions'),yes=el('button','primary',t(moving?'moveConfirm':deleting?'deleteConfirm':'filesSave')),no=el('button','secondary',t('reject'));for(const [b,allow]of [[yes,true],[no,false]])b.addEventListener('click',async()=>{yes.disabled=no.disabled=true;const ok=await webCommand('web_approve',{id:proposal.id,allow});if(!ok)yes.disabled=no.disabled=false;});actions.append(yes,no);card.append(actions);$('web-proposals').append(card);}
 renderAutomatic();renderProjectFiles();renderProjectDetails();renderAdvanced();
  if(newlyLinked)panelTabsView?.folderLinked();else panelTabsView?.sync();
  if($('diagnostics-dialog').open){requestDiagnostics();renderDiagnostics();}}
@@ -96,21 +96,38 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){for(const menu of $
 $('web-enable').addEventListener('click',()=>webCommand('web_enable',{allow:true}));$('web-pause').addEventListener('click',()=>webCommand('web_enable',{allow:false}));$('web-start').addEventListener('click',()=>webCommand('web_start'));$('web-stop').addEventListener('click',()=>webCommand('web_stop'));$('web-rotate').addEventListener('click',()=>webCommand('web_rotate'));
 for(const [button,input]of [['web-copy-name','web-connector-name'],['web-copy-url','web-endpoint'],['web-copy-token','web-token']])$(button).addEventListener('click',async()=>{try{await invoke('app_copy',{text:$(input).value});$(button).textContent=t('copied');}catch(e){webNotice(e);}});
 
-for(const id of ['close-panel','close-settings-panel'])$(id).addEventListener('click',()=>invoke('chrome_panel',{mode:'closed'}));
-$('settings-files').addEventListener('click',()=>invoke('chrome_panel',{mode:'files'}));
+$('close-panel').addEventListener('click',()=>invoke('chrome_panel',{mode:'closed'}));
+// Leaving Settings returns to the project panel when it was open before, and closes the panel otherwise.
+$('close-settings-panel').addEventListener('click',()=>invoke('chrome_panel',{mode:panelBeforeSettings==='files'?'files':'closed'}));
 async function boot(){
  await window.vibezLanguage.ready();
  window.vibezLanguage.onChange(()=>{if(webState.type==='web_connector')renderWeb(webState);});
- const select=$('language');for(const o of window.VIBEZ_TRANSLATIONS.options){const n=el('option','',o.code==='system'?t('system'):o.name);n.value=o.code;select.append(n);}
- function selected(){const s=window.vibezLanguage.state();select.value=s.language;$('language-fallback').hidden=s.site_locale===s.resolved;document.querySelector('option[value=system]').textContent=t('system');$('language-status').textContent=s.pending?t('languagePending'):'';$('language-status').title='';}
- window.vibezLanguage.onChange(selected);selected();
- select.addEventListener('change',async()=>{select.disabled=true;try{await window.vibezLanguage.set(select.value);}catch(e){selected();$('language-status').textContent=t('operationFailed');$('language-status').title=errorText(e);}finally{select.disabled=false;}});
  await window.__TAURI__.event.listen('app-engine',e=>{if(e.payload.type==='web_connector')renderWeb(e.payload);if(e.payload.type==='error')webNotice(e.payload);});
- await window.__TAURI__.event.listen('chrome-panel',e=>{projectPanelMode=e.payload;const settings=['settings','language'].includes(e.payload);$('web-panel').hidden=settings;$('panel-settings').hidden=!settings;if(e.payload==='files'){document.body.scrollTop=0;document.documentElement.scrollTop=0;renderImportConflict();}else if($('import-conflict-dialog').open){$('import-conflict-dialog').close();}if(e.payload==='language'){$('language').focus();}});
+ await window.__TAURI__.event.listen('chrome-panel',e=>{if(!['settings','language'].includes(e.payload))panelBeforeSettings=e.payload;projectPanelMode=e.payload;const settings=['settings','language'].includes(e.payload);$('web-panel').hidden=settings;$('panel-settings').hidden=!settings;if(e.payload==='files'){document.body.scrollTop=0;document.documentElement.scrollTop=0;renderImportConflict();}else if($('import-conflict-dialog').open){$('import-conflict-dialog').close();}});
  const info=await invoke('app_info');$('panel-version').textContent=info.version;
  try{panelTabsView?.applyPrefs(await invoke('panel_prefs_get'));}catch(error){}
  await webCommand('web_hello');
+ setTimeout(()=>showWhatsNew(false),1500);
 }boot().catch(e=>webNotice(e));
+// What's new: after an update, every version this installation has not shown yet; from Settings, all versions.
+function versionLabel(v){const m=/^(\d+)\.\d+\.\d+-(alpha|beta|rc)\.(\d+)$/.exec(v||'');return m?`V${m[1]} ${m[2][0].toUpperCase()+m[2].slice(1)} ${m[3]}`:String(v||'');}
+function renderWhatsNew(data,updated){
+ $('whats-new-intro').textContent=updated?t('whatsNewUpdated').split('{version}').join(versionLabel(data.current)):t('whatsNewHelp');
+ $('whats-new-english').hidden=(window.vibezLanguage.state?.().resolved||'en')==='en';
+ const list=$('whats-new-list');list.replaceChildren();
+ for(const v of data.versions||[]){const section=el('section','whats-new-version'),items=el('ul');section.append(el('h3','',versionLabel(v.version)+(v.date?' · '+v.date:'')));for(const change of v.changes||[])items.append(el('li','',change));section.append(items);list.append(section);}
+}
+async function showWhatsNew(all){
+ let data;try{data=await invoke('whats_new_get',{all});}catch(_){return;}
+ if(!data?.versions?.length)return;
+ renderWhatsNew(data,!all);
+ // Its initial mode says files even while the panel is closed: open it explicitly after an update.
+ if(!all){try{await invoke('chrome_panel',{mode:'files'});}catch(_){}}
+ const dialog=$('whats-new-dialog');if(!dialog.open&&typeof dialog.showModal==='function')dialog.showModal();
+}
+$('settings-whats-new').addEventListener('click',()=>showWhatsNew(true));
+for(const id of ['whats-new-close','whats-new-done'])$(id).addEventListener('click',()=>$('whats-new-dialog').close());
+$('whats-new-dialog').addEventListener('close',()=>{invoke('whats_new_seen').catch(()=>{});});
 
 function renderAutomatic(){
  const busy=['starting','authorizing','connecting','registering'].includes(auto.status);
@@ -335,17 +352,18 @@ function loadApiRules(projectId){
  apiRules={project_id:projectId,loading:true};
  invoke('project_rules_edit',{projectId,action:'api-read'}).then(result=>{
   if(apiRules?.project_id!==projectId)return;
-  apiRules=result?.project_id===projectId&&typeof result.value==='string'?{project_id:projectId,value:result.value}:{project_id:projectId,failed:true};
- }).catch(()=>{if(apiRules?.project_id===projectId)apiRules={project_id:projectId,failed:true};}).finally(()=>{if(webState.project?.id===projectId)renderProjectRules();});
+  apiRules=result?.project_id===projectId&&typeof result.value==='string'?{project_id:projectId,value:result.value}:{project_id:projectId,failed:true,at:Date.now()};
+ }).catch(()=>{if(apiRules?.project_id===projectId)apiRules={project_id:projectId,failed:true,at:Date.now()};}).finally(()=>{if(webState.project?.id===projectId)renderProjectRules();});
 }
 function renderProjectRules(){
  const data=currentRulesDetails(),project=webState.project;
- const supported=!isConversation()&&/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(project?.id||'');
+ const supported=!isConversation()&&/^(?:code-)?[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(project?.id||'');
  $('project-rules').hidden=!supported;if(!supported)return;
  const editing=rulesEdit?.project_id===project.id,busy=Boolean(rulesOperation);
  const available=data?.available===true,canEdit=available&&data.can_edit===true&&data.cached!==true;
  // Outside the project overview the rules come from Mistral's project request.
- if(!available&&!editing&&apiRules?.project_id!==project.id)loadApiRules(project.id);
+ // A read can fail while Mistral is still switching pages; try again a little later instead of keeping the failure.
+ if(!available&&!editing&&(apiRules?.project_id!==project.id||(apiRules.failed&&Date.now()-(apiRules.at||0)>RULES_RETRY_MS)))loadApiRules(project.id);
  const api=!available&&apiRules?.project_id===project.id&&typeof apiRules.value==='string';
  $('project-rules-text').hidden=editing;
  $('project-rules-text').textContent=available?(data.instructions||t('projectRulesEmpty')):api?(apiRules.value||t('projectRulesEmpty')):t(apiRules?.project_id===project.id&&apiRules.failed?'projectRulesUnavailable':'projectRulesLoading');
@@ -641,3 +659,13 @@ window.vibezLanguage.onChange(()=>{if($('diagnostics-dialog').open)renderDiagnos
  if(typeof MutationObserver==='function')new MutationObserver(sync).observe($('web-panel'),{attributes:true,attributeFilter:['hidden','disabled','data-action'],subtree:true});
  sync();
 })();
+
+// Fixed web pages (GitHub, the VibeZ site) open in the person's browser; the panel only names them.
+for(const node of document.querySelectorAll?.('[data-link]')||[])node.addEventListener('click',()=>invoke('app_open_link',{link:node.dataset.link}).catch(e=>webNotice(e)));
+$('settings-about').addEventListener('click',()=>{
+ $('about-version').textContent=$('panel-version').textContent;
+ const [before,after]=t('aboutThanks').split('{name}'),name=el('button','link-button','ActiveUser435');name.type='button';name.addEventListener('click',()=>invoke('app_open_link',{link:'tester'}).catch(e=>webNotice(e)));
+ $('about-thanks').replaceChildren(el('span','',before||''),name,el('span','',after||''));
+ const dialog=$('about-dialog');if(!dialog.open&&typeof dialog.showModal==='function')dialog.showModal();
+});
+$('about-close').addEventListener('click',()=>$('about-dialog').close());
