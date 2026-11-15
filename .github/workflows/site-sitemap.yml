@@ -1,0 +1,27 @@
+name: Site sitemap
+
+# Checks that every <lastmod> in docs/sitemap.xml is the date of the last
+# change of that page, so search engines see which pages changed.
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'tools/site/**'
+      - '.github/workflows/site-sitemap.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lastmod:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Sitemap dates match the last page changes
+        run: python3 tools/site/sitemap-lastmod.py --check
