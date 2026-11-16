@@ -1,0 +1,31 @@
+name: Point the Beta 3 release notes at the newest release
+
+# One-off: VibeZ 3.1.0 links to the Beta 3 release page, so that page says
+# where the newest V4 version is. Runs once when this file is pushed.
+on:
+  push:
+    branches: ['claude/issue-87-appimage']
+    paths: ['.github/workflows/beta3-newer-note.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  note:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: v4.0.0-beta.3
+    steps:
+      - name: Add the note once
+        run: |
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body -q .body > body.md
+          if grep -q 'This is an older beta' body.md; then echo "Already there"; exit 0; fi
+          {
+            echo "> **This is an older beta.** The newest VibeZ V4 version is on the [releases page](https://github.com/$GITHUB_REPOSITORY/releases)."
+            echo
+            cat body.md
+          } > new.md
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file new.md
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body,isPrerelease,name -q '.name, .isPrerelease, (.body | split("\n")[0])'
