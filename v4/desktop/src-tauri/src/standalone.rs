@@ -360,8 +360,11 @@ fn startup_failure(window:&tauri::WebviewWindow,message:&str)->! {
     #[cfg(target_os="linux")]
     if safe_output().ok().flatten().is_none() {
         let parent=window.show().ok().and_then(|_|window.gtk_window().ok());
+        // Let the main window map first, so the dialog can be placed over it.
+        for _ in 0..200 {if !gtk::events_pending(){break;} gtk::main_iteration_do(false);}
         let dialog=gtk::MessageDialog::new(parent.as_ref(),gtk::DialogFlags::MODAL|gtk::DialogFlags::DESTROY_WITH_PARENT,gtk::MessageType::Error,gtk::ButtonsType::Close,message);
         dialog.set_title("VibeZ V4 Beta");
+        dialog.set_keep_above(true);
         dialog.set_position(if parent.is_some(){gtk::WindowPosition::CenterOnParent}else{gtk::WindowPosition::Center});
         dialog.run();
         dialog.close();
