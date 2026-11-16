@@ -72,7 +72,7 @@ pub fn observe_dialog(dialog:&gtk::FileChooserDialog,safe:Screen,kind:&str){
     gtk::glib::timeout_add_local_once(std::time::Duration::from_millis(600),move ||{
         let(x,y)=dialog.position();let(w,h)=dialog.size();
         let on_safe=x>=safe.x&&y>=safe.y&&x+w<=safe.x+safe.width as i32&&y+h<=safe.y+safe.height as i32;
-        let selected=dialog.is_visible()&&on_safe&&guard_game(safe).is_ok()&&dialog.current_folder().as_ref()==Some(&path)&&dialog.filename().as_ref()==Some(&path);
+        let selected=dialog.is_visible()&&on_safe&&guard_windows(safe).is_ok()&&dialog.current_folder().as_ref()==Some(&path)&&dialog.filename().as_ref()==Some(&path);
         if selected {dialog.response(gtk::ResponseType::Accept);}
     });
 }

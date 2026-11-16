@@ -4,13 +4,24 @@ import argparse,json,re,shutil,subprocess,tempfile
 from pathlib import Path
 from alpha_linux_payload import BASE,APP_ID,BINARY,PRODUCT,updater,version,digest,add_update_files,check_payload,normalize_modes
 
+def personal_output():
+    """The connector the Personal DEB is locked to: VIBEZ_PERSONAL_OUTPUT, or the
+    output already remembered by the app on this computer. Kept out of the source."""
+    import os
+    value=os.environ.get('VIBEZ_PERSONAL_OUTPUT')
+    if not value:
+        choice=Path(os.environ.get('XDG_CONFIG_HOME') or Path.home()/'.config')/APP_ID/'safe-output.json'
+        if choice.is_file():value=json.loads(choice.read_text()).get('output')
+    assert value and re.fullmatch(r'[A-Za-z0-9_.:-]{1,128}',value),'Set VIBEZ_PERSONAL_OUTPUT to the screen for the Personal DEB'
+    return value
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--deb',type=Path,required=True)
     parser.add_argument('--output-dir',type=Path,required=True)
     parser.add_argument('--payload',type=Path,required=True)
     parser.add_argument('--public-key',type=Path,default=BASE/'desktop/src-tauri/alpha-updates.gpg')
-    args=parser.parse_args();release=version();source=args.deb.resolve(strict=True);output=args.output_dir.resolve();output.mkdir(parents=True,exist_ok=True)
+    args=parser.parse_args();release=version();personal=personal_output();source=args.deb.resolve(strict=True);output=args.output_dir.resolve();output.mkdir(parents=True,exist_ok=True)
     outputs=[output/f'VibeZ-{release}-Linux-x64.deb',output/f'VibeZ-{release}-Linux-x64-Personal.deb']
     assert all(not p.exists() for p in outputs),'Refusing to replace an existing package'
     payload=args.payload.resolve();assert not payload.exists(),'Refusing to overwrite an existing payload'
@@ -46,7 +57,7 @@ def main():
         normalize_modes(staged/'usr')
         (controls/'md5sums').unlink(missing_ok=True)
         for index,target in enumerate(outputs):
-            if index:desktop.write_text(re.sub(r'^Exec=.*$',f'Exec=env VIBEZ_SAFE_OUTPUT=DisplayPort-1 {BINARY}',public,flags=re.M))
+            if index:desktop.write_text(re.sub(r'^Exec=.*$',f'Exec=env VIBEZ_SAFE_OUTPUT={personal} {BINARY}',public,flags=re.M))
             subprocess.run(['dpkg-deb','--root-owner-group','-Zxz','--build',staged,target],check=True,stdout=subprocess.DEVNULL)
             helper.validate_deb(target,release)
         desktop.write_text(public);shutil.copytree(staged/'usr',payload/'usr')

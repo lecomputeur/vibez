@@ -141,13 +141,20 @@ fn intersects(a: Screen, b: Screen) -> bool {
         && (b.y as i64) < a.y as i64 + a.height as i64
 }
 #[cfg(target_os = "linux")]
-fn guard_game(safe: Screen) -> Result<(), String> {
+/// Refuse the safe screen while a window listed in the personal
+/// safe-output.json ("avoid_windows") is on it. Without such a list this
+/// checks nothing and needs no X11 tools.
+fn guard_windows(safe: Screen) -> Result<(), String> {
+    let avoid = AVOIDED_WINDOWS.get().map(Vec::as_slice).unwrap_or(&[]);
+    if avoid.is_empty() {
+        return Ok(());
+    }
     let output = Command::new("/usr/bin/xprop")
         .args(["-root", "_NET_CLIENT_LIST"])
         .output()
-        .map_err(|_| "Cannot check the WoT screen")?;
+        .map_err(|_| "Cannot check the windows on the safe screen")?;
     if !output.status.success() {
-        return Err("Cannot check the WoT screen".into());
+        return Err("Cannot check the windows on the safe screen".into());
     }
     let text = String::from_utf8_lossy(&output.stdout);
     for id in text
@@ -164,7 +171,7 @@ fn guard_game(safe: Screen) -> Result<(), String> {
             .output()
             .map_err(err)?;
         let title = String::from_utf8_lossy(&props.stdout).to_lowercase();
-        if !(title.contains("wot client") || title.contains("world of tanks")) {
+        if !avoid.iter().any(|name| title.contains(name.as_str())) {
             continue;
         }
         let geometry = Command::new("/usr/bin/xwininfo")
@@ -178,17 +185,17 @@ fn guard_game(safe: Screen) -> Result<(), String> {
                 .find(|l| l.trim_start().starts_with(key))
                 .and_then(|l| l.split(':').nth(1))
                 .and_then(|s| s.trim().parse::<i32>().ok())
-                .ok_or_else(|| "The WoT screen is unclear. VibeZ does not open.".into())
+                .ok_or_else(|| "A window to avoid has an unclear position. VibeZ does not open.".into())
         };
-        let game = Screen {
+        let avoided = Screen {
             x: value("Absolute upper-left X")?,
             y: value("Absolute upper-left Y")?,
             width: value("Width")? as u32,
             height: value("Height")? as u32,
         };
-        if intersects(safe, game) {
+        if intersects(safe, avoided) {
             return Err(
-                "WoT is now on the configured VibeZ screen. VibeZ does not open on that screen."
+                "A window to avoid is on the configured VibeZ screen. VibeZ does not open on that screen."
                     .into(),
             );
         }
@@ -196,6 +203,7 @@ fn guard_game(safe: Screen) -> Result<(), String> {
     Ok(())
 }
 static SAVED_SAFE_OUTPUT:std::sync::OnceLock<Option<String>>=std::sync::OnceLock::new();
+static AVOIDED_WINDOWS:std::sync::OnceLock<Vec<String>>=std::sync::OnceLock::new();
 fn safe_output() -> Result<Option<String>,String> {
     let raw=std::env::var("VIBEZ_SAFE_OUTPUT").ok();
     let explicit=display_policy::requested_output(raw.as_deref())?.map(str::to_owned);
@@ -219,7 +227,7 @@ fn screen(app: &tauri::AppHandle) -> Result<Screen, String> {
             .find_map(|line|display_policy::parse_monitor(line,&output_name))
             .ok_or("The configured safe screen is not available")?;
         let selected=display_policy::select(&screens,primary,Some(requested))?;
-        guard_game(selected)?;
+        guard_windows(selected)?;
         return Ok(selected);
     }
     #[cfg(not(target_os = "linux"))]
@@ -343,19 +351,24 @@ fn engine_interpreter(app:&tauri::AppHandle)->Result<std::path::PathBuf,String> 
         Ok(interpreter)
     }
 }
-/// Startup cannot continue: say why in a window, not only in a terminal panic.
-/// With an explicit safe screen no window is shown, because its placement
-/// could not be checked.
-fn startup_failure_dialog(message:&str) {
+/// Startup cannot continue: say why over the visible main window, then end
+/// the process normally instead of letting the setup hook panic. With an
+/// explicit safe screen no window is shown, because its placement could not
+/// be checked.
+fn startup_failure(window:&tauri::WebviewWindow,message:&str)->! {
     eprintln!("VibeZ: {message}");
     #[cfg(target_os="linux")]
     if safe_output().ok().flatten().is_none() {
-        let dialog=gtk::MessageDialog::new(None::<&gtk::Window>,gtk::DialogFlags::MODAL,gtk::MessageType::Error,gtk::ButtonsType::Close,message);
+        let parent=window.show().ok().and_then(|_|window.gtk_window().ok());
+        let dialog=gtk::MessageDialog::new(parent.as_ref(),gtk::DialogFlags::MODAL|gtk::DialogFlags::DESTROY_WITH_PARENT,gtk::MessageType::Error,gtk::ButtonsType::Close,message);
         dialog.set_title("VibeZ V4 Beta");
-        dialog.set_position(gtk::WindowPosition::Center);
+        dialog.set_position(if parent.is_some(){gtk::WindowPosition::CenterOnParent}else{gtk::WindowPosition::Center});
         dialog.run();
         dialog.close();
     }
+    #[cfg(not(target_os="linux"))]
+    let _=window;
+    std::process::exit(1)
 }
 /// Interpreter locations tried on Linux, in order. VIBEZ_PYTHON must be an
 /// absolute path; it is checked like every other candidate before use.
@@ -978,6 +991,7 @@ fn main() {
                 let raw=std::env::var("VIBEZ_SAFE_OUTPUT").ok();
                 let selected=display_policy::load_safe_output(&config,raw.as_deref()).map_err(std::io::Error::other)?;
                 let _=SAVED_SAFE_OUTPUT.set(selected);
+                let _=AVOIDED_WINDOWS.set(display_policy::load_avoided_windows(&config).map_err(std::io::Error::other)?);
             }
             app.manage(classic_language::Language::load(&config).map_err(std::io::Error::other)?);
             app.manage(panel_prefs::PanelPrefs::load(&config));
@@ -1028,8 +1042,7 @@ fn main() {
                 display_policy::remember_safe_output(&config,&output).map_err(std::io::Error::other)?;
             }
             if let Err(error)=start_engine(app.handle()) {
-                startup_failure_dialog(&error);
-                return Err(std::io::Error::other(error).into());
+                startup_failure(&window,&error);
             }
             #[cfg(target_os = "linux")]
             window.gtk_window()?.set_focus_on_map(false);
@@ -1082,16 +1095,16 @@ mod tests {
     }
     #[test]
     fn connector_geometry_accepts_positive_and_negative_coordinates() {
-        let left = display_policy::parse_monitor(" 1: +DisplayPort-1 2560/597x1440/336+0+0 DisplayPort-1","DisplayPort-1").unwrap();
+        let left = display_policy::parse_monitor(" 1: +HDMI-A-2 2560/597x1440/336+0+0 HDMI-A-2","HDMI-A-2").unwrap();
         assert_eq!(
             (left.x, left.y, left.width, left.height),
             (0, 0, 2560, 1440)
         );
         let negative =
-            display_policy::parse_monitor(" 1: +DisplayPort-1 2560/597x1440/336-2560+0 DisplayPort-1","DisplayPort-1").unwrap();
+            display_policy::parse_monitor(" 1: +HDMI-A-2 2560/597x1440/336-2560+0 HDMI-A-2","HDMI-A-2").unwrap();
         assert_eq!(negative.x, -2560);
         assert!(
-            display_policy::parse_monitor(" 0: +*DisplayPort-0 2560/597x1440/336+2560+0 DisplayPort-0","DisplayPort-1").is_none()
+            display_policy::parse_monitor(" 0: +*HDMI-A-1 2560/597x1440/336+2560+0 HDMI-A-1","HDMI-A-2").is_none()
         );
     }
     #[test]

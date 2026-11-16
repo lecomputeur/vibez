@@ -25,6 +25,8 @@ pub fn remember_safe_output(config:&Path,output:&str)->Result<(),String> {
     static SERIAL:AtomicU64=AtomicU64::new(1);
     let path=checked_choice_path(config)?;
     let output=requested_output(Some(output))?.ok_or("The configured screen name is not valid")?;
+    // Keep the personal list of windows to avoid; it is only ever written by hand.
+    let avoid=load_avoided_windows(config)?;
     {
         let temp=config.join(format!(".safe-output-{}-{}.tmp",std::process::id(),SERIAL.fetch_add(1,Ordering::SeqCst)));
         struct Pending(std::path::PathBuf);
@@ -33,7 +35,9 @@ pub fn remember_safe_output(config:&Path,output:&str)->Result<(),String> {
         let mut options=std::fs::OpenOptions::new();options.create_new(true).write(true);
         #[cfg(unix)] {use std::os::unix::fs::OpenOptionsExt;options.mode(0o600);}
         let mut file=options.open(&temp).map_err(|_|"The safe screen choice cannot be saved")?;
-        let data=serde_json::to_vec(&serde_json::json!({"output":output})).map_err(|_|"The safe screen choice is not valid")?;
+        let mut value=serde_json::json!({"output":output});
+        if !avoid.is_empty(){value["avoid_windows"]=avoid.into();}
+        let data=serde_json::to_vec(&value).map_err(|_|"The safe screen choice is not valid")?;
         file.write_all(&data).and_then(|_|file.sync_all()).map_err(|_|"The safe screen choice cannot be saved")?;
         drop(file);
         std::fs::rename(&temp,&path).map_err(|_|"The safe screen choice cannot be saved")?;
@@ -43,12 +47,31 @@ pub fn remember_safe_output(config:&Path,output:&str)->Result<(),String> {
 /// The screen choice for this start: an explicit VIBEZ_SAFE_OUTPUT value, or
 /// else the one remembered after an earlier successful check. Reading never writes.
 pub fn load_safe_output(config:&Path,explicit:Option<&str>)->Result<Option<String>,String> {
-    use std::io::Read;
     let path=checked_choice_path(config)?;
     if let Some(output)=requested_output(explicit)? {return Ok(Some(output.into()));}
+    let Some(data)=read_saved(&path)? else{return Ok(None);};
+    let raw=data["output"].as_str().ok_or("The saved safe screen choice is not valid")?;
+    requested_output(Some(raw)).map(|value|value.map(str::to_owned))
+}
+/// Window titles (lower case, matched as parts of a title) that must never share
+/// the safe screen. Only a personal safe-output.json lists them; without that
+/// list nothing is checked and no X11 tools are needed.
+pub fn load_avoided_windows(config:&Path)->Result<Vec<String>,String> {
+    let path=checked_choice_path(config)?;
+    let Some(data)=read_saved(&path)? else{return Ok(Vec::new());};
+    let Some(list)=data.get("avoid_windows") else{return Ok(Vec::new());};
+    let list=list.as_array().filter(|list|list.len()<=16).ok_or("The saved windows to avoid are not valid")?;
+    list.iter().map(|item|{
+        let text=item.as_str().map(str::trim).filter(|t|!t.is_empty()&&t.chars().count()<=100&&!t.chars().any(char::is_control))
+            .ok_or("The saved windows to avoid are not valid")?;
+        Ok(text.to_lowercase())
+    }).collect()
+}
+fn read_saved(path:&Path)->Result<Option<serde_json::Value>,String> {
+    use std::io::Read;
     let mut options=std::fs::OpenOptions::new();options.read(true);
     #[cfg(target_os="linux")] {use std::os::unix::fs::OpenOptionsExt;options.custom_flags(0x20000);}
-    let file=match options.open(&path) {
+    let file=match options.open(path) {
         Ok(file)=>file,Err(e) if e.kind()==std::io::ErrorKind::NotFound=>return Ok(None),
         Err(_)=>return Err("The saved safe screen choice cannot be read".into()),
     };
@@ -58,8 +81,8 @@ pub fn load_safe_output(config:&Path,explicit:Option<&str>)->Result<Option<Strin
     let mut data=Vec::new();file.take(2049).read_to_end(&mut data).map_err(|_|"The safe screen choice cannot be read")?;
     if data.len()>2048{return Err("The saved safe screen choice is not valid".into());}
     let data:serde_json::Value=serde_json::from_slice(&data).map_err(|_|"The saved safe screen choice is not valid")?;
-    let raw=data["output"].as_str().ok_or("The saved safe screen choice is not valid")?;
-    requested_output(Some(raw)).map(|value|value.map(str::to_owned))
+    if !data.is_object(){return Err("The saved safe screen choice is not valid".into());}
+    Ok(Some(data))
 }
 
 pub fn requested_output(raw:Option<&str>)->Result<Option<&str>,String> {
@@ -120,12 +143,23 @@ mod tests {
         assert_eq!(load_safe_output(&root,None).unwrap(),None);
         // An explicit choice is used for this start but only kept once the
         // screen has been checked, so an unverifiable choice cannot brick later starts.
-        assert_eq!(load_safe_output(&root,Some("DisplayPort-1")).unwrap(),Some("DisplayPort-1".into()));
+        assert_eq!(load_safe_output(&root,Some("HDMI-A-2")).unwrap(),Some("HDMI-A-2".into()));
         assert!(!root.join("safe-output.json").exists());
         assert_eq!(load_safe_output(&root,None).unwrap(),None);
-        remember_safe_output(&root,"DisplayPort-1").unwrap();
-        assert_eq!(load_safe_output(&root,None).unwrap(),Some("DisplayPort-1".into()));
+        remember_safe_output(&root,"HDMI-A-2").unwrap();
+        assert_eq!(load_safe_output(&root,None).unwrap(),Some("HDMI-A-2".into()));
         assert_eq!(safe_output_file(&root),root.join("safe-output.json"));
+        // A hand-written list of windows to avoid survives the next remembered choice.
+        assert!(load_avoided_windows(&root).unwrap().is_empty());
+        std::fs::write(root.join("safe-output.json"),br#"{"output":"HDMI-A-2","avoid_windows":["Example Game"," other client "]}"#).unwrap();
+        assert_eq!(load_avoided_windows(&root).unwrap(),vec!["example game".to_owned(),"other client".to_owned()]);
+        remember_safe_output(&root,"HDMI-A-2").unwrap();
+        assert_eq!(load_avoided_windows(&root).unwrap(),vec!["example game".to_owned(),"other client".to_owned()]);
+        assert_eq!(load_safe_output(&root,None).unwrap(),Some("HDMI-A-2".into()));
+        std::fs::write(root.join("safe-output.json"),br#"{"output":"HDMI-A-2","avoid_windows":"not a list"}"#).unwrap();
+        assert!(load_avoided_windows(&root).is_err());
+        remember_safe_output(&root,"HDMI-A-2").ok();
+        std::fs::write(root.join("safe-output.json"),br#"{"output":"HDMI-A-2"}"#).unwrap();
         let before=std::fs::read(root.join("safe-output.json")).unwrap();
         assert!(load_safe_output(&root,Some("$(unsafe)")).is_err());
         assert!(remember_safe_output(&root,"$(unsafe)").is_err());
@@ -136,8 +170,8 @@ mod tests {
             std::fs::remove_file(root.join("safe-output.json")).unwrap();
             let outside=root.join("untouched");std::fs::write(&outside,b"preserved").unwrap();
             std::os::unix::fs::symlink(&outside,root.join("safe-output.json")).unwrap();
-            assert!(load_safe_output(&root,Some("DisplayPort-1")).is_err());
-            assert!(remember_safe_output(&root,"DisplayPort-1").is_err());
+            assert!(load_safe_output(&root,Some("HDMI-A-2")).is_err());
+            assert!(remember_safe_output(&root,"HDMI-A-2").is_err());
             assert_eq!(std::fs::read(&outside).unwrap(),b"preserved");
         }
         std::fs::remove_dir_all(root).unwrap();
@@ -155,14 +189,14 @@ mod tests {
         assert_eq!(select(&[left,right],Some(right),Some(left)).unwrap(),left);
         assert!(select(&[right],Some(right),Some(left)).is_err());
         assert_eq!(requested_output(None).unwrap(),None);
-        assert_eq!(requested_output(Some("DisplayPort-1")).unwrap(),Some("DisplayPort-1"));
+        assert_eq!(requested_output(Some("HDMI-A-2")).unwrap(),Some("HDMI-A-2"));
         for raw in ["","DP-1\n","$(x)","DP 1"] {assert!(requested_output(Some(raw)).is_err());}
     }
     #[test]
     fn arbitrary_connector_and_negative_coordinates_are_parsed_without_assumptions() {
         let monitor=parse_monitor(" 0: +*eDP-1 1920/310x1080/170-1920-1080 eDP-1","eDP-1").unwrap();
         assert_eq!(monitor,Screen{x:-1920,y:-1080,width:1920,height:1080});
-        assert!(parse_monitor(" 0: +*eDP-1 1920/310x1080/170+0+0 eDP-1","DisplayPort-1").is_none());
+        assert!(parse_monitor(" 0: +*eDP-1 1920/310x1080/170+0+0 eDP-1","HDMI-A-2").is_none());
         assert!(parse_monitor(" 0: +eDP-1 0/310x1080/170+0+0 eDP-1","eDP-1").is_none());
     }
     #[test]
