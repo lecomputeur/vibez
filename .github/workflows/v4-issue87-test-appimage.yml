@@ -1,0 +1,109 @@
+name: V4 test AppImage for issue 87
+
+# One-off test build for lecomputeur/vibez#87. Runs only on this branch and
+# publishes an unsigned pre-release, which no updater or download page uses.
+on:
+  push:
+    branches: ['claude/issue-87-appimage']
+    paths: ['v4/**', '.github/workflows/v4-issue87-test-appimage.yml']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v4-issue87-test-appimage
+  cancel-in-progress: true
+
+env:
+  TAG: v4.0.0-beta.4-issue87-test
+  FILE: VibeZ-4.0.0-beta.4-issue87-test-Linux-x64.AppImage
+  APPIMAGE_EXTRACT_AND_RUN: '1'
+  CARGO_TERM_COLOR: always
+
+jobs:
+  appimage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Install build packages
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+            libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev \
+            patchelf file desktop-file-utils \
+            gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav \
+            gstreamer1.0-tools libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Prepare sources
+        working-directory: v4/desktop
+        run: |
+          npm ci
+          node scripts/prepare.cjs
+          python3 ../tools/prepare-alpha-cloudflared.py --target linux-x64 --output ../backend/vendor
+
+      - name: Tests
+        working-directory: v4/desktop
+        run: |
+          node --test standalone-tests/*.test.cjs
+          cargo test --release --locked --manifest-path src-tauri/Cargo.toml --bin vibez4-alpha
+          cd .. && python3 -m unittest discover -s tests/standalone -p 'test_appimage_launcher.py'
+
+      - name: Download the pinned AppImage tools
+        run: |
+          mkdir -p "$RUNNER_TEMP/tools" && cd "$RUNNER_TEMP/tools"
+          pins="$GITHUB_WORKSPACE/v4/packaging/appimage-tool-sources.json"
+          curl -sSfL -o appimagetool-x86_64.AppImage "$(jq -r .appimagetool.url "$pins")"
+          curl -sSfL -o runtime-x86_64 "$(jq -r .runtime.url "$pins")"
+          echo "$(jq -r .appimagetool.sha256 "$pins")  appimagetool-x86_64.AppImage" | sha256sum -c
+          echo "$(jq -r .runtime.sha256 "$pins")  runtime-x86_64" | sha256sum -c
+          chmod +x appimagetool-x86_64.AppImage
+          jq '{url: .runtime.url, sha256: .runtime.sha256}' "$pins" > runtime-x86_64.json
+
+      - name: Build the AppDir
+        working-directory: v4/desktop
+        run: |
+          # linuxdeploy stops at a known icon lookup after deploying everything;
+          # finish-alpha-appimage.py checks the log for exactly that failure.
+          npx tauri build -v --bundles appimage --config '{"bundle":{"createUpdaterArtifacts":false}}' -- --locked > "$RUNNER_TEMP/appimage-deploy.log" 2>&1 || true
+          tail -n 20 "$RUNNER_TEMP/appimage-deploy.log"
+
+      - name: Finish the AppImage
+        working-directory: v4
+        run: |
+          python3 tools/finish-alpha-appimage.py \
+            --appdir "desktop/src-tauri/target/release/bundle/appimage/VibeZ V4 Alpha.AppDir" \
+            --deployment-log "$RUNNER_TEMP/appimage-deploy.log" \
+            --gstreamer-plugin "$HOME/.cache/tauri/linuxdeploy-plugin-gstreamer.sh" \
+            --patchelf "$(command -v patchelf)" \
+            --appimage-tool "$RUNNER_TEMP/tools/appimagetool-x86_64.AppImage" \
+            --runtime-file "$RUNNER_TEMP/tools/runtime-x86_64" \
+            --output "$RUNNER_TEMP/out/$FILE"
+          sha256sum "$RUNNER_TEMP/out/$FILE"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue87-test-appimage
+          path: ${{ runner.temp }}/out/
+          retention-days: 30
+
+      - name: Publish as pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd "$RUNNER_TEMP/out"
+          sum="$(sha256sum "$FILE" | cut -d' ' -f1)"
+          notes="Unsigned test build for #87 (AppImage on NixOS). Not a release: no updater or download page uses it.
+
+          Source: branch claude/issue-87-appimage, commit $GITHUB_SHA.
+          SHA-256: $sum"
+          gh release delete "$TAG" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "$TAG" "$FILE" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --prerelease --latest=false --title "Test build for issue #87 (not a release)" --notes "$notes"
