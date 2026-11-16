@@ -2,13 +2,7 @@
 use super::Screen;
 use std::path::Path;
 
-/// Remember an explicit personal monitor in the Alpha profile so an ordinary
-/// public package update cannot erase it by replacing the desktop launcher.
-/// Other installations with no preference continue to use their primary screen.
-pub fn load_safe_output(config:&Path,explicit:Option<&str>)->Result<Option<String>,String> {
-    use std::io::{Read,Write};
-    use std::sync::atomic::{AtomicU64,Ordering};
-    static SERIAL:AtomicU64=AtomicU64::new(1);
+fn checked_choice_path(config:&Path)->Result<std::path::PathBuf,String> {
     let directory=std::fs::symlink_metadata(config).map_err(|_|"The Alpha settings folder is not available")?;
     if !directory.is_dir()||directory.file_type().is_symlink(){return Err("The Alpha settings folder is redirected".into());}
     let path=config.join("safe-output.json");
@@ -17,7 +11,21 @@ pub fn load_safe_output(config:&Path,explicit:Option<&str>)->Result<Option<Strin
         Ok(_)=>{},Err(e) if e.kind()==std::io::ErrorKind::NotFound=>{},
         Err(_)=>return Err("The saved safe screen choice cannot be checked".into()),
     }
-    if let Some(output)=requested_output(explicit)? {
+    Ok(path)
+}
+/// Where an explicit screen choice is kept, for error messages.
+pub fn safe_output_file(config:&Path)->std::path::PathBuf {config.join("safe-output.json")}
+/// Remember an explicit personal monitor in the Alpha profile so an ordinary
+/// public package update cannot erase it by replacing the desktop launcher.
+/// Called only after the screen was found and checked, so a choice that cannot
+/// be verified on this system is never kept for the next start.
+pub fn remember_safe_output(config:&Path,output:&str)->Result<(),String> {
+    use std::io::Write;
+    use std::sync::atomic::{AtomicU64,Ordering};
+    static SERIAL:AtomicU64=AtomicU64::new(1);
+    let path=checked_choice_path(config)?;
+    let output=requested_output(Some(output))?.ok_or("The configured screen name is not valid")?;
+    {
         let temp=config.join(format!(".safe-output-{}-{}.tmp",std::process::id(),SERIAL.fetch_add(1,Ordering::SeqCst)));
         struct Pending(std::path::PathBuf);
         impl Drop for Pending {fn drop(&mut self){let _=std::fs::remove_file(&self.0);}}
@@ -29,8 +37,15 @@ pub fn load_safe_output(config:&Path,explicit:Option<&str>)->Result<Option<Strin
         file.write_all(&data).and_then(|_|file.sync_all()).map_err(|_|"The safe screen choice cannot be saved")?;
         drop(file);
         std::fs::rename(&temp,&path).map_err(|_|"The safe screen choice cannot be saved")?;
-        return Ok(Some(output.into()));
     }
+    Ok(())
+}
+/// The screen choice for this start: an explicit VIBEZ_SAFE_OUTPUT value, or
+/// else the one remembered after an earlier successful check. Reading never writes.
+pub fn load_safe_output(config:&Path,explicit:Option<&str>)->Result<Option<String>,String> {
+    use std::io::Read;
+    let path=checked_choice_path(config)?;
+    if let Some(output)=requested_output(explicit)? {return Ok(Some(output.into()));}
     let mut options=std::fs::OpenOptions::new();options.read(true);
     #[cfg(target_os="linux")] {use std::os::unix::fs::OpenOptionsExt;options.custom_flags(0x20000);}
     let file=match options.open(&path) {
@@ -103,10 +118,17 @@ mod tests {
         let root=std::env::temp_dir().join(format!("vibez-alpha-display-{}",std::process::id()));
         std::fs::create_dir_all(&root).unwrap();
         assert_eq!(load_safe_output(&root,None).unwrap(),None);
+        // An explicit choice is used for this start but only kept once the
+        // screen has been checked, so an unverifiable choice cannot brick later starts.
         assert_eq!(load_safe_output(&root,Some("DisplayPort-1")).unwrap(),Some("DisplayPort-1".into()));
+        assert!(!root.join("safe-output.json").exists());
+        assert_eq!(load_safe_output(&root,None).unwrap(),None);
+        remember_safe_output(&root,"DisplayPort-1").unwrap();
         assert_eq!(load_safe_output(&root,None).unwrap(),Some("DisplayPort-1".into()));
+        assert_eq!(safe_output_file(&root),root.join("safe-output.json"));
         let before=std::fs::read(root.join("safe-output.json")).unwrap();
         assert!(load_safe_output(&root,Some("$(unsafe)")).is_err());
+        assert!(remember_safe_output(&root,"$(unsafe)").is_err());
         assert_eq!(std::fs::read(root.join("safe-output.json")).unwrap(),before);
         #[cfg(unix)] {use std::os::unix::fs::PermissionsExt;assert_eq!(std::fs::metadata(root.join("safe-output.json")).unwrap().permissions().mode()&0o777,0o600);}
         std::fs::write(root.join("safe-output.json"),b"invalid").unwrap();assert!(load_safe_output(&root,None).is_err());
@@ -115,6 +137,7 @@ mod tests {
             let outside=root.join("untouched");std::fs::write(&outside,b"preserved").unwrap();
             std::os::unix::fs::symlink(&outside,root.join("safe-output.json")).unwrap();
             assert!(load_safe_output(&root,Some("DisplayPort-1")).is_err());
+            assert!(remember_safe_output(&root,"DisplayPort-1").is_err());
             assert_eq!(std::fs::read(&outside).unwrap(),b"preserved");
         }
         std::fs::remove_dir_all(root).unwrap();

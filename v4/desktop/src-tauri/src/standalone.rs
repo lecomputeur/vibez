@@ -321,7 +321,15 @@ fn close_login(app: &tauri::AppHandle) {
 }
 fn engine_interpreter(app:&tauri::AppHandle)->Result<std::path::PathBuf,String> {
     #[cfg(target_os="linux")]
-    {let _=app;Ok("/usr/bin/python3".into())}
+    {
+        // DEB, RPM and Arch packages depend on the system python3. The AppImage
+        // bundles none, and systems such as NixOS have no /usr/bin tree, so look
+        // in the usual system locations and accept an explicit absolute path.
+        let _=app;
+        let explicit=std::env::var_os("VIBEZ_PYTHON");
+        python_candidates(explicit.as_deref())?.into_iter().find(|candidate|usable_python(candidate))
+            .ok_or_else(||"VibeZ needs Python 3.10 or newer (python3). Install python3 with your package manager, or set VIBEZ_PYTHON to the full path of a Python 3.10+ interpreter.".to_owned())
+    }
     #[cfg(not(target_os="linux"))]
     {
         let root=app.path().resource_dir().map_err(err)?.join("python-runtime");
@@ -335,10 +343,52 @@ fn engine_interpreter(app:&tauri::AppHandle)->Result<std::path::PathBuf,String> 
         Ok(interpreter)
     }
 }
+/// Startup cannot continue: say why in a window, not only in a terminal panic.
+/// With an explicit safe screen no window is shown, because its placement
+/// could not be checked.
+fn startup_failure_dialog(message:&str) {
+    eprintln!("VibeZ: {message}");
+    #[cfg(target_os="linux")]
+    if safe_output().ok().flatten().is_none() {
+        let dialog=gtk::MessageDialog::new(None::<&gtk::Window>,gtk::DialogFlags::MODAL,gtk::MessageType::Error,gtk::ButtonsType::Close,message);
+        dialog.set_title("VibeZ V4 Beta");
+        dialog.set_position(gtk::WindowPosition::Center);
+        dialog.run();
+        dialog.close();
+    }
+}
+/// Interpreter locations tried on Linux, in order. VIBEZ_PYTHON must be an
+/// absolute path; it is checked like every other candidate before use.
+#[cfg(any(target_os="linux",test))]
+fn python_candidates(explicit:Option<&std::ffi::OsStr>)->Result<Vec<std::path::PathBuf>,String> {
+    let mut list=Vec::new();
+    if let Some(raw)=explicit.filter(|raw|!raw.is_empty()) {
+        let path=std::path::PathBuf::from(raw);
+        if !path.is_absolute(){return Err("VIBEZ_PYTHON must be the full path of a Python 3.10+ interpreter".into());}
+        list.push(path);
+    }
+    for path in ["/usr/bin/python3","/usr/local/bin/python3","/bin/python3","/run/current-system/sw/bin/python3"] {
+        list.push(path.into());
+    }
+    Ok(list)
+}
+#[cfg(target_os="linux")]
+fn usable_python(candidate:&std::path::Path)->bool {
+    candidate.is_file()&&Command::new(candidate)
+        .args(["-I","-c","import sys;sys.exit(0 if sys.version_info>=(3,10) else 1)"])
+        .env_clear().env("LANG","C.UTF-8")
+        .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null())
+        .status().map(|status|status.success()).unwrap_or(false)
+}
 fn engine_environment(command:&mut Command,app:&tauri::AppHandle,interpreter:&std::path::Path)->Result<(),String> {
     command.env_clear().env("LANG","C.UTF-8");
     #[cfg(target_os="linux")]
-    {let _=(app,interpreter);command.env("PATH","/usr/bin:/bin");}
+    {
+        let _=app;
+        let mut path=vec![std::path::PathBuf::from("/usr/bin"),"/bin".into()];
+        if let Some(folder)=interpreter.parent().filter(|folder|!path.iter().any(|known|known==folder)) {path.insert(0,folder.to_path_buf());}
+        command.env("PATH",std::env::join_paths(path).map_err(err)?);
+    }
     #[cfg(not(target_os="linux"))]
     {
         let home=app.path().app_data_dir().map_err(err)?.join("runtime-home");
@@ -964,8 +1014,23 @@ fn main() {
             project_import::attach(app.handle(),&app.get_webview("connector-panel").unwrap());
             // The local webview is named main; authorization is still checked by
             // document URL in addition to label. The remote web surface has no native capability.
-            place(&app.get_window("main").ok_or("Geen hoofdvenster")?).map_err(std::io::Error::other)?;
-            start_engine(app.handle()).map_err(std::io::Error::other)?;
+            place(&app.get_window("main").ok_or("Geen hoofdvenster")?).map_err(|error|{
+                #[cfg(target_os="linux")]
+                let error=if safe_output().ok().flatten().is_some() {
+                    format!("{error}. VibeZ keeps to the configured safe screen and does not open elsewhere. To use the normal screen, start VibeZ without VIBEZ_SAFE_OUTPUT and delete {}",
+                        display_policy::safe_output_file(&config).display())
+                } else {error};
+                std::io::Error::other(error)
+            })?;
+            #[cfg(target_os="linux")]
+            if let Some(output)=std::env::var("VIBEZ_SAFE_OUTPUT").ok().filter(|v|!v.is_empty()) {
+                // The screen was found and checked above; only now keep the choice.
+                display_policy::remember_safe_output(&config,&output).map_err(std::io::Error::other)?;
+            }
+            if let Err(error)=start_engine(app.handle()) {
+                startup_failure_dialog(&error);
+                return Err(std::io::Error::other(error).into());
+            }
             #[cfg(target_os = "linux")]
             window.gtk_window()?.set_focus_on_map(false);
             window.show()?;
@@ -1003,6 +1068,18 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn python_is_looked_up_in_system_locations_and_an_explicit_path_comes_first() {
+        let plain=python_candidates(None).unwrap();
+        assert_eq!(plain[0],std::path::PathBuf::from("/usr/bin/python3"));
+        assert!(plain.contains(&"/run/current-system/sw/bin/python3".into()));
+        assert!(plain.iter().all(|p|p.is_absolute()));
+        assert_eq!(python_candidates(Some("".as_ref())).unwrap(),plain);
+        let explicit=python_candidates(Some("/opt/python/bin/python3".as_ref())).unwrap();
+        assert_eq!(explicit[0],std::path::PathBuf::from("/opt/python/bin/python3"));
+        assert_eq!(&explicit[1..],&plain[..]);
+        assert!(python_candidates(Some("python3".as_ref())).is_err());
+    }
     #[test]
     fn connector_geometry_accepts_positive_and_negative_coordinates() {
         let left = display_policy::parse_monitor(" 1: +DisplayPort-1 2560/597x1440/336+0+0 DisplayPort-1","DisplayPort-1").unwrap();
