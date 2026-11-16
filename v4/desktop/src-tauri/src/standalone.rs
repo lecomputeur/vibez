@@ -1017,7 +1017,7 @@ fn main() {
             place(&app.get_window("main").ok_or("Geen hoofdvenster")?).map_err(|error|{
                 #[cfg(target_os="linux")]
                 let error=if safe_output().ok().flatten().is_some() {
-                    format!("{error}. VibeZ keeps to the configured safe screen and does not open elsewhere. To use the normal screen, start VibeZ without VIBEZ_SAFE_OUTPUT and delete {}",
+                    format!("{error}. VibeZ keeps to the configured safe screen and does not open elsewhere. To use the normal screen, start VibeZ without VIBEZ_SAFE_OUTPUT and delete {} if it exists",
                         display_policy::safe_output_file(&config).display())
                 } else {error};
                 std::io::Error::other(error)
