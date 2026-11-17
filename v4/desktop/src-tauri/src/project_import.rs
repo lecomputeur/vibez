@@ -288,10 +288,13 @@ pub async fn project_import_choose(webview:Webview,app:tauri::AppHandle,project_
             let dialog=gtk::FileChooserDialog::with_buttons(Some(&title),Some(&parent),action,
                 &[(cancel.as_str(),gtk::ResponseType::Cancel),(accept.as_str(),gtk::ResponseType::Accept)]);
             dialog.set_select_multiple(true);dialog.set_position(gtk::WindowPosition::None);
+            if let Some(folder)=start_folder(){dialog.set_current_folder(&folder);}
             position_dialog(&handle,&dialog,s)?;
             let response=dialog.run();
             let paths=if response==gtk::ResponseType::Accept {dialog.filenames()} else {Vec::new()};
-            dialog.close();Ok(paths)
+            dialog.close();
+            if let Some(first)=paths.first(){remember_folder(first);}
+            Ok(paths)
         })();let _=tx.send(result);
     }).map_err(err)?;
     rx.await.map_err(err)?

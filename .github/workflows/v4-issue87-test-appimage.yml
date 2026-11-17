@@ -86,7 +86,7 @@ jobs:
             --appimage-tool "$RUNNER_TEMP/tools/appimagetool-x86_64.AppImage" \
             --runtime-file "$RUNNER_TEMP/tools/runtime-x86_64" \
             --output "$RUNNER_TEMP/out/$FILE"
-          sha256sum "$RUNNER_TEMP/out/$FILE" | tee "$RUNNER_TEMP/out/$FILE.sha256"
+          (cd "$RUNNER_TEMP/out" && sha256sum "$FILE" | tee "$FILE.sha256")
           echo "SHA-256: $(cut -d' ' -f1 "$RUNNER_TEMP/out/$FILE.sha256")" >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4

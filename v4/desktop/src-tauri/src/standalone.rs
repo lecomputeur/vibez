@@ -159,20 +159,42 @@ fn position_dialog(app:&tauri::AppHandle,dialog:&gtk::FileChooserDialog,screen:S
 fn is_flatpak()->bool {
     std::env::var_os("FLATPAK_ID").is_some()||std::path::Path::new("/.flatpak-info").is_file()
 }
-/// `VIBEZ_FILE_DIALOG=portal` opts a non-Flatpak install into the desktop's own
-/// file dialogs (XDG portal, through `GtkFileChooserNative`). Without it the GTK
-/// dialog stays the default outside Flatpak; inside Flatpak the portal is always used.
-fn portal_opt_in(raw:Option<&str>)->bool {raw.map(str::trim)==Some("portal")}
+/// Linux uses the desktop's own file dialogs (XDG portal, through
+/// `GtkFileChooserNative`) by default. `VIBEZ_FILE_DIALOG=gtk`, or an explicit
+/// `GTK_USE_PORTAL=0`, keeps the app's own GTK dialog; `VIBEZ_FILE_DIALOG=portal`
+/// forces the portal. Flatpak always uses the portal, which grants file access.
+fn wants_system_dialog(flatpak:bool,choice:Option<&str>,gtk_use_portal:Option<&str>)->bool {
+    if flatpak {return true;}
+    match choice.map(str::trim) {
+        Some("gtk")=>false,
+        Some("portal")=>true,
+        _=>gtk_use_portal.map(str::trim)!=Some("0"),
+    }
+}
 fn system_file_dialog()->bool {
-    is_flatpak()||portal_opt_in(std::env::var("VIBEZ_FILE_DIALOG").ok().as_deref())
+    wants_system_dialog(is_flatpak(),std::env::var("VIBEZ_FILE_DIALOG").ok().as_deref(),std::env::var("GTK_USE_PORTAL").ok().as_deref())
+}
+/// Where file dialogs open: next to the last folder chosen in this session,
+/// else the home folder, never the file system root.
+static LAST_FOLDER:std::sync::Mutex<Option<std::path::PathBuf>>=std::sync::Mutex::new(None);
+fn start_folder()->Option<std::path::PathBuf> {
+    let last=LAST_FOLDER.lock().ok().and_then(|v|v.clone()).filter(|p|p.is_dir());
+    last.or_else(||std::env::var_os("HOME").map(std::path::PathBuf::from).filter(|p|p.is_absolute()&&p.is_dir()))
+}
+fn remember_folder(chosen:&std::path::Path) {
+    let folder=chosen.parent().unwrap_or(chosen);
+    if folder.is_absolute()&&folder.is_dir(){if let Ok(mut last)=LAST_FOLDER.lock(){*last=Some(folder.to_path_buf());}}
 }
 #[cfg(target_os = "linux")]
 fn portal_pick(parent:&impl gtk::glib::IsA<gtk::Window>,title:&str,action:gtk::FileChooserAction,accept:&str,cancel:&str,multiple:bool)->Result<Option<Vec<std::path::PathBuf>>,String> {
     let chooser=gtk::FileChooserNative::new(Some(title),Some(parent),action,Some(accept),Some(cancel));
     chooser.set_modal(true);chooser.set_select_multiple(multiple);
+    if let Some(folder)=start_folder(){chooser.set_current_folder(&folder);}
     let response=chooser.run();
     let result=if response==gtk::ResponseType::Accept {Some(chooser.filenames())}else{None};
-    chooser.destroy();Ok(result)
+    chooser.destroy();
+    if let Some(first)=result.as_ref().and_then(|paths|paths.first()){remember_folder(first);}
+    Ok(result)
 }
 fn created_child(parent:&std::path::Path,chosen:&std::path::Path)->Result<std::path::PathBuf,String> {
     let canonical=chosen.canonicalize().map_err(err)?;
@@ -572,6 +594,7 @@ async fn app_choose_folder_mode(
             if let Some(ref location)=granted_parent {
                 if !dialog.set_current_folder(location){return Err("The chosen location is not available".into());}
             }
+            else if let Some(folder)=start_folder() {dialog.set_current_folder(&folder);}
             position_dialog(&handle,&dialog,s)?;
             #[cfg(all(feature = "native-smoke", target_os = "linux"))]
             smoke::observe_dialog(
@@ -590,6 +613,7 @@ async fn app_choose_folder_mode(
                 None
             };
             dialog.close();
+            if let Some(ref chosen)=value {remember_folder(chosen);}
             match (granted_parent,value) {
                 (Some(parent),Some(path))=>created_child(&parent,&path).map(Some),
                 (_,value)=>Ok(value),
@@ -805,10 +829,10 @@ fn desktop_dialogs(builder:tauri::Builder<tauri::Wry>)->tauri::Builder<tauri::Wr
 }
 fn main() {
     // GTK 3 only hands GtkFileChooserNative to the portal when GTK_USE_PORTAL=1
-    // or inside a sandbox. Set it before GTK starts, and only on explicit opt-in;
-    // GTK itself falls back to its own dialog when no portal answers.
+    // or inside a sandbox. Set it before GTK starts unless the user chose the
+    // GTK dialog; GTK itself falls back to its own dialog when no portal answers.
     #[cfg(target_os = "linux")]
-    if !is_flatpak()&&std::env::var_os("GTK_USE_PORTAL").is_none()&&portal_opt_in(std::env::var("VIBEZ_FILE_DIALOG").ok().as_deref()) {
+    if !is_flatpak()&&std::env::var_os("GTK_USE_PORTAL").is_none()&&system_file_dialog() {
         std::env::set_var("GTK_USE_PORTAL","1");
     }
     if std::env::args().any(|a| a == "--version") {
@@ -976,12 +1000,26 @@ fn main() {
 mod tests {
     use super::*;
     #[test]
-    fn the_system_file_dialog_is_opt_in_outside_flatpak() {
-        assert!(portal_opt_in(Some("portal")));
-        assert!(portal_opt_in(Some(" portal ")));
-        for raw in [None,Some(""),Some("gtk"),Some("1"),Some("Portal"),Some("portal,gtk")] {
-            assert!(!portal_opt_in(raw),"{raw:?}");
-        }
+    fn the_system_file_dialog_is_the_default_with_a_gtk_opt_out() {
+        assert!(wants_system_dialog(false,None,None));
+        assert!(wants_system_dialog(false,Some("portal"),Some("0")));
+        assert!(wants_system_dialog(false,Some("anything"),Some("1")));
+        assert!(!wants_system_dialog(false,Some("gtk"),None));
+        assert!(!wants_system_dialog(false,Some(" gtk "),Some("1")));
+        assert!(!wants_system_dialog(false,None,Some("0")));
+        // Flatpak needs the portal for file access whatever is set.
+        assert!(wants_system_dialog(true,Some("gtk"),Some("0")));
+    }
+    #[test]
+    fn dialogs_start_next_to_the_last_choice_or_at_home() {
+        let root=std::env::temp_dir().join(format!("vibez-start-folder-{}",std::process::id()));
+        let child=root.join("project");std::fs::create_dir_all(&child).unwrap();
+        remember_folder(&child);
+        assert_eq!(start_folder(),Some(root.clone()));
+        std::fs::remove_dir_all(&root).unwrap();
+        // A vanished folder is never offered; home (or nothing) instead of the root.
+        assert_ne!(start_folder(),Some(root));
+        assert_ne!(start_folder(),Some(std::path::PathBuf::from("/")));
     }
     #[test]
     fn python_is_looked_up_in_system_locations_and_an_explicit_path_comes_first() {
