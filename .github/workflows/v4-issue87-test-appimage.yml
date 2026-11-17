@@ -1,21 +1,21 @@
 name: V4 test AppImage for issue 87
 
 # One-off test build for lecomputeur/vibez#87. Runs only on this branch and
-# publishes an unsigned pre-release, which no updater or download page uses.
+# keeps the unsigned AppImage as a workflow artifact. It is never published as a
+# release: AppImage updaters such as Gearlever treat any pre-release as an update.
 on:
   push:
     branches: ['claude/issue-87-appimage']
     paths: ['v4/**', '.github/workflows/v4-issue87-test-appimage.yml']
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: v4-issue87-test-appimage
   cancel-in-progress: true
 
 env:
-  TAG: v4.0.0-beta.4-issue87-test
   FILE: VibeZ-4.0.0-beta.4-issue87-test-Linux-x64.AppImage
   APPIMAGE_EXTRACT_AND_RUN: '1'
   CARGO_TERM_COLOR: always
@@ -86,24 +86,11 @@ jobs:
             --appimage-tool "$RUNNER_TEMP/tools/appimagetool-x86_64.AppImage" \
             --runtime-file "$RUNNER_TEMP/tools/runtime-x86_64" \
             --output "$RUNNER_TEMP/out/$FILE"
-          sha256sum "$RUNNER_TEMP/out/$FILE"
+          sha256sum "$RUNNER_TEMP/out/$FILE" | tee "$RUNNER_TEMP/out/$FILE.sha256"
+          echo "SHA-256: $(cut -d' ' -f1 "$RUNNER_TEMP/out/$FILE.sha256")" >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
         with:
           name: issue87-test-appimage
           path: ${{ runner.temp }}/out/
           retention-days: 30
-
-      - name: Publish as pre-release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          cd "$RUNNER_TEMP/out"
-          sum="$(sha256sum "$FILE" | cut -d' ' -f1)"
-          notes="Unsigned test build for #87 (AppImage on NixOS). Not a release: no updater or download page uses it.
-
-          Source: branch claude/issue-87-appimage, commit $GITHUB_SHA.
-          SHA-256: $sum"
-          gh release delete "$TAG" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag 2>/dev/null || true
-          gh release create "$TAG" "$FILE" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --prerelease --latest=false --title "Test build for issue #87 (not a release)" --notes "$notes"

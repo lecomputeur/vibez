@@ -282,7 +282,7 @@ pub async fn project_import_choose(webview:Webview,app:tauri::AppHandle,project_
             let cancel=classic_language::text(&handle,"cancel");
             let accept=title.clone();
             let action=if folder_mode {gtk::FileChooserAction::SelectFolder}else{gtk::FileChooserAction::Open};
-            if is_flatpak() {
+            if system_file_dialog() {
                 return Ok(portal_pick(&parent,&title,action,&accept,&cancel,true)?.unwrap_or_default());
             }
             let dialog=gtk::FileChooserDialog::with_buttons(Some(&title),Some(&parent),action,

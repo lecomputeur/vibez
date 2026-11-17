@@ -256,6 +256,13 @@ fn position_dialog(app:&tauri::AppHandle,dialog:&gtk::FileChooserDialog,screen:S
 fn is_flatpak()->bool {
     std::env::var_os("FLATPAK_ID").is_some()||std::path::Path::new("/.flatpak-info").is_file()
 }
+/// `VIBEZ_FILE_DIALOG=portal` opts a non-Flatpak install into the desktop's own
+/// file dialogs (XDG portal, through `GtkFileChooserNative`). Without it the GTK
+/// dialog stays the default outside Flatpak; inside Flatpak the portal is always used.
+fn portal_opt_in(raw:Option<&str>)->bool {raw.map(str::trim)==Some("portal")}
+fn system_file_dialog()->bool {
+    is_flatpak()||portal_opt_in(std::env::var("VIBEZ_FILE_DIALOG").ok().as_deref())
+}
 #[cfg(target_os = "linux")]
 fn portal_pick(parent:&impl gtk::glib::IsA<gtk::Window>,title:&str,action:gtk::FileChooserAction,accept:&str,cancel:&str,multiple:bool)->Result<Option<Vec<std::path::PathBuf>>,String> {
     if safe_output()?.is_some() {
@@ -647,7 +654,7 @@ async fn app_choose_folder_mode(
             let title = classic_language::text(&handle,if create {"createWorkspace"} else {"chooseWorkspace"});
             let cancel = classic_language::text(&handle,"cancel");
             let accept = classic_language::text(&handle,if create {"createWorkspace"} else {"chooseFolderConfirm"});
-            let granted_parent=if is_flatpak() {
+            let granted_parent=if system_file_dialog() {
                 let pick_title=classic_language::text(&handle,if create {"chooseWorkspaceLocation"}else{"chooseWorkspace"});
                 let pick_accept=classic_language::text(&handle,"chooseFolderConfirm");
                 let Some(paths)=portal_pick(&parent,&pick_title,gtk::FileChooserAction::SelectFolder,&pick_accept,&cancel,false)? else{return Ok(None);};
@@ -901,6 +908,13 @@ fn desktop_dialogs(builder:tauri::Builder<tauri::Wry>)->tauri::Builder<tauri::Wr
     { builder }
 }
 fn main() {
+    // GTK 3 only hands GtkFileChooserNative to the portal when GTK_USE_PORTAL=1
+    // or inside a sandbox. Set it before GTK starts, and only on explicit opt-in;
+    // GTK itself falls back to its own dialog when no portal answers.
+    #[cfg(target_os = "linux")]
+    if !is_flatpak()&&std::env::var_os("GTK_USE_PORTAL").is_none()&&portal_opt_in(std::env::var("VIBEZ_FILE_DIALOG").ok().as_deref()) {
+        std::env::set_var("GTK_USE_PORTAL","1");
+    }
     if std::env::args().any(|a| a == "--version") {
         println!(
             "VibeZ V4 Beta · {} · standalone app",
@@ -1084,6 +1098,14 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn the_system_file_dialog_is_opt_in_outside_flatpak() {
+        assert!(portal_opt_in(Some("portal")));
+        assert!(portal_opt_in(Some(" portal ")));
+        for raw in [None,Some(""),Some("gtk"),Some("1"),Some("Portal"),Some("portal,gtk")] {
+            assert!(!portal_opt_in(raw),"{raw:?}");
+        }
+    }
     #[test]
     fn python_is_looked_up_in_system_locations_and_an_explicit_path_comes_first() {
         let plain=python_candidates(None).unwrap();
