@@ -261,7 +261,10 @@ fn is_flatpak()->bool {
 /// dialog stays the default outside Flatpak; inside Flatpak the portal is always used.
 fn portal_opt_in(raw:Option<&str>)->bool {raw.map(str::trim)==Some("portal")}
 fn system_file_dialog()->bool {
-    is_flatpak()||portal_opt_in(std::env::var("VIBEZ_FILE_DIALOG").ok().as_deref())
+    if is_flatpak(){return true;}
+    // The opt-in yields to the safe-screen mode: there the app's own GTK dialog,
+    // whose monitor can be verified, stays in use instead of an error.
+    portal_opt_in(std::env::var("VIBEZ_FILE_DIALOG").ok().as_deref())&&!matches!(safe_output(),Ok(Some(_)))
 }
 #[cfg(target_os = "linux")]
 fn portal_pick(parent:&impl gtk::glib::IsA<gtk::Window>,title:&str,action:gtk::FileChooserAction,accept:&str,cancel:&str,multiple:bool)->Result<Option<Vec<std::path::PathBuf>>,String> {
