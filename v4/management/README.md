@@ -78,7 +78,7 @@ Pakketbijlagen bij een gepubliceerde versie worden niet vervangen. Een reparatie
 
 ### Release in vaste stappen
 
-`tools/release-alpha.py` voert een Alpha-release uit in gecontroleerde stappen (`bump`, `freeze`, `ci-start`, `linux`, `ci-collect`, `feeds`, `draft`, `publish`, `status`) en stopt met een duidelijke melding als een vorige stap ontbreekt; `--dry-run` toont alleen de commando's. Geheimen gaan uitsluitend als bestandspad mee.
+`tools/release-alpha.py` voert een release uit in gecontroleerde stappen (`bump`, `freeze`, `linux`, `collect`, `feeds`, `draft`, `publish`, `status`). Sinds 17 november 2026 (officiële Vibe Desktop van Mistral) zijn releases alleen voor Linux: geen native CI voor Windows/macOS en geen Store-MSIX meer en stopt met een duidelijke melding als een vorige stap ontbreekt; `--dry-run` toont alleen de commando's. Geheimen gaan uitsluitend als bestandspad mee.
 
 ### MCP-versies bewaken
 
