@@ -1064,7 +1064,8 @@ return 'ok'})()"""
         state = {}
         while time.time() < deadline:
             state = self.panel_rules(app)
-            if state.get('project') == key and state.get('api_state') in ('value', 'failed') and not state.get('busy'):
+            # A failed first read is retried by the panel itself while Mistral finishes opening the project.
+            if state.get('project') == key and state.get('api_state') == 'value' and not state.get('busy'):
                 break
             time.sleep(1)
         scenario['shown'] = state

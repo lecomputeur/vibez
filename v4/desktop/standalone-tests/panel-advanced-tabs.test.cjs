@@ -87,11 +87,11 @@ function dom(){
  const document={getElementById:id=>byId.get(id)||null,createElement:tag=>new Node(tag),addEventListener(type,fn){(this.listeners[type]??=[]).push(fn);},listeners:{},body:{},documentElement:{},querySelector:()=>new Node('option')};
  return {document,byId,body};
 }
-function panel({prefs,storage={},answers={}}={}){
+function panel({prefs,storage={},answers={},clock}={}){
  const {document,byId}=dom(),calls=[],listeners={};let locale='en';
  const language={t:key=>messages[locale]?.[key]||messages.en[key]||key,errorText:(e,key)=>e?messages.en[key]||key:'',ready:async()=>{},onChange(){},state:()=>({resolved:'en'})};
  const invoke=async(name,args)=>{calls.push({name,args});if(answers[name])return answers[name](args);if(name==='panel_prefs_get')return prefs;if(name==='app_info')return {version:'test'};return undefined;};
- const context={window:{vibezLanguage:language,vibezConnectionFeedback:{connectionFeedback},VIBEZ_TRANSLATIONS:{options:[]},__TAURI__:{core:{invoke},event:{listen:async(name,fn)=>{(listeners[name]??=[]).push(fn);}}}},document,console,Intl,Date,setTimeout,clearTimeout,
+ const context={window:{vibezLanguage:language,vibezConnectionFeedback:{connectionFeedback},VIBEZ_TRANSLATIONS:{options:[]},__TAURI__:{core:{invoke},event:{listen:async(name,fn)=>{(listeners[name]??=[]).push(fn);}}}},document,console,Intl,Date:clock?clock.Date:Date,setTimeout:clock?clock.setTimeout:setTimeout,clearTimeout,
   localStorage:{getItem:k=>storage[k]??null,setItem:(k,v)=>{storage[k]=v;}}};
  context.window.window=context.window;
  vm.createContext(context);
@@ -272,6 +272,34 @@ test('a Code project shows its project rules under Advanced and reads them from 
  assert.ok(p.calls.some(c=>c.name==='project_rules_edit'&&c.args.projectId==='code-'+ID&&c.args.action==='api-read'));
  p.renderWeb({project:{id:'chat-'+ID,name:'Chat',kind:'conversation'},folder:null});
  assert.equal(p.byId.get('project-rules').hidden,true,'a conversation has no project rules');
+});
+
+// A fake clock: timers run as soon as the test advances time past them.
+function fakeClock(){
+ let now=Date.now();const timers=[];
+ class FakeDate extends Date{constructor(...a){super(...(a.length?a:[now]));}static now(){return now;}}
+ return {Date:FakeDate,setTimeout:(fn,ms)=>{timers.push({at:now+(ms||0),fn});return timers.length;},
+  advance(ms){now+=ms;for(const t of timers.splice(0).sort((a,b)=>a.at-b.at)){if(t.at<=now)t.fn();else timers.push(t);}}};
+}
+
+test('a failed first read of Code project rules is retried on a timer until Mistral answers',async()=>{
+ const clock=fakeClock();let reads=0;
+ const p=panel({clock,answers:{project_rules_edit:args=>{if(args.action!=='api-read')return undefined;reads++;if(reads===1)throw new Error('The project has switched; try again');return {project_id:args.projectId,value:'Answer briefly.'};}}});
+ p.renderWeb({project:{id:'code-'+ID,name:'Code fixture',kind:'project'},folder:'/fixtures/Main',workspace_binding:'b1'});await p.settle();
+ assert.equal(reads,1);assert.equal(p.byId.get('project-rules-text').textContent,messages.en.projectRulesUnavailable);
+ clock.advance(8200);await p.settle();
+ assert.equal(reads,2,'the panel asks again by itself, without another redraw');
+ assert.equal(p.byId.get('project-rules-text').textContent,'Answer briefly.');
+ clock.advance(60000);await p.settle();assert.equal(reads,2,'a successful read is not repeated');
+});
+
+test('a Code project whose rules keep failing is retried only a few times by the timer',async()=>{
+ const clock=fakeClock();let reads=0;
+ const p=panel({clock,answers:{project_rules_edit:args=>{if(args.action==='api-read'){reads++;throw new Error('unavailable');}return undefined;}}});
+ p.renderWeb({project:{id:'code-'+ID,name:'Code fixture',kind:'project'},folder:'/fixtures/Main',workspace_binding:'b1'});await p.settle();
+ for(let i=0;i<8;i++){clock.advance(8200);await p.settle();}
+ assert.equal(reads,4,'three timed retries after the first read');
+ assert.equal(p.byId.get('project-rules-text').textContent,messages.en.projectRulesUnavailable);
 });
 
 test('after an update the panel opens once with every missed version, and Settings shows all versions again',async()=>{
