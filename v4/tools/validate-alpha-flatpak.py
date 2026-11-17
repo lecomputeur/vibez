@@ -315,7 +315,7 @@ def main():
     if not args.bundle:parser.error('--bundle is required')
     assert not WORK.exists(),'Use a new private validation directory'
     WORK.mkdir();env=dict(os.environ)
-    for key in ['DISPLAY','WAYLAND_DISPLAY','DBUS_SESSION_BUS_ADDRESS','AT_SPI_BUS_ADDRESS','VIBEZ_SAFE_OUTPUT','GDK_BACKEND','LD_LIBRARY_PATH']:env.pop(key,None)
+    for key in ['DISPLAY','WAYLAND_DISPLAY','DBUS_SESSION_BUS_ADDRESS','AT_SPI_BUS_ADDRESS','GDK_BACKEND','LD_LIBRARY_PATH']:env.pop(key,None)
     for variable,name in [('HOME','home'),('XDG_CONFIG_HOME','config'),('XDG_DATA_HOME','data'),('XDG_CACHE_HOME','cache'),('XDG_STATE_HOME','state'),('XDG_RUNTIME_DIR','runtime'),('FLATPAK_USER_DIR','installation'),('FLATPAK_CONFIG_DIR','etc')]:
         path=WORK/name;path.mkdir(mode=0o700);env[variable]=str(path)
     env.update(XDG_CURRENT_DESKTOP='VibeZTest',GSETTINGS_BACKEND='memory',GTK_USE_PORTAL='1',NO_AT_BRIDGE='1',PATH='/usr/bin:/bin')

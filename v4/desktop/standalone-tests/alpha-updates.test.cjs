@@ -28,12 +28,12 @@ test('a Microsoft Store install says updates are automatic and offers no check o
 test('permission and check actions cannot interrupt an active transaction',()=>{
  for(const status of ['checking','downloading','installing'])assert.equal(presentation({kind:'flatpak',status,consent_required:true}).busy,true,status);
  assert.equal(presentation({kind:'flatpak',status:'ready',busy:true}).busy,true);
- for(const status of ['screen_restricted','not_flatpak','disabled'])assert.equal(presentation({kind:'flatpak',status,consent_required:true}).allow,false,status);
+ for(const status of ['not_flatpak','disabled'])assert.equal(presentation({kind:'flatpak',status,consent_required:true}).allow,false,status);
  assert.equal(presentation({kind:'flatpak',status:'ready',automatic:false,consent_required:true}).allow,false);
  assert.equal(presentation({kind:'system',status:'current',consent_required:true}).allow,false);
 });
 test('download, next-start and close-first statuses describe distinct behavior',()=>{
- const expected={checking:'updateChecking',downloading:'updateDownloading',waiting_for_close:'updateWaiting',current:'updateCurrent',updated:'updateCurrent',error:'updateError',disabled:'updateDisabled',screen_restricted:'updateScreenRestricted'};
+ const expected={checking:'updateChecking',downloading:'updateDownloading',waiting_for_close:'updateWaiting',current:'updateCurrent',updated:'updateCurrent',error:'updateError',disabled:'updateDisabled'};
  for(const [status,key]of Object.entries(expected))assert.equal(presentation({kind:'system',status}).key,key);
  assert.equal(presentation({kind:'flatpak',status:'ready',restart_required:true}).key,'updateReady');
  assert.equal(presentation({kind:'flatpak',status:'error',consent_required:true,error:'denied'}).key,'updateError');
@@ -53,7 +53,7 @@ test('every supported language updates live status and action labels',async()=>{
  assert.equal(Object.keys(translations).length,33);assert.equal(translations.ru,undefined);
  for(const [locale,t]of Object.entries(translations)){
   e.setLanguage(locale);
-  for(const key of ['updateTitle','updateAutomatic','updateCurrent','updateChecking','updateDownloading','updateReady','updateWaiting','updateError','updatePermission','updateAllow','updateCheck','updateDisabled','updateScreenRestricted'])assert.ok(t[key]?.trim(),locale+':'+key);
+  for(const key of ['updateTitle','updateAutomatic','updateCurrent','updateChecking','updateDownloading','updateReady','updateWaiting','updateError','updatePermission','updateAllow','updateCheck','updateDisabled'])assert.ok(t[key]?.trim(),locale+':'+key);
   assert.equal(e.nodes['alpha-update-status'].textContent,t.updatePermission,locale);
   assert.equal(e.nodes['alpha-update-check'].textContent,t.updateCheck,locale);
   assert.equal(e.nodes['alpha-update-allow'].textContent,t.updateAllow,locale);

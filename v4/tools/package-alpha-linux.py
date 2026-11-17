@@ -1,19 +1,8 @@
 #!/usr/bin/python3
-"""Create independent public and personal Alpha DEBs from a generated Tauri DEB."""
+"""Create the public Alpha DEB from a generated Tauri DEB."""
 import argparse,json,re,shutil,subprocess,tempfile
 from pathlib import Path
 from alpha_linux_payload import BASE,APP_ID,BINARY,PRODUCT,updater,version,digest,add_update_files,check_payload,normalize_modes
-
-def personal_output():
-    """The connector the Personal DEB is locked to: VIBEZ_PERSONAL_OUTPUT, or the
-    output already remembered by the app on this computer. Kept out of the source."""
-    import os
-    value=os.environ.get('VIBEZ_PERSONAL_OUTPUT')
-    if not value:
-        choice=Path(os.environ.get('XDG_CONFIG_HOME') or Path.home()/'.config')/APP_ID/'safe-output.json'
-        if choice.is_file():value=json.loads(choice.read_text()).get('output')
-    assert value and re.fullmatch(r'[A-Za-z0-9_.:-]{1,128}',value),'Set VIBEZ_PERSONAL_OUTPUT to the screen for the Personal DEB'
-    return value
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
@@ -21,9 +10,9 @@ def main():
     parser.add_argument('--output-dir',type=Path,required=True)
     parser.add_argument('--payload',type=Path,required=True)
     parser.add_argument('--public-key',type=Path,default=BASE/'desktop/src-tauri/alpha-updates.gpg')
-    args=parser.parse_args();release=version();personal=personal_output();source=args.deb.resolve(strict=True);output=args.output_dir.resolve();output.mkdir(parents=True,exist_ok=True)
-    outputs=[output/f'VibeZ-{release}-Linux-x64.deb',output/f'VibeZ-{release}-Linux-x64-Personal.deb']
-    assert all(not p.exists() for p in outputs),'Refusing to replace an existing package'
+    args=parser.parse_args();release=version();source=args.deb.resolve(strict=True);output=args.output_dir.resolve();output.mkdir(parents=True,exist_ok=True)
+    target=output/f'VibeZ-{release}-Linux-x64.deb'
+    assert not target.exists(),'Refusing to replace an existing package'
     payload=args.payload.resolve();assert not payload.exists(),'Refusing to overwrite an existing payload'
     fields=subprocess.check_output(['dpkg-deb','-f',source,'Package','Version','Architecture'],text=True)
     assert fields==f'Package: vibe-z-v4-alpha\nVersion: {release}\nArchitecture: amd64\n',fields
@@ -56,15 +45,13 @@ def main():
         for hook in ['postinst','prerm']:(controls/hook).chmod(0o755)
         normalize_modes(staged/'usr')
         (controls/'md5sums').unlink(missing_ok=True)
-        for index,target in enumerate(outputs):
-            if index:desktop.write_text(re.sub(r'^Exec=.*$',f'Exec=env VIBEZ_SAFE_OUTPUT={personal} {BINARY}',public,flags=re.M))
-            subprocess.run(['dpkg-deb','--root-owner-group','-Zxz','--build',staged,target],check=True,stdout=subprocess.DEVNULL)
-            helper.validate_deb(target,release)
-        desktop.write_text(public);shutil.copytree(staged/'usr',payload/'usr')
+        subprocess.run(['dpkg-deb','--root-owner-group','-Zxz','--build',staged,target],check=True,stdout=subprocess.DEVNULL)
+        helper.validate_deb(target,release)
+        shutil.copytree(staged/'usr',payload/'usr')
         (payload/'usr/share/licenses'/BINARY).mkdir(parents=True,exist_ok=True)
         shutil.copyfile(BASE/'LICENSE',payload/'usr/share/licenses'/BINARY/'LICENSE')
         normalize_modes(payload)
-    report={'version':release,'public_deb':str(outputs[0]),'personal_deb':str(outputs[1]),'payload':str(payload),
-            'sha256':{p.name:digest(p) for p in outputs},'initial_timer_enable_only':True,'service_activated_on_host':False,'installed_on_host':False,'passed':True}
+    report={'version':release,'public_deb':str(target),'payload':str(payload),
+            'sha256':{target.name:digest(target)},'initial_timer_enable_only':True,'service_activated_on_host':False,'installed_on_host':False,'passed':True}
     (output/f'alpha-linux-{release}.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps(report,indent=2))
 if __name__=='__main__':main()

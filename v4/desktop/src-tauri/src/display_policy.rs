@@ -1,114 +1,8 @@
-//! Display arithmetic shared by normal desktop and explicit safe-output mode.
+//! Display arithmetic: VibeZ opens on the native primary monitor.
 use super::Screen;
-use std::path::Path;
 
-fn checked_choice_path(config:&Path)->Result<std::path::PathBuf,String> {
-    let directory=std::fs::symlink_metadata(config).map_err(|_|"The Alpha settings folder is not available")?;
-    if !directory.is_dir()||directory.file_type().is_symlink(){return Err("The Alpha settings folder is redirected".into());}
-    let path=config.join("safe-output.json");
-    match std::fs::symlink_metadata(&path) {
-        Ok(meta) if !meta.is_file()||meta.file_type().is_symlink()=>return Err("The saved safe screen choice is redirected".into()),
-        Ok(_)=>{},Err(e) if e.kind()==std::io::ErrorKind::NotFound=>{},
-        Err(_)=>return Err("The saved safe screen choice cannot be checked".into()),
-    }
-    Ok(path)
-}
-/// Where an explicit screen choice is kept, for error messages.
-pub fn safe_output_file(config:&Path)->std::path::PathBuf {config.join("safe-output.json")}
-/// Remember an explicit personal monitor in the Alpha profile so an ordinary
-/// public package update cannot erase it by replacing the desktop launcher.
-/// Called only after the screen was found and checked, so a choice that cannot
-/// be verified on this system is never kept for the next start.
-pub fn remember_safe_output(config:&Path,output:&str)->Result<(),String> {
-    use std::io::Write;
-    use std::sync::atomic::{AtomicU64,Ordering};
-    static SERIAL:AtomicU64=AtomicU64::new(1);
-    let path=checked_choice_path(config)?;
-    let output=requested_output(Some(output))?.ok_or("The configured screen name is not valid")?;
-    // Keep the personal list of windows to avoid; it is only ever written by hand.
-    let avoid=load_avoided_windows(config)?;
-    {
-        let temp=config.join(format!(".safe-output-{}-{}.tmp",std::process::id(),SERIAL.fetch_add(1,Ordering::SeqCst)));
-        struct Pending(std::path::PathBuf);
-        impl Drop for Pending {fn drop(&mut self){let _=std::fs::remove_file(&self.0);}}
-        let _pending=Pending(temp.clone());
-        let mut options=std::fs::OpenOptions::new();options.create_new(true).write(true);
-        #[cfg(unix)] {use std::os::unix::fs::OpenOptionsExt;options.mode(0o600);}
-        let mut file=options.open(&temp).map_err(|_|"The safe screen choice cannot be saved")?;
-        let mut value=serde_json::json!({"output":output});
-        if !avoid.is_empty(){value["avoid_windows"]=avoid.into();}
-        let data=serde_json::to_vec(&value).map_err(|_|"The safe screen choice is not valid")?;
-        file.write_all(&data).and_then(|_|file.sync_all()).map_err(|_|"The safe screen choice cannot be saved")?;
-        drop(file);
-        std::fs::rename(&temp,&path).map_err(|_|"The safe screen choice cannot be saved")?;
-    }
-    Ok(())
-}
-/// The screen choice for this start: an explicit VIBEZ_SAFE_OUTPUT value, or
-/// else the one remembered after an earlier successful check. Reading never writes.
-pub fn load_safe_output(config:&Path,explicit:Option<&str>)->Result<Option<String>,String> {
-    let path=checked_choice_path(config)?;
-    if let Some(output)=requested_output(explicit)? {return Ok(Some(output.into()));}
-    let Some(data)=read_saved(&path)? else{return Ok(None);};
-    let raw=data["output"].as_str().ok_or("The saved safe screen choice is not valid")?;
-    requested_output(Some(raw)).map(|value|value.map(str::to_owned))
-}
-/// Window titles (lower case, matched as parts of a title) that must never share
-/// the safe screen. Only a personal safe-output.json lists them; without that
-/// list nothing is checked and no X11 tools are needed.
-pub fn load_avoided_windows(config:&Path)->Result<Vec<String>,String> {
-    let path=checked_choice_path(config)?;
-    let Some(data)=read_saved(&path)? else{return Ok(Vec::new());};
-    let Some(list)=data.get("avoid_windows") else{return Ok(Vec::new());};
-    let list=list.as_array().filter(|list|list.len()<=16).ok_or("The saved windows to avoid are not valid")?;
-    list.iter().map(|item|{
-        let text=item.as_str().map(str::trim).filter(|t|!t.is_empty()&&t.chars().count()<=100&&!t.chars().any(char::is_control))
-            .ok_or("The saved windows to avoid are not valid")?;
-        Ok(text.to_lowercase())
-    }).collect()
-}
-fn read_saved(path:&Path)->Result<Option<serde_json::Value>,String> {
-    use std::io::Read;
-    let mut options=std::fs::OpenOptions::new();options.read(true);
-    #[cfg(target_os="linux")] {use std::os::unix::fs::OpenOptionsExt;options.custom_flags(0x20000);}
-    let file=match options.open(path) {
-        Ok(file)=>file,Err(e) if e.kind()==std::io::ErrorKind::NotFound=>return Ok(None),
-        Err(_)=>return Err("The saved safe screen choice cannot be read".into()),
-    };
-    if file.metadata().map_err(|_|"The safe screen choice cannot be checked")?.len()>2048 {
-        return Err("The saved safe screen choice is not valid".into());
-    }
-    let mut data=Vec::new();file.take(2049).read_to_end(&mut data).map_err(|_|"The safe screen choice cannot be read")?;
-    if data.len()>2048{return Err("The saved safe screen choice is not valid".into());}
-    let data:serde_json::Value=serde_json::from_slice(&data).map_err(|_|"The saved safe screen choice is not valid")?;
-    if !data.is_object(){return Err("The saved safe screen choice is not valid".into());}
-    Ok(Some(data))
-}
-
-pub fn requested_output(raw:Option<&str>)->Result<Option<&str>,String> {
-    let Some(raw)=raw else{return Ok(None);};
-    if raw.is_empty()||raw.len()>128||!raw.bytes().all(|c|c.is_ascii_alphanumeric()||matches!(c,b'-'|b'_'|b'.'|b':')) {
-        return Err("The configured screen name is not valid".into());
-    }
-    Ok(Some(raw))
-}
-pub fn parse_monitor(line:&str,output:&str)->Option<Screen> {
-    let parts:Vec<_>=line.split_whitespace().collect();
-    if parts.last().copied()!=Some(output){return None;}
-    let geometry=*parts.get(2)?;let coordinate=geometry.find(['+','-'])?;
-    let mut sizes=geometry[..coordinate].split('x');
-    let width=sizes.next()?.split('/').next()?.parse::<u32>().ok()?;
-    let height=sizes.next()?.split('/').next()?.parse::<u32>().ok()?;
-    let coords=&geometry[coordinate..];let second=coords[1..].find(['+','-'])?+1;
-    let result=Screen{x:coords[..second].parse().ok()?,y:coords[second..].parse().ok()?,width,height};
-    (width>0&&height>0).then_some(result)
-}
-pub fn select(monitors:&[Screen],primary:Option<Screen>,requested:Option<Screen>)->Result<Screen,String> {
+pub fn select(monitors:&[Screen],primary:Option<Screen>)->Result<Screen,String> {
     let usable=|s:&Screen|s.width>0&&s.height>0;
-    if let Some(requested)=requested {
-        return monitors.iter().find(|s|**s==requested&&usable(s)).copied()
-            .ok_or_else(||"The chosen screen does not match the screen layout".into());
-    }
     primary.filter(|s|usable(s)&&monitors.contains(s)).or_else(||monitors.iter().find(|s|usable(s)).copied())
         .ok_or_else(||"No available screen was found".into())
 }
@@ -137,67 +31,14 @@ pub fn dialog_bounds(screen:Screen,scale:f64)->Result<(i32,i32,i32,i32),String> 
 mod tests {
     use super::*;
     #[test]
-    fn explicit_output_survives_a_plain_public_launcher_and_unknown_files_fail_closed() {
-        let root=std::env::temp_dir().join(format!("vibez-alpha-display-{}",std::process::id()));
-        std::fs::create_dir_all(&root).unwrap();
-        assert_eq!(load_safe_output(&root,None).unwrap(),None);
-        // An explicit choice is used for this start but only kept once the
-        // screen has been checked, so an unverifiable choice cannot brick later starts.
-        assert_eq!(load_safe_output(&root,Some("HDMI-A-2")).unwrap(),Some("HDMI-A-2".into()));
-        assert!(!root.join("safe-output.json").exists());
-        assert_eq!(load_safe_output(&root,None).unwrap(),None);
-        remember_safe_output(&root,"HDMI-A-2").unwrap();
-        assert_eq!(load_safe_output(&root,None).unwrap(),Some("HDMI-A-2".into()));
-        assert_eq!(safe_output_file(&root),root.join("safe-output.json"));
-        // A hand-written list of windows to avoid survives the next remembered choice.
-        assert!(load_avoided_windows(&root).unwrap().is_empty());
-        std::fs::write(root.join("safe-output.json"),br#"{"output":"HDMI-A-2","avoid_windows":["Example Game"," other client "]}"#).unwrap();
-        assert_eq!(load_avoided_windows(&root).unwrap(),vec!["example game".to_owned(),"other client".to_owned()]);
-        remember_safe_output(&root,"HDMI-A-2").unwrap();
-        assert_eq!(load_avoided_windows(&root).unwrap(),vec!["example game".to_owned(),"other client".to_owned()]);
-        assert_eq!(load_safe_output(&root,None).unwrap(),Some("HDMI-A-2".into()));
-        std::fs::write(root.join("safe-output.json"),br#"{"output":"HDMI-A-2","avoid_windows":"not a list"}"#).unwrap();
-        assert!(load_avoided_windows(&root).is_err());
-        remember_safe_output(&root,"HDMI-A-2").ok();
-        std::fs::write(root.join("safe-output.json"),br#"{"output":"HDMI-A-2"}"#).unwrap();
-        let before=std::fs::read(root.join("safe-output.json")).unwrap();
-        assert!(load_safe_output(&root,Some("$(unsafe)")).is_err());
-        assert!(remember_safe_output(&root,"$(unsafe)").is_err());
-        assert_eq!(std::fs::read(root.join("safe-output.json")).unwrap(),before);
-        #[cfg(unix)] {use std::os::unix::fs::PermissionsExt;assert_eq!(std::fs::metadata(root.join("safe-output.json")).unwrap().permissions().mode()&0o777,0o600);}
-        std::fs::write(root.join("safe-output.json"),b"invalid").unwrap();assert!(load_safe_output(&root,None).is_err());
-        #[cfg(unix)] {
-            std::fs::remove_file(root.join("safe-output.json")).unwrap();
-            let outside=root.join("untouched");std::fs::write(&outside,b"preserved").unwrap();
-            std::os::unix::fs::symlink(&outside,root.join("safe-output.json")).unwrap();
-            assert!(load_safe_output(&root,Some("HDMI-A-2")).is_err());
-            assert!(remember_safe_output(&root,"HDMI-A-2").is_err());
-            assert_eq!(std::fs::read(&outside).unwrap(),b"preserved");
-        }
-        std::fs::remove_dir_all(root).unwrap();
-    }
-    #[test]
-    fn one_screen_and_unknown_connector_models_use_native_primary() {
+    fn one_screen_and_two_screen_layouts_use_native_primary() {
         let laptop=Screen{x:0,y:0,width:1920,height:1080};
-        assert_eq!(select(&[laptop],Some(laptop),None).unwrap(),laptop);
-        assert_eq!(select(&[laptop],None,None).unwrap(),laptop);
-        assert!(select(&[],None,None).is_err());
-    }
-    #[test]
-    fn explicit_output_never_falls_back_to_another_monitor() {
-        let left=Screen{x:0,y:0,width:2560,height:1440};let right=Screen{x:2560,..left};
-        assert_eq!(select(&[left,right],Some(right),Some(left)).unwrap(),left);
-        assert!(select(&[right],Some(right),Some(left)).is_err());
-        assert_eq!(requested_output(None).unwrap(),None);
-        assert_eq!(requested_output(Some("HDMI-A-2")).unwrap(),Some("HDMI-A-2"));
-        for raw in ["","DP-1\n","$(x)","DP 1"] {assert!(requested_output(Some(raw)).is_err());}
-    }
-    #[test]
-    fn arbitrary_connector_and_negative_coordinates_are_parsed_without_assumptions() {
-        let monitor=parse_monitor(" 0: +*eDP-1 1920/310x1080/170-1920-1080 eDP-1","eDP-1").unwrap();
-        assert_eq!(monitor,Screen{x:-1920,y:-1080,width:1920,height:1080});
-        assert!(parse_monitor(" 0: +*eDP-1 1920/310x1080/170+0+0 eDP-1","HDMI-A-2").is_none());
-        assert!(parse_monitor(" 0: +eDP-1 0/310x1080/170+0+0 eDP-1","eDP-1").is_none());
+        assert_eq!(select(&[laptop],Some(laptop)).unwrap(),laptop);
+        assert_eq!(select(&[laptop],None).unwrap(),laptop);
+        assert!(select(&[],None).is_err());
+        let right=Screen{x:1920,..laptop};
+        assert_eq!(select(&[laptop,right],Some(right)).unwrap(),right);
+        assert_eq!(select(&[laptop,right],None).unwrap(),laptop);
     }
     #[test]
     fn hidpi_and_small_screen_sizes_fit_in_native_monitor() {

@@ -134,81 +134,6 @@ fn validate_login(raw: &str) -> Result<url::Url, String> {
     }
     Ok(u)
 }
-fn intersects(a: Screen, b: Screen) -> bool {
-    (a.x as i64) < b.x as i64 + b.width as i64
-        && (b.x as i64) < a.x as i64 + a.width as i64
-        && (a.y as i64) < b.y as i64 + b.height as i64
-        && (b.y as i64) < a.y as i64 + a.height as i64
-}
-#[cfg(target_os = "linux")]
-/// Refuse the safe screen while a window listed in the personal
-/// safe-output.json ("avoid_windows") is on it. Without such a list this
-/// checks nothing and needs no X11 tools.
-fn guard_windows(safe: Screen) -> Result<(), String> {
-    let avoid = AVOIDED_WINDOWS.get().map(Vec::as_slice).unwrap_or(&[]);
-    if avoid.is_empty() {
-        return Ok(());
-    }
-    let output = Command::new("/usr/bin/xprop")
-        .args(["-root", "_NET_CLIENT_LIST"])
-        .output()
-        .map_err(|_| "Cannot check the windows on the safe screen")?;
-    if !output.status.success() {
-        return Err("Cannot check the windows on the safe screen".into());
-    }
-    let text = String::from_utf8_lossy(&output.stdout);
-    for id in text
-        .split('#')
-        .nth(1)
-        .unwrap_or("")
-        .split(|c: char| c == ',' || c.is_whitespace())
-        .filter(|v| {
-            v.starts_with("0x") && v.len() < 20 && v[2..].chars().all(|c| c.is_ascii_hexdigit())
-        })
-    {
-        let props = Command::new("/usr/bin/xprop")
-            .args(["-id", id, "_NET_WM_NAME"])
-            .output()
-            .map_err(err)?;
-        let title = String::from_utf8_lossy(&props.stdout).to_lowercase();
-        if !avoid.iter().any(|name| title.contains(name.as_str())) {
-            continue;
-        }
-        let geometry = Command::new("/usr/bin/xwininfo")
-            .args(["-id", id])
-            .output()
-            .map_err(err)?;
-        let geometry = String::from_utf8_lossy(&geometry.stdout);
-        let value = |key: &str| -> Result<i32, String> {
-            geometry
-                .lines()
-                .find(|l| l.trim_start().starts_with(key))
-                .and_then(|l| l.split(':').nth(1))
-                .and_then(|s| s.trim().parse::<i32>().ok())
-                .ok_or_else(|| "A window to avoid has an unclear position. VibeZ does not open.".into())
-        };
-        let avoided = Screen {
-            x: value("Absolute upper-left X")?,
-            y: value("Absolute upper-left Y")?,
-            width: value("Width")? as u32,
-            height: value("Height")? as u32,
-        };
-        if intersects(safe, avoided) {
-            return Err(
-                "A window to avoid is on the configured VibeZ screen. VibeZ does not open on that screen."
-                    .into(),
-            );
-        }
-    }
-    Ok(())
-}
-static SAVED_SAFE_OUTPUT:std::sync::OnceLock<Option<String>>=std::sync::OnceLock::new();
-static AVOIDED_WINDOWS:std::sync::OnceLock<Vec<String>>=std::sync::OnceLock::new();
-fn safe_output() -> Result<Option<String>,String> {
-    let raw=std::env::var("VIBEZ_SAFE_OUTPUT").ok();
-    let explicit=display_policy::requested_output(raw.as_deref())?.map(str::to_owned);
-    Ok(explicit.or_else(||SAVED_SAFE_OUTPUT.get().cloned().flatten()))
-}
 fn native_screen(monitor:&tauri::Monitor)->Screen {
     Screen{x:monitor.position().x,y:monitor.position().y,width:monitor.size().width,height:monitor.size().height}
 }
@@ -216,27 +141,8 @@ fn screen(app: &tauri::AppHandle) -> Result<Screen, String> {
     let monitors = app.available_monitors().map_err(err)?;
     let screens:Vec<_>=monitors.iter().map(native_screen).collect();
     let primary=app.primary_monitor().map_err(err)?.as_ref().map(native_screen);
-    #[cfg(target_os = "linux")]
-    if let Some(output_name)=safe_output()? {
-        // Explicit personal safety mode resolves the real output connector and
-        // verifies it against native geometry. It must never silently fall back.
-        let output=Command::new("/usr/bin/xrandr").arg("--listmonitors").output()
-            .map_err(|_|"Cannot check the configured safe screen")?;
-        if !output.status.success(){return Err("Cannot check the configured safe screen".into());}
-        let requested=String::from_utf8_lossy(&output.stdout).lines()
-            .find_map(|line|display_policy::parse_monitor(line,&output_name))
-            .ok_or("The configured safe screen is not available")?;
-        let selected=display_policy::select(&screens,primary,Some(requested))?;
-        guard_windows(selected)?;
-        return Ok(selected);
-    }
-    #[cfg(not(target_os = "linux"))]
-    if safe_output()?.is_some() {
-        return Err("The configured Linux screen protection is not available on this system".into());
-    }
-    // Ordinary Linux, including a one-screen Wayland laptop, needs no XRandR
-    // connector names or X11 utilities to open on its native primary monitor.
-    display_policy::select(&screens,primary,None)
+    // Open on the native primary monitor; no X11 tools or connector names needed.
+    display_policy::select(&screens,primary)
 }
 fn monitor_scale(app:&tauri::AppHandle,screen:Screen)->Result<f64,String> {
     app.available_monitors().map_err(err)?.iter().find(|m|native_screen(m)==screen)
@@ -245,12 +151,9 @@ fn monitor_scale(app:&tauri::AppHandle,screen:Screen)->Result<f64,String> {
 #[cfg(target_os = "linux")]
 fn position_dialog(app:&tauri::AppHandle,dialog:&gtk::FileChooserDialog,screen:Screen)->Result<(),String> {
     let scale=monitor_scale(app,screen)?;let(x,y,width,height)=display_policy::dialog_bounds(screen,scale)?;
+    let _=(x,y);
     dialog.set_default_size(width,height);
-    if safe_output()?.is_some() {
-        dialog.set_position(gtk::WindowPosition::None);dialog.move_(x,y);
-    } else {
-        dialog.set_position(gtk::WindowPosition::CenterOnParent);
-    }
+    dialog.set_position(gtk::WindowPosition::CenterOnParent);
     Ok(())
 }
 fn is_flatpak()->bool {
@@ -261,18 +164,10 @@ fn is_flatpak()->bool {
 /// dialog stays the default outside Flatpak; inside Flatpak the portal is always used.
 fn portal_opt_in(raw:Option<&str>)->bool {raw.map(str::trim)==Some("portal")}
 fn system_file_dialog()->bool {
-    if is_flatpak(){return true;}
-    // The opt-in yields to the safe-screen mode: there the app's own GTK dialog,
-    // whose monitor can be verified, stays in use instead of an error.
-    portal_opt_in(std::env::var("VIBEZ_FILE_DIALOG").ok().as_deref())&&!matches!(safe_output(),Ok(Some(_)))
+    is_flatpak()||portal_opt_in(std::env::var("VIBEZ_FILE_DIALOG").ok().as_deref())
 }
 #[cfg(target_os = "linux")]
 fn portal_pick(parent:&impl gtk::glib::IsA<gtk::Window>,title:&str,action:gtk::FileChooserAction,accept:&str,cancel:&str,multiple:bool)->Result<Option<Vec<std::path::PathBuf>>,String> {
-    if safe_output()?.is_some() {
-        // Portal windows belong to the desktop compositor. Unlike our own GTK
-        // windows their monitor cannot be verified before they are shown.
-        return Err("A system dialog cannot be placed safely with the configured screen protection".into());
-    }
     let chooser=gtk::FileChooserNative::new(Some(title),Some(parent),action,Some(accept),Some(cancel));
     chooser.set_modal(true);chooser.set_select_multiple(multiple);
     let response=chooser.run();
@@ -362,13 +257,11 @@ fn engine_interpreter(app:&tauri::AppHandle)->Result<std::path::PathBuf,String> 
     }
 }
 /// Startup cannot continue: say why over the visible main window, then end
-/// the process normally instead of letting the setup hook panic. With an
-/// explicit safe screen no window is shown, because its placement could not
-/// be checked.
+/// the process normally instead of letting the setup hook panic.
 fn startup_failure(window:&tauri::WebviewWindow,message:&str)->! {
     eprintln!("VibeZ: {message}");
     #[cfg(target_os="linux")]
-    if safe_output().ok().flatten().is_none() {
+    {
         let parent=window.show().ok().and_then(|_|window.gtk_window().ok());
         // Let the main window map first, so the dialog can be placed over it.
         for _ in 0..200 {if !gtk::events_pending(){break;} gtk::main_iteration_do(false);}
@@ -1006,13 +899,6 @@ fn main() {
                     std::fs::set_permissions(p, std::fs::Permissions::from_mode(0o700))?;
                 }
             }
-            #[cfg(target_os="linux")]
-            {
-                let raw=std::env::var("VIBEZ_SAFE_OUTPUT").ok();
-                let selected=display_policy::load_safe_output(&config,raw.as_deref()).map_err(std::io::Error::other)?;
-                let _=SAVED_SAFE_OUTPUT.set(selected);
-                let _=AVOIDED_WINDOWS.set(display_policy::load_avoided_windows(&config).map_err(std::io::Error::other)?);
-            }
             app.manage(classic_language::Language::load(&config).map_err(std::io::Error::other)?);
             app.manage(panel_prefs::PanelPrefs::load(&config));
             app.manage(whats_new::WhatsNew::load(&config, used_before));
@@ -1048,19 +934,7 @@ fn main() {
             project_import::attach(app.handle(),&app.get_webview("connector-panel").unwrap());
             // The local webview is named main; authorization is still checked by
             // document URL in addition to label. The remote web surface has no native capability.
-            place(&app.get_window("main").ok_or("Geen hoofdvenster")?).map_err(|error|{
-                #[cfg(target_os="linux")]
-                let error=if safe_output().ok().flatten().is_some() {
-                    format!("{error}. VibeZ keeps to the configured safe screen and does not open elsewhere. To use the normal screen, start VibeZ without VIBEZ_SAFE_OUTPUT and delete {} if it exists",
-                        display_policy::safe_output_file(&config).display())
-                } else {error};
-                std::io::Error::other(error)
-            })?;
-            #[cfg(target_os="linux")]
-            if let Some(output)=std::env::var("VIBEZ_SAFE_OUTPUT").ok().filter(|v|!v.is_empty()) {
-                // The screen was found and checked above; only now keep the choice.
-                display_policy::remember_safe_output(&config,&output).map_err(std::io::Error::other)?;
-            }
+            place(&app.get_window("main").ok_or("Geen hoofdvenster")?).map_err(std::io::Error::other)?;
             if let Err(error)=start_engine(app.handle()) {
                 startup_failure(&window,&error);
             }
@@ -1122,20 +996,6 @@ mod tests {
         assert!(python_candidates(Some("python3".as_ref())).is_err());
     }
     #[test]
-    fn connector_geometry_accepts_positive_and_negative_coordinates() {
-        let left = display_policy::parse_monitor(" 1: +HDMI-A-2 2560/597x1440/336+0+0 HDMI-A-2","HDMI-A-2").unwrap();
-        assert_eq!(
-            (left.x, left.y, left.width, left.height),
-            (0, 0, 2560, 1440)
-        );
-        let negative =
-            display_policy::parse_monitor(" 1: +HDMI-A-2 2560/597x1440/336-2560+0 HDMI-A-2","HDMI-A-2").unwrap();
-        assert_eq!(negative.x, -2560);
-        assert!(
-            display_policy::parse_monitor(" 0: +*HDMI-A-1 2560/597x1440/336+2560+0 HDMI-A-1","HDMI-A-2").is_none()
-        );
-    }
-    #[test]
     fn portal_created_workspace_is_a_real_direct_child_of_the_granted_parent() {
         let path=std::env::temp_dir().join(format!("vibez-alpha-created-child-{}",std::process::id()));
         std::fs::create_dir(&path).unwrap();let parent=path.canonicalize().unwrap();
@@ -1146,23 +1006,6 @@ mod tests {
         let nested=child.join("nested");std::fs::create_dir(&nested).unwrap();assert!(created_child(&parent,&nested).is_err());
         #[cfg(unix)] {let escaped=parent.join("escaped");std::os::unix::fs::symlink(&std::env::temp_dir(),&escaped).unwrap();assert!(created_child(&parent,&escaped).is_err());}
         std::fs::remove_dir_all(parent).unwrap();
-    }
-    #[test]
-    fn adjacent_monitors_are_not_overlap() {
-        let left = Screen {
-            x: 0,
-            y: 0,
-            width: 2560,
-            height: 1440,
-        };
-        let right = Screen {
-            x: 2560,
-            y: 0,
-            width: 2560,
-            height: 1440,
-        };
-        assert!(!intersects(left, right));
-        assert!(intersects(left, Screen { x: 2000, ..right }));
     }
     #[test]
     fn only_bundled_main_document_is_local() {
