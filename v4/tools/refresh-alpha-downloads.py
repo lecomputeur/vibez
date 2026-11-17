@@ -2,17 +2,18 @@
 """Point the public download texts at the current V4 Alpha.
 
 The public repository (lecomputeur/vibez) carries the download buttons and a
-short highlights paragraph in README.md and docs/ (index, Linux, macOS,
-Windows). Those five files fell three versions behind once; this tool rewrites
-them from `management/release.json`:
+short highlights paragraph in README.md and docs/ (index, Linux). VibeZ is
+winding down now that Mistral released the official Vibe Desktop; only Linux is
+still released, and the Windows and macOS pages are a fixed archive. These
+three files once fell behind; this tool rewrites them from
+`management/release.json`:
 
   python3 tools/refresh-alpha-downloads.py --site <clone of lecomputeur/vibez>
 
 * every `4.0.0-alpha.N` and `Alpha N` of the previous Alpha becomes the new one;
-* the highlights paragraph ("Alpha N is available for Linux, Windows, Intel and
-  Apple Silicon Macs. ...") is replaced by `download_highlights` from
+* the highlights paragraph ("Beta N is available for Linux. ...") is replaced by `download_highlights` from
   release.json, or by --highlights / --highlights-file;
-* with --check-links every release link in the five files must answer.
+* with --check-links every release link in the three files must answer.
 
 VibeZ 3.0.9 and its links are never touched: only the Alpha version strings and
 the one Alpha paragraph change. Nothing is committed or pushed here.
@@ -25,11 +26,13 @@ import urllib.request
 from pathlib import Path
 
 BASE = Path(__file__).resolve().parents[1]
-FILES = ('README.md', 'docs/index.html', 'docs/linux.html', 'docs/macos.html', 'docs/windows.html')
-LEAD = '%s is available for Linux, Windows, Intel and Apple Silicon Macs. '
+FILES = ('README.md', 'docs/index.html', 'docs/linux.html')
+LEAD = '%s is available for Linux. '
+# Before the wind-down the paragraph named every platform; both forms are recognised.
+PLATFORMS = r'(?:Linux, Windows, Intel and Apple Silicon Macs|Linux)'
 VERSION_RE = re.compile(r'^4\.0\.0-(alpha|beta)\.(\d+)$')
-README_PARAGRAPH = re.compile(r'^> (?:Alpha|Beta) (\d+) is available for Linux, Windows, Intel and Apple Silicon Macs\. .*$', re.M)
-HTML_PARAGRAPH = re.compile(r'<p class="alpha-feedback">(?:Alpha|Beta) (\d+) is available for Linux, Windows, Intel and Apple Silicon Macs\. .*?</p>')
+README_PARAGRAPH = re.compile(r'^> (?:Alpha|Beta) (\d+) is available for ' + PLATFORMS + r'\. .*$', re.M)
+HTML_PARAGRAPH = re.compile(r'<p class="alpha-feedback">(?:Alpha|Beta) (\d+) is available for ' + PLATFORMS + r'\. .*?</p>')
 
 
 def release_key(version):
