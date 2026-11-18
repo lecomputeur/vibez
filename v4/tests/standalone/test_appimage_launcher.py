@@ -31,7 +31,7 @@ class AppImageLauncherTests(unittest.TestCase):
             app = self.make_app(Path(temp))
             old_hash = hashlib.sha256((app/'AppRun').read_bytes()).hexdigest()
             parent = dict(os.environ)
-            env = dict(parent, GIO_MODULE_DIR='/nonexistent/foreign-provider', APPDIR='/wrong/app')
+            env = dict(parent, GIO_MODULE_DIR='/nonexistent/foreign-provider', APPDIR='/wrong/app', GDK_PIXBUF_MODULE_FILE='/nix/store/foreign/loaders.cache')
             result = launcher.prepare(app)
             child = subprocess.check_output([str(app/'AppRun'), 'VIBEZ_ARGUMENT=some words é'], env=env, text=True)
             values = dict(line.split('=',1) for line in child.splitlines() if '=' in line)
@@ -41,6 +41,7 @@ class AppImageLauncherTests(unittest.TestCase):
             self.assertEqual(result['original_launcher_sha256'], old_hash)
             self.assertEqual(dict(os.environ), parent)
             self.assertNotIn('GIO_USE_TLS', values)
+            self.assertNotIn('GDK_PIXBUF_MODULE_FILE', values)
             self.assertNotIn('WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS', values)
 
     def test_prepare_twice_keeps_original_binary_and_wrapper_identical(self):

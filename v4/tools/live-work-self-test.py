@@ -907,6 +907,9 @@ return 'ok'})()"""
         if not result['typed']:
             result['typing'] = typed
             return result, None
+        # Real key events can lag behind on a busy machine; send only once the composer holds the
+        # whole message, as a person would, instead of clicking Send while the last keys are queued.
+        result['composer_settled_s'] = self.await_composer_text(app, marker + SENT_REQUEST)
         start = time.time()
         try:
             app.eval('mistral', MISTRAL_WATCH_REFUSALS)
@@ -915,6 +918,20 @@ return 'ok'})()"""
         result['sent_via'] = self.press_send(app, via)
         state = self.await_sent(app, marker, label_pattern, result, start, timeout)
         return result, state
+
+    def await_composer_text(self, app, full, timeout=15):
+        """Seconds until the composer text ends with `full` (whitespace folded), or None after `timeout`."""
+        want = ' '.join(full.split())
+        start = time.time()
+        while time.time() - start < timeout:
+            try:
+                text = json.loads(app.eval('mistral', MISTRAL_COMPOSER_TEXT)).get('text') or ''
+            except (SelfTestError, ValueError, AttributeError):
+                text = ''
+            if ' '.join(text.split()).endswith(want):
+                return round(time.time() - start, 1)
+            time.sleep(0.25)
+        return None
 
     def stop_code_session(self, app):
         """Stop the Code session this run started; a running one counts toward Mistral's concurrent limit."""
@@ -1064,7 +1081,8 @@ return 'ok'})()"""
         state = {}
         while time.time() < deadline:
             state = self.panel_rules(app)
-            if state.get('project') == key and state.get('api_state') in ('value', 'failed') and not state.get('busy'):
+            # A failed first read is retried by the panel itself while Mistral finishes opening the project.
+            if state.get('project') == key and state.get('api_state') == 'value' and not state.get('busy'):
                 break
             time.sleep(1)
         scenario['shown'] = state

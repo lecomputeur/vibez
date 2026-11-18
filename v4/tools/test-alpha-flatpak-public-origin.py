@@ -26,7 +26,7 @@ def main():
     parser.add_argument('--expected-binary-sha256',required=True)
     args=parser.parse_args();work=args.work.resolve();assert not work.exists();work.mkdir()
     env=dict(os.environ)
-    for key in ['DISPLAY','WAYLAND_DISPLAY','DBUS_SESSION_BUS_ADDRESS','AT_SPI_BUS_ADDRESS','VIBEZ_SAFE_OUTPUT']:
+    for key in ['DISPLAY','WAYLAND_DISPLAY','DBUS_SESSION_BUS_ADDRESS','AT_SPI_BUS_ADDRESS']:
         env.pop(key,None)
     for key,folder in [('HOME','home'),('XDG_CONFIG_HOME','config'),('XDG_DATA_HOME','data'),('XDG_CACHE_HOME','cache'),('XDG_STATE_HOME','state'),('FLATPAK_USER_DIR','installation'),('FLATPAK_CONFIG_DIR','etc')]:
         path=work/folder;path.mkdir(mode=0o700);env[key]=str(path)

@@ -237,7 +237,7 @@ def stage(cache, feed, package, target):
 def linux_prepare(work):
     env = dict(os.environ)
     for key in [*PROTECTED, 'DISPLAY', 'WAYLAND_DISPLAY', 'DBUS_SESSION_BUS_ADDRESS', 'DBUS_STARTER_ADDRESS',
-                'DBUS_STARTER_BUS_TYPE', 'AT_SPI_BUS_ADDRESS', 'VIBEZ_SAFE_OUTPUT', 'APPIMAGE', 'APPDIR',
+                'DBUS_STARTER_BUS_TYPE', 'AT_SPI_BUS_ADDRESS', 'APPIMAGE', 'APPDIR',
                 'LD_LIBRARY_PATH', 'PYTHONPATH', 'PYTHONHOME', 'GNOME_KEYRING_CONTROL', 'GNOME_KEYRING_PID',
                 'SSH_AUTH_SOCK', 'SSH_AGENT_PID', 'GPG_AGENT_INFO']:
         env.pop(key, None)

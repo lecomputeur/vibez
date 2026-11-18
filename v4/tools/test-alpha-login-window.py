@@ -47,7 +47,7 @@ def main():
         root=Path(temporary)
         environment=dict(os.environ)
         for key in ['DISPLAY','WAYLAND_DISPLAY','DBUS_SESSION_BUS_ADDRESS','DBUS_STARTER_ADDRESS',
-            'DBUS_STARTER_BUS_TYPE','AT_SPI_BUS_ADDRESS','VIBEZ_SAFE_OUTPUT','BROADWAY_DISPLAY',
+            'DBUS_STARTER_BUS_TYPE','AT_SPI_BUS_ADDRESS','BROADWAY_DISPLAY',
             'APPIMAGE','APPDIR','LD_LIBRARY_PATH','PYTHONPATH','PYTHONHOME','GNOME_KEYRING_CONTROL',
             'GNOME_KEYRING_PID','SSH_AUTH_SOCK','SSH_AGENT_PID','GPG_AGENT_INFO']:
             environment.pop(key,None)

@@ -17,6 +17,7 @@ import tempfile
 import tomllib
 
 VERSION_RE = re.compile(r"4\.0\.0-(alpha|beta)\.([1-9][0-9]*)\Z")
+FINAL_RE = re.compile(r"4\.0\.(0|[1-9][0-9]*)\Z")
 STAGES = {"alpha": 0, "beta": 1}
 MAX_FILE = 16 * 1024 * 1024
 MAX_TOTAL = 100 * 1024 * 1024
@@ -51,15 +52,22 @@ def canonical(value):
 def alpha_number(value):
     """Release order key: every Alpha comes before every Beta."""
     require(isinstance(value, str), 'Version must be text')
+    final = FINAL_RE.fullmatch(value)
+    if final:
+        return (2, int(final.group(1)))
     m = VERSION_RE.fullmatch(value)
-    require(m is not None, 'Only numbered 4.0.0-alpha.N and 4.0.0-beta.N releases are supported')
+    require(m is not None, 'Only 4.0.0-alpha.N, 4.0.0-beta.N and final 4.0.N releases are supported')
     return (STAGES[m.group(1)], int(m.group(2)))
 
 def next_versions(value):
-    """The releases that may follow: the next number, and Beta 1 after an Alpha."""
+    """The releases that may follow: the next number, Beta 1 after an Alpha, 4.0.0 after a Beta."""
+    final = FINAL_RE.fullmatch(value)
+    if final:
+        return {'4.0.%d' % (int(final.group(1)) + 1)}
     stage, number = VERSION_RE.fullmatch(value).groups()
     allowed = {'4.0.0-%s.%d' % (stage, int(number)+1)}
     if stage == 'alpha': allowed.add('4.0.0-beta.1')
+    if stage == 'beta': allowed.add('4.0.0')
     return allowed
 
 def safe_relative(value):

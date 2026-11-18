@@ -45,10 +45,11 @@ def require(value, message):
 
 
 def version(value):
-    match = re.fullmatch(r'4\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-(alpha|beta)\.([1-9][0-9]*)', value)
-    require(match and all(len(x) <= 6 for x in match.groups()), 'Only a canonical numbered V4 Alpha or Beta version is allowed')
+    match = re.fullmatch(r'4\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(alpha|beta)\.([1-9][0-9]*))?', value)
+    require(match and all(x is None or len(x) <= 6 for x in match.groups()), 'Only a canonical V4 Alpha, Beta or final version is allowed')
     minor, patch, stage, number = match.groups()
-    return (4, int(minor), int(patch), ('alpha', 'beta').index(stage), int(number))
+    # Semantic order: 4.0.0-alpha.N < 4.0.0-beta.N < 4.0.0 < 4.0.1.
+    return (4, int(minor), int(patch), 2 if stage is None else ('alpha', 'beta').index(stage), int(number or 0))
 
 
 def file_hash(path, algorithm='sha256'):

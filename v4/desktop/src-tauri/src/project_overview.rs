@@ -65,23 +65,6 @@ fn canonical_folder(folder:&Path)->Result<PathBuf,String> {
     if canonical!=folder {return Err("The linked workspace folder is redirected. Link the folder again.".into());}
     Ok(canonical)
 }
-fn geometry(safe:Screen,scale:f64,session:&str)->Result<String,String> {
-    // Nemo's GTK geometry is global X11 logical coordinates. Negative positions
-    // use edge-relative semantics, so those layouts fail closed here.
-    if session!="x11"||!scale.is_finite()||(scale-1.).abs()>f64::EPSILON||safe.x<0||safe.y<0 {
-        return Err("The workspace cannot be opened safely on screen 1 with this screen setting".into());
-    }
-    let width=safe.width.saturating_sub(240).min(1000);
-    let height=safe.height.saturating_sub(220).min(720);
-    if width<640||height<480{return Err("Screen 1 is too small to open the workspace folder safely".into());}
-    let x=safe.x.checked_add(100).ok_or("Invalid screen position")?;
-    let y=safe.y.checked_add(100).ok_or("Invalid screen position")?;
-    Ok(format!("{width}x{height}+{x}+{y}"))
-}
-fn arguments(folder:&Path,geometry:&str)->Result<Vec<String>,String> {
-    let uri=url::Url::from_directory_path(folder).map_err(|_|"The workspace cannot be opened")?;
-    Ok(vec!["--no-default-window".into(),format!("--geometry={geometry}"),"--".into(),uri.into()])
-}
 fn desktop_uri(folder:&Path)->Result<String,String> {
     if !valid_folder(folder){return Err("The linked workspace folder is not valid".into());}
     url::Url::from_directory_path(folder).map(String::from).map_err(|_|"The workspace cannot be opened".into())
@@ -108,29 +91,14 @@ pub async fn project_open_folder(webview:Webview,app:tauri::AppHandle,project_id
         let result=(||{
             let latest=selected_folder(current(&handle,&project_id,&binding)?,folder_id.as_deref())?;
             if latest!=selected{return Err("The project folder has changed. Try again.".into());}
-            let safe=screen(&handle)?;
             let window=handle.get_window("main").ok_or("Het VibeZ-venster ontbreekt")?;
             let folder=canonical_folder(&latest.folder)?;
-            if safe_output()?.is_some() {
-                let scale=window.scale_factor().map_err(err)?;
-                let placement=geometry(safe,scale,&std::env::var("XDG_SESSION_TYPE").unwrap_or_default())?;
-                if !Path::new("/usr/bin/nemo").is_file(){return Err("The safe screen choice needs the Nemo file manager to open the folder".into());}
-                // Only the explicit personal safety mode uses a manager whose
-                // new-window position is known before show. Never reuse an
-                // existing file-manager window on another monitor.
-                let mut child=Command::new("/usr/bin/nemo").args(arguments(&folder,&placement)?)
-                    .env("GDK_BACKEND","x11").env_remove("DESKTOP_STARTUP_ID")
-                    .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).spawn()
-                    .map_err(|_|"The workspace could not be opened")?;
-                std::thread::spawn(move ||{let _=child.wait();});
-            } else {
-                // GTK supplies the parent-window activation context and GIO
-                // opens the registered desktop file manager. Inside Flatpak
-                // this uses the desktop portal, without host command access.
-                let parent=window.gtk_window().map_err(err)?;
-                gtk::show_uri_on_window(Some(&parent),&desktop_uri(&folder)?,0)
-                    .map_err(|_|"The workspace could not be opened in the file manager")?;
-            }
+            // GTK supplies the parent-window activation context and GIO
+            // opens the registered desktop file manager. Inside Flatpak
+            // this uses the desktop portal, without host command access.
+            let parent=window.gtk_window().map_err(err)?;
+            gtk::show_uri_on_window(Some(&parent),&desktop_uri(&folder)?,0)
+                .map_err(|_|"The workspace could not be opened in the file manager")?;
             Ok(())
         })();let _=tx.send(result);
     }).map_err(err)?;
@@ -183,22 +151,6 @@ mod tests {
         let mut unlisted=event.clone();unlisted["target_folder_id"]=json!("3".repeat(32));assert!(snapshot(&unlisted).is_none());
         let mut invalid=event.clone();invalid["folders"][1]["path"]=json!("../escape");assert!(snapshot(&invalid).is_none());
         let mut invalid=event;invalid["folder"]=json!(second);assert!(snapshot(&invalid).is_none());
-    }
-    #[test]
-    fn nemo_geometry_is_inside_safe_screen_before_show_or_fails_closed() {
-        let screen=Screen{x:0,y:0,width:2560,height:1440};
-        assert_eq!(geometry(screen,1.,"x11").unwrap(),"1000x720+100+100");
-        for (s,scale,session) in [(Screen{x:-2560,..screen},1.,"x11"),(screen,2.,"x11"),(screen,1.,"wayland"),(screen,f64::NAN,"x11"),(Screen{width:800,height:600,..screen},1.,"x11")] {
-            assert!(geometry(s,scale,session).is_err());
-        }
-    }
-    #[test]
-    #[cfg(target_os="linux")]
-    fn manager_arguments_are_a_new_window_with_encoded_local_uri_and_no_shell() {
-        let args=arguments(Path::new("/fixtures/folder #?;$(value)"),"1000x720+100+100").unwrap();
-        assert_eq!(&args[..3],["--no-default-window","--geometry=1000x720+100+100","--"]);
-        assert!(args[3].starts_with("file:///fixtures/"));assert!(args[3].contains("%20"));assert!(args[3].contains("%23"));assert!(args[3].contains("%3F"));
-        assert!(!args.iter().any(|arg|matches!(arg.as_str(),"--existing-window"|"--tabs"|"sh"|"-c"|"xdg-open")));
     }
     #[test]
     #[cfg(target_os="linux")]

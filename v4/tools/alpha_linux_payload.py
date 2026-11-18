@@ -39,7 +39,7 @@ def check_payload(payload,expected=None):
     desktop=payload/f'usr/share/applications/{APP_ID}.desktop'
     text=desktop.read_text()
     assert re.search(r'^Exec=vibez4-alpha(?:\s.*)?$',text,re.M),'Public launcher must not carry personal screen settings'
-    assert 'Name=VibeZ V4 Beta\n' in text and 'vibez3' not in text and '.test' not in text
+    assert 'Name=VibeZ 4\n' in text and 'vibez3' not in text and '.test' not in text
     for relative in ['usr/lib/vibez4-alpha-updater/update.py','usr/lib/vibez4-alpha-updater/alpha-updates.gpg',
                      'usr/lib/systemd/system/vibez4-alpha-update.service','usr/lib/systemd/system/vibez4-alpha-update.timer']:
         assert (payload/relative).is_file(),relative

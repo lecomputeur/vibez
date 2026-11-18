@@ -111,7 +111,7 @@ def main():
  args.work=args.work.resolve();args.gpg_homedir=args.gpg_homedir.resolve();args.gpg_public_key=args.gpg_public_key.resolve()
  if args.worker:return worker(args)
  assert not args.work.exists();args.work.mkdir();work=args.work;env=dict(os.environ)
- for key in ['DISPLAY','WAYLAND_DISPLAY','DBUS_SESSION_BUS_ADDRESS','AT_SPI_BUS_ADDRESS','VIBEZ_SAFE_OUTPUT','GDK_BACKEND','LD_LIBRARY_PATH']:env.pop(key,None)
+ for key in ['DISPLAY','WAYLAND_DISPLAY','DBUS_SESSION_BUS_ADDRESS','AT_SPI_BUS_ADDRESS','GDK_BACKEND','LD_LIBRARY_PATH']:env.pop(key,None)
  for variable,name in [('HOME','home'),('XDG_CONFIG_HOME','config'),('XDG_DATA_HOME','data'),('XDG_CACHE_HOME','cache'),('XDG_STATE_HOME','state'),('FLATPAK_USER_DIR','installation'),('FLATPAK_CONFIG_DIR','etc')]:
   path=work/name;path.mkdir(mode=0o700);env[variable]=str(path)
  runtime=tempfile.mkdtemp(prefix='vibez-update-test-',dir=f'/run/user/{os.getuid()}');env.update(XDG_RUNTIME_DIR=runtime,GDK_BACKEND='x11',GSETTINGS_BACKEND='memory',NO_AT_BRIDGE='1',PATH='/usr/bin:/bin')

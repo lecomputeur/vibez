@@ -13,6 +13,8 @@ set -eu
 APPDIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)"
 export APPDIR
 export GIO_MODULE_DIR="$APPDIR/usr/lib/gio/modules"
+# A host gdk-pixbuf loader cache can name loaders built for another librsvg.
+unset GDK_PIXBUF_MODULE_FILE
 exec "$APPDIR/AppRun.original" "$@"
 '''
 

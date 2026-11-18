@@ -161,7 +161,10 @@ class AlphaFeedTests(unittest.TestCase):
             with self.assertRaises(ValueError): feeds.validate_inputs(target, VERSION)
 
     def test_stable_versions_downgrades_and_existing_output_are_never_accepted(self):
-        for value in ('3.0.9', '4.0.0', '4.0.0-test.62', '4.0.0-alpha.04', '4.0.0-alpha.1+other'):
+        # The final 4.0.0 is a valid channel version and sorts after every Beta.
+        self.assertGreater(feeds.version('4.0.0'), feeds.version('4.0.0-beta.5'))
+        self.assertGreater(feeds.version('4.0.1'), feeds.version('4.0.0'))
+        for value in ('3.0.9', '4.0.0-test.62', '4.0.0-alpha.04', '4.0.0-alpha.1+other', '4.0.00'):
             with self.subTest(value=value), self.assertRaises(ValueError): feeds.version(value)
         with self.assertRaises(ValueError):
             feeds.prepare(self.artifacts, self.root / 'downgrade', VERSION, self.minisign, self.gpg_home,

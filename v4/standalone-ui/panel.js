@@ -12,7 +12,7 @@ let importBusy=false,importCancelling=false,importMessage=null,projectDetails=nu
 let importConflict=null,conflictChoices={},conflictApplyAll=false,conflictSubmitting=false,conflictFailure='',projectPanelMode='files';
 let openWorkspaceBusy=false,folderPicking=false;
 let folderRequest=null,folderNotice=null,folderRequestSerial=0;
-let rulesEdit=null,rulesOperation=null,rulesNotice=null,apiRules=null;const RULES_RETRY_MS=8000;
+let rulesEdit=null,rulesOperation=null,rulesNotice=null,apiRules=null;const RULES_RETRY_MS=8000,RULES_RETRY_LIMIT=4;
 const isConversation=()=>webState.project?.kind==='conversation';
 function folderMessage(key){const folder=webState.folder?(webState.folder.split(/[\\/]/).filter(Boolean).pop()||webState.folder):'';return t(key).split('{folder}').join(folder);}
 function contextLabel(id,key){const node=$(id);node.dataset.v4=key;node.textContent=folderMessage(key);}
@@ -352,11 +352,18 @@ function resetRulesEditor(){
 }
 function currentRulesDetails(){return projectDetails?.project_id===webState.project?.id?projectDetails:null;}
 function loadApiRules(projectId){
- apiRules={project_id:projectId,loading:true};
+ // Count failed reads per project: the timer retries a few times, a later redraw still tries again.
+ const tries=(apiRules?.project_id===projectId?apiRules.tries||0:0)+1;
+ apiRules={project_id:projectId,loading:true,tries};
+ const failed=()=>{
+  apiRules={project_id:projectId,failed:true,at:Date.now(),tries};
+  // Retry on a timer as well: nothing else may redraw the panel while Mistral finishes switching pages.
+  if(tries<RULES_RETRY_LIMIT)setTimeout(()=>{if(webState.project?.id===projectId&&apiRules?.project_id===projectId&&apiRules.failed)renderProjectRules();},RULES_RETRY_MS+100);
+ };
  invoke('project_rules_edit',{projectId,action:'api-read'}).then(result=>{
   if(apiRules?.project_id!==projectId)return;
-  apiRules=result?.project_id===projectId&&typeof result.value==='string'?{project_id:projectId,value:result.value}:{project_id:projectId,failed:true,at:Date.now()};
- }).catch(()=>{if(apiRules?.project_id===projectId)apiRules={project_id:projectId,failed:true,at:Date.now()};}).finally(()=>{if(webState.project?.id===projectId)renderProjectRules();});
+  if(result?.project_id===projectId&&typeof result.value==='string')apiRules={project_id:projectId,value:result.value};else failed();
+ }).catch(()=>{if(apiRules?.project_id===projectId)failed();}).finally(()=>{if(webState.project?.id===projectId)renderProjectRules();});
 }
 function renderProjectRules(){
  const data=currentRulesDetails(),project=webState.project;

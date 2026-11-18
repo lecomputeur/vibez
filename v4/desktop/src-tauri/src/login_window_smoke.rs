@@ -16,7 +16,7 @@ fn output() -> Result<PathBuf, String> {
         let path=PathBuf::from(std::env::var(name).map_err(err)?).canonicalize().map_err(err)?;
         if !path.starts_with(&root){return Err(format!("{name} is not isolated"));}
     }
-    if std::env::var_os("VIBEZ_SAFE_OUTPUT").is_some() || std::env::var_os("WAYLAND_DISPLAY").is_some() {
+    if std::env::var_os("WAYLAND_DISPLAY").is_some() {
         return Err("Host display preferences must not enter the login smoke".into());
     }
     Ok(root.join("native-result.json"))

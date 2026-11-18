@@ -1,16 +1,15 @@
 'use strict';
 // This local settings view only observes native update state. Permission is an explicit action.
 (()=>{
-const phases=new Set(['idle','automatic','current','checking','downloading','installing','ready','available','consent_required','restart_required','waiting_for_close','installed','updated','disabled','error','screen_restricted','not_flatpak','ended']);
+const phases=new Set(['idle','automatic','current','checking','downloading','installing','ready','available','consent_required','restart_required','waiting_for_close','installed','updated','disabled','error','not_flatpak','ended']);
 function accepted(value){return value&&typeof value==='object'&&!Array.isArray(value)&&phases.has(value.status||value.phase)?value:null;}
 function presentation(value,pending=false){
  const state=accepted(value)||{status:'idle'},phase=state.status||state.phase;
  const kind=state.kind||'native',busy=Boolean(pending||state.busy||['checking','downloading','installing'].includes(phase));
- const restricted=['screen_restricted','not_flatpak'].includes(phase),disabled=state.automatic===false||phase==='disabled';
+ const restricted=phase==='not_flatpak',disabled=state.automatic===false||phase==='disabled';
  let key='updateAutomatic';
  // Windows and macOS after the wind-down: no more VibeZ updates, use the official Vibe Desktop.
  if(phase==='ended')key='farewellWinMac';
- else if(phase==='screen_restricted')key='updateScreenRestricted';
  else if(phase==='error'||phase==='not_flatpak')key='updateError';
  else if(phase==='checking')key='updateChecking';
  else if(['downloading','installing'].includes(phase))key='updateDownloading';

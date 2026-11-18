@@ -66,6 +66,13 @@ def main():
     for binary in binaries:
         linked=run(['ldd',binary],env=linkage,text=True);assert 'not found' not in linked,'Missing dependency for '+str(binary)
     run(['desktop-file-validate',desktop])
+    # linuxdeploy links the AppDir-root launcher to usr/share/applications. Some
+    # extractors (appimage-run's cache) turn that link into an empty file on the
+    # next start, so the root launcher is a real copy with the same bytes.
+    root_desktop=app/desktop.name
+    if root_desktop.is_symlink() or root_desktop.exists():root_desktop.unlink()
+    shutil.copyfile(desktop,root_desktop);root_desktop.chmod(0o644)
+    assert not root_desktop.is_symlink() and root_desktop.read_bytes()==desktop.read_bytes()
     run([sys.executable,BASE/'tools/prepare-alpha-appimage-launcher.py','--appdir',app])
     environment['ARCH']='x86_64';output.parent.mkdir(parents=True,exist_ok=True)
     run([args.appimage_tool.resolve(),'--runtime-file',args.runtime_file.resolve(),'--comp','zstd','--mksquashfs-opt=-processors','--mksquashfs-opt=2',app,output],env=environment)
@@ -77,9 +84,10 @@ def main():
         assert all((bundled/name).read_bytes()==(BASE/'backend'/name).read_bytes() for name in MODULES)
         assert sha(bundled/'vendor/cloudflared-linux-amd64')==sha(tunnel)
         assert (extracted/f'usr/share/icons/hicolor/512x512/apps/{APP_ID}.png').read_bytes()==icon.read_bytes()
+        assert not (extracted/desktop.name).is_symlink() and (extracted/desktop.name).read_bytes()==desktop.read_bytes()
         assert not list(bundled.rglob('__pycache__'))
         version=run([extracted/'usr/bin/vibez4-alpha','--version'],text=True).strip()
         release=json.loads((BASE/'desktop/package.json').read_text())['version'];assert release in version
-    report={'version':release,'package':str(output),'sha256':sha(output),'size':output.stat().st_size,'all_seven_backend_hashes_match':True,'static_tunnel_unchanged':True,'canonical_icon_alias_same_bytes':True,'gstreamer_plugins':len(expected),'dynamic_linkage_checks':len(binaries),'gtk_and_gstreamer_hooks':True,'official_plugin_tail_sha256':hashlib.sha256(tail.encode()).hexdigest(),'runtime_file_sha256':sha(args.runtime_file),'runtime_metadata':json.loads(args.runtime_file.with_suffix('.json').read_text()),'no_dependency_libraries_omitted':True,'extracted_artifact_verified':True,'headless_version':version,'gui_started':False,'host_installation_changed':False,'passed':True}
+    report={'version':release,'package':str(output),'sha256':sha(output),'size':output.stat().st_size,'all_seven_backend_hashes_match':True,'static_tunnel_unchanged':True,'canonical_icon_alias_same_bytes':True,'gstreamer_plugins':len(expected),'dynamic_linkage_checks':len(binaries),'gtk_and_gstreamer_hooks':True,'root_desktop_is_regular_copy':True,'official_plugin_tail_sha256':hashlib.sha256(tail.encode()).hexdigest(),'runtime_file_sha256':sha(args.runtime_file),'runtime_metadata':json.loads(args.runtime_file.with_suffix('.json').read_text()),'no_dependency_libraries_omitted':True,'extracted_artifact_verified':True,'headless_version':version,'gui_started':False,'host_installation_changed':False,'passed':True}
     output.with_suffix(output.suffix+'.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps(report,indent=2))
 if __name__=='__main__':main()

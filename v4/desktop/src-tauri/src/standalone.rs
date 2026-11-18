@@ -134,73 +134,6 @@ fn validate_login(raw: &str) -> Result<url::Url, String> {
     }
     Ok(u)
 }
-fn intersects(a: Screen, b: Screen) -> bool {
-    (a.x as i64) < b.x as i64 + b.width as i64
-        && (b.x as i64) < a.x as i64 + a.width as i64
-        && (a.y as i64) < b.y as i64 + b.height as i64
-        && (b.y as i64) < a.y as i64 + a.height as i64
-}
-#[cfg(target_os = "linux")]
-fn guard_game(safe: Screen) -> Result<(), String> {
-    let output = Command::new("/usr/bin/xprop")
-        .args(["-root", "_NET_CLIENT_LIST"])
-        .output()
-        .map_err(|_| "Cannot check the WoT screen")?;
-    if !output.status.success() {
-        return Err("Cannot check the WoT screen".into());
-    }
-    let text = String::from_utf8_lossy(&output.stdout);
-    for id in text
-        .split('#')
-        .nth(1)
-        .unwrap_or("")
-        .split(|c: char| c == ',' || c.is_whitespace())
-        .filter(|v| {
-            v.starts_with("0x") && v.len() < 20 && v[2..].chars().all(|c| c.is_ascii_hexdigit())
-        })
-    {
-        let props = Command::new("/usr/bin/xprop")
-            .args(["-id", id, "_NET_WM_NAME"])
-            .output()
-            .map_err(err)?;
-        let title = String::from_utf8_lossy(&props.stdout).to_lowercase();
-        if !(title.contains("wot client") || title.contains("world of tanks")) {
-            continue;
-        }
-        let geometry = Command::new("/usr/bin/xwininfo")
-            .args(["-id", id])
-            .output()
-            .map_err(err)?;
-        let geometry = String::from_utf8_lossy(&geometry.stdout);
-        let value = |key: &str| -> Result<i32, String> {
-            geometry
-                .lines()
-                .find(|l| l.trim_start().starts_with(key))
-                .and_then(|l| l.split(':').nth(1))
-                .and_then(|s| s.trim().parse::<i32>().ok())
-                .ok_or_else(|| "The WoT screen is unclear. VibeZ does not open.".into())
-        };
-        let game = Screen {
-            x: value("Absolute upper-left X")?,
-            y: value("Absolute upper-left Y")?,
-            width: value("Width")? as u32,
-            height: value("Height")? as u32,
-        };
-        if intersects(safe, game) {
-            return Err(
-                "WoT is now on the configured VibeZ screen. VibeZ does not open on that screen."
-                    .into(),
-            );
-        }
-    }
-    Ok(())
-}
-static SAVED_SAFE_OUTPUT:std::sync::OnceLock<Option<String>>=std::sync::OnceLock::new();
-fn safe_output() -> Result<Option<String>,String> {
-    let raw=std::env::var("VIBEZ_SAFE_OUTPUT").ok();
-    let explicit=display_policy::requested_output(raw.as_deref())?.map(str::to_owned);
-    Ok(explicit.or_else(||SAVED_SAFE_OUTPUT.get().cloned().flatten()))
-}
 fn native_screen(monitor:&tauri::Monitor)->Screen {
     Screen{x:monitor.position().x,y:monitor.position().y,width:monitor.size().width,height:monitor.size().height}
 }
@@ -208,27 +141,8 @@ fn screen(app: &tauri::AppHandle) -> Result<Screen, String> {
     let monitors = app.available_monitors().map_err(err)?;
     let screens:Vec<_>=monitors.iter().map(native_screen).collect();
     let primary=app.primary_monitor().map_err(err)?.as_ref().map(native_screen);
-    #[cfg(target_os = "linux")]
-    if let Some(output_name)=safe_output()? {
-        // Explicit personal safety mode resolves the real output connector and
-        // verifies it against native geometry. It must never silently fall back.
-        let output=Command::new("/usr/bin/xrandr").arg("--listmonitors").output()
-            .map_err(|_|"Cannot check the configured safe screen")?;
-        if !output.status.success(){return Err("Cannot check the configured safe screen".into());}
-        let requested=String::from_utf8_lossy(&output.stdout).lines()
-            .find_map(|line|display_policy::parse_monitor(line,&output_name))
-            .ok_or("The configured safe screen is not available")?;
-        let selected=display_policy::select(&screens,primary,Some(requested))?;
-        guard_game(selected)?;
-        return Ok(selected);
-    }
-    #[cfg(not(target_os = "linux"))]
-    if safe_output()?.is_some() {
-        return Err("The configured Linux screen protection is not available on this system".into());
-    }
-    // Ordinary Linux, including a one-screen Wayland laptop, needs no XRandR
-    // connector names or X11 utilities to open on its native primary monitor.
-    display_policy::select(&screens,primary,None)
+    // Open on the native primary monitor; no X11 tools or connector names needed.
+    display_policy::select(&screens,primary)
 }
 fn monitor_scale(app:&tauri::AppHandle,screen:Screen)->Result<f64,String> {
     app.available_monitors().map_err(err)?.iter().find(|m|native_screen(m)==screen)
@@ -237,29 +151,50 @@ fn monitor_scale(app:&tauri::AppHandle,screen:Screen)->Result<f64,String> {
 #[cfg(target_os = "linux")]
 fn position_dialog(app:&tauri::AppHandle,dialog:&gtk::FileChooserDialog,screen:Screen)->Result<(),String> {
     let scale=monitor_scale(app,screen)?;let(x,y,width,height)=display_policy::dialog_bounds(screen,scale)?;
+    let _=(x,y);
     dialog.set_default_size(width,height);
-    if safe_output()?.is_some() {
-        dialog.set_position(gtk::WindowPosition::None);dialog.move_(x,y);
-    } else {
-        dialog.set_position(gtk::WindowPosition::CenterOnParent);
-    }
+    dialog.set_position(gtk::WindowPosition::CenterOnParent);
     Ok(())
 }
 fn is_flatpak()->bool {
     std::env::var_os("FLATPAK_ID").is_some()||std::path::Path::new("/.flatpak-info").is_file()
 }
+/// Linux uses the desktop's own file dialogs (XDG portal, through
+/// `GtkFileChooserNative`) by default. `VIBEZ_FILE_DIALOG=gtk`, or an explicit
+/// `GTK_USE_PORTAL=0`, keeps the app's own GTK dialog; `VIBEZ_FILE_DIALOG=portal`
+/// forces the portal. Flatpak always uses the portal, which grants file access.
+fn wants_system_dialog(flatpak:bool,choice:Option<&str>,gtk_use_portal:Option<&str>)->bool {
+    if flatpak {return true;}
+    match choice.map(str::trim) {
+        Some("gtk")=>false,
+        Some("portal")=>true,
+        _=>gtk_use_portal.map(str::trim)!=Some("0"),
+    }
+}
+fn system_file_dialog()->bool {
+    wants_system_dialog(is_flatpak(),std::env::var("VIBEZ_FILE_DIALOG").ok().as_deref(),std::env::var("GTK_USE_PORTAL").ok().as_deref())
+}
+/// Where file dialogs open: next to the last folder chosen in this session,
+/// else the home folder, never the file system root.
+static LAST_FOLDER:std::sync::Mutex<Option<std::path::PathBuf>>=std::sync::Mutex::new(None);
+fn start_folder()->Option<std::path::PathBuf> {
+    let last=LAST_FOLDER.lock().ok().and_then(|v|v.clone()).filter(|p|p.is_dir());
+    last.or_else(||std::env::var_os("HOME").map(std::path::PathBuf::from).filter(|p|p.is_absolute()&&p.is_dir()))
+}
+fn remember_folder(chosen:&std::path::Path) {
+    let folder=chosen.parent().unwrap_or(chosen);
+    if folder.is_absolute()&&folder.is_dir(){if let Ok(mut last)=LAST_FOLDER.lock(){*last=Some(folder.to_path_buf());}}
+}
 #[cfg(target_os = "linux")]
 fn portal_pick(parent:&impl gtk::glib::IsA<gtk::Window>,title:&str,action:gtk::FileChooserAction,accept:&str,cancel:&str,multiple:bool)->Result<Option<Vec<std::path::PathBuf>>,String> {
-    if safe_output()?.is_some() {
-        // Portal windows belong to the desktop compositor. Unlike our own GTK
-        // windows their monitor cannot be verified before they are shown.
-        return Err("A system dialog cannot be placed safely with the configured screen protection".into());
-    }
     let chooser=gtk::FileChooserNative::new(Some(title),Some(parent),action,Some(accept),Some(cancel));
     chooser.set_modal(true);chooser.set_select_multiple(multiple);
+    if let Some(folder)=start_folder(){chooser.set_current_folder(&folder);}
     let response=chooser.run();
     let result=if response==gtk::ResponseType::Accept {Some(chooser.filenames())}else{None};
-    chooser.destroy();Ok(result)
+    chooser.destroy();
+    if let Some(first)=result.as_ref().and_then(|paths|paths.first()){remember_folder(first);}
+    Ok(result)
 }
 fn created_child(parent:&std::path::Path,chosen:&std::path::Path)->Result<std::path::PathBuf,String> {
     let canonical=chosen.canonicalize().map_err(err)?;
@@ -321,7 +256,15 @@ fn close_login(app: &tauri::AppHandle) {
 }
 fn engine_interpreter(app:&tauri::AppHandle)->Result<std::path::PathBuf,String> {
     #[cfg(target_os="linux")]
-    {let _=app;Ok("/usr/bin/python3".into())}
+    {
+        // DEB, RPM and Arch packages depend on the system python3. The AppImage
+        // bundles none, and systems such as NixOS have no /usr/bin tree, so look
+        // in the usual system locations and accept an explicit absolute path.
+        let _=app;
+        let explicit=std::env::var_os("VIBEZ_PYTHON");
+        python_candidates(explicit.as_deref())?.into_iter().find(|candidate|usable_python(candidate))
+            .ok_or_else(||"VibeZ needs Python 3.10 or newer (python3). Install python3 with your package manager, or set VIBEZ_PYTHON to the full path of a Python 3.10+ interpreter.".to_owned())
+    }
     #[cfg(not(target_os="linux"))]
     {
         let root=app.path().resource_dir().map_err(err)?.join("python-runtime");
@@ -335,10 +278,58 @@ fn engine_interpreter(app:&tauri::AppHandle)->Result<std::path::PathBuf,String> 
         Ok(interpreter)
     }
 }
+/// Startup cannot continue: say why over the visible main window, then end
+/// the process normally instead of letting the setup hook panic.
+fn startup_failure(window:&tauri::WebviewWindow,message:&str)->! {
+    eprintln!("VibeZ: {message}");
+    #[cfg(target_os="linux")]
+    {
+        let parent=window.show().ok().and_then(|_|window.gtk_window().ok());
+        // Let the main window map first, so the dialog can be placed over it.
+        for _ in 0..200 {if !gtk::events_pending(){break;} gtk::main_iteration_do(false);}
+        let dialog=gtk::MessageDialog::new(parent.as_ref(),gtk::DialogFlags::MODAL|gtk::DialogFlags::DESTROY_WITH_PARENT,gtk::MessageType::Error,gtk::ButtonsType::Close,message);
+        dialog.set_title("VibeZ 4");
+        dialog.set_keep_above(true);
+        dialog.set_position(if parent.is_some(){gtk::WindowPosition::CenterOnParent}else{gtk::WindowPosition::Center});
+        dialog.run();
+        dialog.close();
+    }
+    #[cfg(not(target_os="linux"))]
+    let _=window;
+    std::process::exit(1)
+}
+/// Interpreter locations tried on Linux, in order. VIBEZ_PYTHON must be an
+/// absolute path; it is checked like every other candidate before use.
+#[cfg(any(target_os="linux",test))]
+fn python_candidates(explicit:Option<&std::ffi::OsStr>)->Result<Vec<std::path::PathBuf>,String> {
+    let mut list=Vec::new();
+    if let Some(raw)=explicit.filter(|raw|!raw.is_empty()) {
+        let path=std::path::PathBuf::from(raw);
+        if !path.is_absolute(){return Err("VIBEZ_PYTHON must be the full path of a Python 3.10+ interpreter".into());}
+        list.push(path);
+    }
+    for path in ["/usr/bin/python3","/usr/local/bin/python3","/bin/python3","/run/current-system/sw/bin/python3"] {
+        list.push(path.into());
+    }
+    Ok(list)
+}
+#[cfg(target_os="linux")]
+fn usable_python(candidate:&std::path::Path)->bool {
+    candidate.is_file()&&Command::new(candidate)
+        .args(["-I","-c","import sys;sys.exit(0 if sys.version_info>=(3,10) else 1)"])
+        .env_clear().env("LANG","C.UTF-8")
+        .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null())
+        .status().map(|status|status.success()).unwrap_or(false)
+}
 fn engine_environment(command:&mut Command,app:&tauri::AppHandle,interpreter:&std::path::Path)->Result<(),String> {
     command.env_clear().env("LANG","C.UTF-8");
     #[cfg(target_os="linux")]
-    {let _=(app,interpreter);command.env("PATH","/usr/bin:/bin");}
+    {
+        let _=app;
+        let mut path=vec![std::path::PathBuf::from("/usr/bin"),"/bin".into()];
+        if let Some(folder)=interpreter.parent().filter(|folder|!path.iter().any(|known|known==folder)) {path.insert(0,folder.to_path_buf());}
+        command.env("PATH",std::env::join_paths(path).map_err(err)?);
+    }
     #[cfg(not(target_os="linux"))]
     {
         let home=app.path().app_data_dir().map_err(err)?.join("runtime-home");
@@ -581,7 +572,7 @@ async fn app_choose_folder_mode(
             let title = classic_language::text(&handle,if create {"createWorkspace"} else {"chooseWorkspace"});
             let cancel = classic_language::text(&handle,"cancel");
             let accept = classic_language::text(&handle,if create {"createWorkspace"} else {"chooseFolderConfirm"});
-            let granted_parent=if is_flatpak() {
+            let granted_parent=if system_file_dialog() {
                 let pick_title=classic_language::text(&handle,if create {"chooseWorkspaceLocation"}else{"chooseWorkspace"});
                 let pick_accept=classic_language::text(&handle,"chooseFolderConfirm");
                 let Some(paths)=portal_pick(&parent,&pick_title,gtk::FileChooserAction::SelectFolder,&pick_accept,&cancel,false)? else{return Ok(None);};
@@ -603,6 +594,7 @@ async fn app_choose_folder_mode(
             if let Some(ref location)=granted_parent {
                 if !dialog.set_current_folder(location){return Err("The chosen location is not available".into());}
             }
+            else if let Some(folder)=start_folder() {dialog.set_current_folder(&folder);}
             position_dialog(&handle,&dialog,s)?;
             #[cfg(all(feature = "native-smoke", target_os = "linux"))]
             smoke::observe_dialog(
@@ -621,6 +613,7 @@ async fn app_choose_folder_mode(
                 None
             };
             dialog.close();
+            if let Some(ref chosen)=value {remember_folder(chosen);}
             match (granted_parent,value) {
                 (Some(parent),Some(path))=>created_child(&parent,&path).map(Some),
                 (_,value)=>Ok(value),
@@ -670,7 +663,7 @@ fn make_login(
     let data = app.path().app_data_dir().map_err(err)?.join("webview");
     let mut builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(url))
         .data_directory(data)
-        .title(format!("VibeZ V4 Beta · {}",classic_language::text(app,"autoConnect")))
+        .title(format!("VibeZ 4 · {}",classic_language::text(app,"autoConnect")))
         .inner_size(lw as f64,lh as f64)
         .min_inner_size(420_f64.min(lw as f64),480_f64.min(lh as f64))
         .position(lx as f64,ly as f64)
@@ -835,9 +828,16 @@ fn desktop_dialogs(builder:tauri::Builder<tauri::Wry>)->tauri::Builder<tauri::Wr
     { builder }
 }
 fn main() {
+    // GTK 3 only hands GtkFileChooserNative to the portal when GTK_USE_PORTAL=1
+    // or inside a sandbox. Set it before GTK starts unless the user chose the
+    // GTK dialog; GTK itself falls back to its own dialog when no portal answers.
+    #[cfg(target_os = "linux")]
+    if !is_flatpak()&&std::env::var_os("GTK_USE_PORTAL").is_none()&&system_file_dialog() {
+        std::env::set_var("GTK_USE_PORTAL","1");
+    }
     if std::env::args().any(|a| a == "--version") {
         println!(
-            "VibeZ V4 Beta · {} · standalone app",
+            "VibeZ 4 · {} · standalone app",
             env!("CARGO_PKG_VERSION")
         );
         return;
@@ -923,12 +923,6 @@ fn main() {
                     std::fs::set_permissions(p, std::fs::Permissions::from_mode(0o700))?;
                 }
             }
-            #[cfg(target_os="linux")]
-            {
-                let raw=std::env::var("VIBEZ_SAFE_OUTPUT").ok();
-                let selected=display_policy::load_safe_output(&config,raw.as_deref()).map_err(std::io::Error::other)?;
-                let _=SAVED_SAFE_OUTPUT.set(selected);
-            }
             app.manage(classic_language::Language::load(&config).map_err(std::io::Error::other)?);
             app.manage(panel_prefs::PanelPrefs::load(&config));
             app.manage(whats_new::WhatsNew::load(&config, used_before));
@@ -936,12 +930,12 @@ fn main() {
             #[cfg(target_os = "linux")]
             {
                 gtk::glib::set_prgname(Some(APP_ID));
-                gtk::glib::set_application_name("VibeZ V4 Beta");
+                gtk::glib::set_application_name("VibeZ 4");
                 gtk::gdk::set_program_class(APP_ID);
             }
             let window =
                 WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-                    .title(format!("VibeZ V4 Beta · {}", env!("CARGO_PKG_VERSION")))
+                    .title(format!("VibeZ 4 · {}", env!("CARGO_PKG_VERSION")))
                     .data_directory(data.join("standalone-ui"))
                     .inner_size(1280., 860.)
                     .min_inner_size(760., 520.)
@@ -965,7 +959,9 @@ fn main() {
             // The local webview is named main; authorization is still checked by
             // document URL in addition to label. The remote web surface has no native capability.
             place(&app.get_window("main").ok_or("Geen hoofdvenster")?).map_err(std::io::Error::other)?;
-            start_engine(app.handle()).map_err(std::io::Error::other)?;
+            if let Err(error)=start_engine(app.handle()) {
+                startup_failure(&window,&error);
+            }
             #[cfg(target_os = "linux")]
             window.gtk_window()?.set_focus_on_map(false);
             window.show()?;
@@ -1004,18 +1000,38 @@ fn main() {
 mod tests {
     use super::*;
     #[test]
-    fn connector_geometry_accepts_positive_and_negative_coordinates() {
-        let left = display_policy::parse_monitor(" 1: +DisplayPort-1 2560/597x1440/336+0+0 DisplayPort-1","DisplayPort-1").unwrap();
-        assert_eq!(
-            (left.x, left.y, left.width, left.height),
-            (0, 0, 2560, 1440)
-        );
-        let negative =
-            display_policy::parse_monitor(" 1: +DisplayPort-1 2560/597x1440/336-2560+0 DisplayPort-1","DisplayPort-1").unwrap();
-        assert_eq!(negative.x, -2560);
-        assert!(
-            display_policy::parse_monitor(" 0: +*DisplayPort-0 2560/597x1440/336+2560+0 DisplayPort-0","DisplayPort-1").is_none()
-        );
+    fn the_system_file_dialog_is_the_default_with_a_gtk_opt_out() {
+        assert!(wants_system_dialog(false,None,None));
+        assert!(wants_system_dialog(false,Some("portal"),Some("0")));
+        assert!(wants_system_dialog(false,Some("anything"),Some("1")));
+        assert!(!wants_system_dialog(false,Some("gtk"),None));
+        assert!(!wants_system_dialog(false,Some(" gtk "),Some("1")));
+        assert!(!wants_system_dialog(false,None,Some("0")));
+        // Flatpak needs the portal for file access whatever is set.
+        assert!(wants_system_dialog(true,Some("gtk"),Some("0")));
+    }
+    #[test]
+    fn dialogs_start_next_to_the_last_choice_or_at_home() {
+        let root=std::env::temp_dir().join(format!("vibez-start-folder-{}",std::process::id()));
+        let child=root.join("project");std::fs::create_dir_all(&child).unwrap();
+        remember_folder(&child);
+        assert_eq!(start_folder(),Some(root.clone()));
+        std::fs::remove_dir_all(&root).unwrap();
+        // A vanished folder is never offered; home (or nothing) instead of the root.
+        assert_ne!(start_folder(),Some(root));
+        assert_ne!(start_folder(),Some(std::path::PathBuf::from("/")));
+    }
+    #[test]
+    fn python_is_looked_up_in_system_locations_and_an_explicit_path_comes_first() {
+        let plain=python_candidates(None).unwrap();
+        assert_eq!(plain[0],std::path::PathBuf::from("/usr/bin/python3"));
+        assert!(plain.contains(&"/run/current-system/sw/bin/python3".into()));
+        assert!(plain.iter().all(|p|p.is_absolute()));
+        assert_eq!(python_candidates(Some("".as_ref())).unwrap(),plain);
+        let explicit=python_candidates(Some("/opt/python/bin/python3".as_ref())).unwrap();
+        assert_eq!(explicit[0],std::path::PathBuf::from("/opt/python/bin/python3"));
+        assert_eq!(&explicit[1..],&plain[..]);
+        assert!(python_candidates(Some("python3".as_ref())).is_err());
     }
     #[test]
     fn portal_created_workspace_is_a_real_direct_child_of_the_granted_parent() {
@@ -1028,23 +1044,6 @@ mod tests {
         let nested=child.join("nested");std::fs::create_dir(&nested).unwrap();assert!(created_child(&parent,&nested).is_err());
         #[cfg(unix)] {let escaped=parent.join("escaped");std::os::unix::fs::symlink(&std::env::temp_dir(),&escaped).unwrap();assert!(created_child(&parent,&escaped).is_err());}
         std::fs::remove_dir_all(parent).unwrap();
-    }
-    #[test]
-    fn adjacent_monitors_are_not_overlap() {
-        let left = Screen {
-            x: 0,
-            y: 0,
-            width: 2560,
-            height: 1440,
-        };
-        let right = Screen {
-            x: 2560,
-            y: 0,
-            width: 2560,
-            height: 1440,
-        };
-        assert!(!intersects(left, right));
-        assert!(intersects(left, Screen { x: 2000, ..right }));
     }
     #[test]
     fn only_bundled_main_document_is_local() {

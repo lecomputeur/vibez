@@ -18,7 +18,7 @@ BASE = Path(__file__).resolve().parents[1]
 APP_ID = 'nl.lecomputeur.vibez4.alpha'
 BINARY = 'vibez4-alpha'
 PRODUCT = 'VibeZ V4 Alpha'  # install path; unchanged so updates keep working
-LABEL = 'VibeZ V4 Beta'
+LABEL = 'VibeZ 4'
 from alpha_linux_payload import version as alpha_version, updater
 VERSION = alpha_version()
 NUMERIC_VERSION, PRERELEASE = VERSION.split('-', 1)  # PRERELEASE: alpha.31, beta.1
@@ -137,7 +137,7 @@ Recommends: xdg-desktop-portal-gtk
 AutoReqProv: yes
 
 %description
-VibeZ V4 Beta keeps the familiar Mistral web interface and connects one local
+VibeZ 4 keeps the familiar Mistral web interface and connects one local
 folder to each project or conversation. This alpha has its own application
 identity and profile, and can coexist with VibeZ 3.0.9.
 

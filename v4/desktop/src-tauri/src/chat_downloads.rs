@@ -109,11 +109,8 @@ fn stage(cache:&Path,name:&Path)->Result<Transfer,String> {
 }
 fn cleanup(transfer:&Transfer){let _=std::fs::remove_dir_all(&transfer.folder);}
 pub fn cancel_all(){if let Ok(mut p)=pending().lock(){for (_,t)in std::mem::take(&mut *p){cleanup(&t);}}if let Ok(mut m)=blob_intents().lock(){m.clear();}}
-fn safe_parent(app:&tauri::AppHandle)->Result<tauri::Window,String> {
-    let safe=screen(app)?;let parent=app.get_window("main").ok_or("VibeZ window unavailable")?;
-    if safe_output()?.is_some(){let p=parent.outer_position().map_err(err)?;let size=parent.outer_size().map_err(err)?;
-        if p.x<safe.x||p.y<safe.y||i64::from(p.x)+i64::from(size.width)>i64::from(safe.x)+i64::from(safe.width)||i64::from(p.y)+i64::from(size.height)>i64::from(safe.y)+i64::from(safe.height){return Err("VibeZ is not on the selected safe display".into());}}
-    Ok(parent)
+fn main_parent(app:&tauri::AppHandle)->Result<tauri::Window,String> {
+    app.get_window("main").ok_or_else(||"VibeZ window unavailable".into())
 }
 fn notice(app:&tauri::AppHandle){send(app,json!({"type":"error","message":classic_language::text(app,"operationFailed")}));}
 fn publish(source:&Path,target:&Path)->Result<(),String> {
@@ -174,12 +171,11 @@ pub(crate) fn publish_granted(source:&Path,target:&Path)->Result<(),String> {
 }
 #[cfg(target_os="linux")]
 async fn choose(app:&tauri::AppHandle,name:String,linked:Option<PathBuf>)->Result<Option<PathBuf>,String> {
-    let parent=safe_parent(app)?;let directory=initial_directory(linked.as_deref());let app=app.clone();let(tx,rx)=tokio::sync::oneshot::channel();
+    let parent=main_parent(app)?;let directory=initial_directory(linked.as_deref());let app=app.clone();let(tx,rx)=tokio::sync::oneshot::channel();
     app.clone().run_on_main_thread(move||{
         let result=(||{
             let parent=parent.gtk_window().map_err(err)?;let title=classic_language::text(&app,"filesSave");let yes=title.clone();let cancel=classic_language::text(&app,"cancel");
             if is_flatpak(){
-                if safe_output()?.is_some(){return Err("A system dialog cannot be safely positioned".into());}
                 let chooser=gtk::FileChooserNative::new(Some(&title),Some(&parent),gtk::FileChooserAction::Save,Some(&yes),Some(&cancel));
                 configure_save_chooser(&chooser,&name,directory.as_deref());chooser.set_modal(true);
                 let result=if chooser.run()==gtk::ResponseType::Accept{chooser.filename()}else{None};chooser.destroy();return Ok(result);
@@ -192,7 +188,7 @@ async fn choose(app:&tauri::AppHandle,name:String,linked:Option<PathBuf>)->Resul
 }
 #[cfg(not(target_os="linux"))]
 async fn choose(app:&tauri::AppHandle,name:String,linked:Option<PathBuf>)->Result<Option<PathBuf>,String> {
-    let parent=safe_parent(app)?;let directory=initial_directory(linked.as_deref());let handle=app.clone();
+    let parent=main_parent(app)?;let directory=initial_directory(linked.as_deref());let handle=app.clone();
     tauri::async_runtime::spawn_blocking(move||{
         let title=classic_language::text(&handle,"filesSave");
         let mut dialog=handle.dialog().file().set_parent(&parent).set_title(title).set_file_name(name);
@@ -211,7 +207,7 @@ pub fn handle(view:Webview,event:DownloadEvent<'_>)->bool {
             // it restores the chat document. Keep the native session and save
             // chooser; do not require the attachment host to be the chat host.
             let own=view.label()=="mistral-web"||view.label().starts_with("mistral-login-");
-            if !own||!downloadable(&url)||!app.get_webview("mistral-web").and_then(|v|v.url().ok()).is_some_and(|u|safe_https(&u)||blob(&u))||safe_parent(app).is_err(){return false;}
+            if !own||!downloadable(&url)||!app.get_webview("mistral-web").and_then(|v|v.url().ok()).is_some_and(|u|safe_https(&u)||blob(&u))||main_parent(app).is_err(){return false;}
             let Ok(mut state)=pending().lock()else{return false;};
             if state.len()>=MAX_PENDING||state.contains_key(url.as_str()){return false;}
             let prepared=app.path().app_cache_dir().map_err(err).and_then(|root|stage(&root,destination));
@@ -222,7 +218,7 @@ pub fn handle(view:Webview,event:DownloadEvent<'_>)->bool {
             if let Some(transfer)=transfer{
                 if !success||path.as_ref().is_some_and(|p|p!=&transfer.path)||!std::fs::symlink_metadata(&transfer.path).is_ok_and(|m|m.is_file()&&!m.file_type().is_symlink()&&m.len()<=MAX_DOWNLOAD){cleanup(&transfer);notice(app);return true;}
                 let app=app.clone();tauri::async_runtime::spawn(async move{
-                    let result=match choose(&app,transfer.name.clone(),transfer.initial_directory.clone()).await{Ok(Some(target))=>if safe_parent(&app).is_ok(){if is_flatpak(){publish_granted(&transfer.path,&target)}else{publish(&transfer.path,&target)}}else{Err("Safe display changed".into())},Ok(None)=>Ok(()),Err(e)=>Err(e)};
+                    let result=match choose(&app,transfer.name.clone(),transfer.initial_directory.clone()).await{Ok(Some(target))=>if main_parent(&app).is_ok(){if is_flatpak(){publish_granted(&transfer.path,&target)}else{publish(&transfer.path,&target)}}else{Err("Safe display changed".into())},Ok(None)=>Ok(()),Err(e)=>Err(e)};
                     cleanup(&transfer);if result.is_err(){notice(&app);}
                 });
             }
@@ -232,7 +228,7 @@ pub fn handle(view:Webview,event:DownloadEvent<'_>)->bool {
     }
 }
 fn start_blob(app:&tauri::AppHandle,url:&url::Url)->Result<(),String> {
-    safe_parent(app)?;
+    main_parent(app)?;
     let view=app.get_webview("mistral-web").ok_or("Mistral is not loaded")?;
     {let mut intents=blob_intents().lock().map_err(err)?;intents.retain(|_,at|at.elapsed()<std::time::Duration::from_secs(5));
         if intents.len()>=MAX_PENDING{return Err("Download busy".into());}intents.insert(url.as_str().into(),std::time::Instant::now());}

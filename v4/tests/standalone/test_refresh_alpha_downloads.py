@@ -67,6 +67,25 @@ class RefreshDownloadsTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             tool.refresh_text('README.md', readme, '4.0.0-alpha.40', 'Going back from a Beta to an Alpha is never right')
 
+    def test_the_final_release_replaces_the_beta_and_reads_as_vibez_4(self):
+        self.release.write_text(json.dumps({'version': '4.0.0-beta.5', 'download_highlights': 'Beta 5 says goodbye to Windows and macOS users of VibeZ'}))
+        self.assertEqual(tool.main(['--site', str(self.site), '--release', str(self.release)]), 0)
+        self.release.write_text(json.dumps({'version': '4.0.0', 'download_highlights': 'VibeZ 4 is final: Mistral Work and Code with your own folders on Linux'}))
+        self.assertEqual(tool.main(['--site', str(self.site), '--release', str(self.release)]), 0)
+        readme = (self.site / 'README.md').read_text()
+        self.assertIn('> VibeZ 4.0.0 is available for Linux. VibeZ 4 is final', readme)
+        self.assertIn('[Download VibeZ 4.0.0](https://github.com/lecomputeur/vibez/releases/tag/v4.0.0)', readme)
+        linux = (self.site / 'docs/linux.html').read_text()
+        self.assertIn('VibeZ-4.0.0-Linux-x64.flatpak">VibeZ 4.0.0 · Flatpak', linux)
+        self.assertNotIn('beta.5', linux); self.assertIn('3.0.9 DEB', linux)
+        self.assertEqual(tool.current_alpha(linux), '4.0.0')
+        with self.assertRaises(ValueError):
+            tool.refresh_text('README.md', readme, '4.0.0-beta.6', 'Going back from the final release to a Beta is never right')
+        # A later fix release follows the same way.
+        self.release.write_text(json.dumps({'version': '4.0.1', 'download_highlights': 'A Linux fix release for VibeZ 4 with small repairs'}))
+        self.assertEqual(tool.main(['--site', str(self.site), '--release', str(self.release)]), 0)
+        self.assertIn('[Download VibeZ 4.0.1](https://github.com/lecomputeur/vibez/releases/tag/v4.0.1)', (self.site / 'README.md').read_text())
+
     def test_only_linux_pages_follow_new_releases_and_the_archive_stays(self):
         """After the wind-down Windows and macOS are a fixed archive: their pages keep the last version."""
         archive = (self.site / 'docs/windows.html').read_text()

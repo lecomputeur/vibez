@@ -21,7 +21,7 @@ ROOT=Path(__file__).resolve().parents[1]
 APP='nl.lecomputeur.vibez4.alpha'
 BIN='vibez4-alpha'
 NAME='VibeZ V4 Alpha'  # install path inside the Flatpak; unchanged so updates keep working
-LABEL='VibeZ V4 Beta'  # the name people see
+LABEL='VibeZ 4'  # the name people see
 VERSION=json.loads((ROOT/'desktop/package.json').read_text())['version']
 BRANCH='alpha'
 RUNTIME='org.gnome.Platform/x86_64/51'
@@ -129,7 +129,7 @@ def main():
     args=parser.parse_args()
     release_date=date.fromisoformat(args.release_date).isoformat()
     import re
-    if not re.fullmatch(r'4\.\d+\.\d+-(alpha|beta)\.\d+',VERSION):parser.error('This builder only publishes the separate V4 channel')
+    if not re.fullmatch(r'4\.\d+\.\d+(-(alpha|beta)\.\d+)?',VERSION):parser.error('This builder only publishes the separate V4 channel')
     expected_origin='https://raw.githubusercontent.com/lecomputeur/vibez/v4-alpha-flatpak/'
     if args.repo_url!=expected_origin:parser.error('Only the dedicated V4 Alpha update origin is accepted')
     if args.build:
@@ -225,7 +225,7 @@ def main():
         signing=[f'--gpg-sign={args.gpg_key}',f'--gpg-homedir={args.gpg_homedir}']
         run(['flatpak','build-finish',f'--command={BIN}','--require-version=1.14.0',build],log)
         run(['flatpak','build-export','--disable-sandbox','--arch=x86_64',*signing,repo,build,BRANCH],log)
-        run(['flatpak','build-update-repo',*signing,'--title=VibeZ V4 Beta','--default-branch=alpha','--generate-static-deltas',repo],log)
+        run(['flatpak','build-update-repo',*signing,'--title=VibeZ 4','--default-branch=alpha','--generate-static-deltas',repo],log)
         output.parent.mkdir(parents=True,exist_ok=True)
         run(['flatpak','build-bundle',repo,output,APP,BRANCH,f'--repo-url={args.repo_url}',f'--gpg-keys={args.gpg_public_key}','--runtime-repo=https://flathub.org/repo/flathub.flatpakrepo'],log)
         # Publish compiled OSTree objects and public trust data only. Private
@@ -243,8 +243,8 @@ def main():
         public=publication/'alpha-updates.gpg';shutil.copy2(args.gpg_public_key,public)
         import base64
         public64=base64.b64encode(public.read_bytes()).decode()
-        (publication/'vibez4-alpha.flatpakrepo').write_text('[Flatpak Repo]\nTitle=VibeZ V4 Beta\n'+f'Url={args.repo_url}\nDefaultBranch=alpha\nGPGKey={public64}\n')
-        (publication/'vibez4-alpha.flatpakref').write_text('[Flatpak Ref]\n'+f'Name={APP}\nBranch=alpha\nTitle=VibeZ V4 Beta\nSuggestRemoteName=vibez4-alpha-channel\nIsRuntime=false\nUrl={args.repo_url}\nGPGKey={public64}\nRuntimeRepo=https://flathub.org/repo/flathub.flatpakrepo\n')
+        (publication/'vibez4-alpha.flatpakrepo').write_text('[Flatpak Repo]\nTitle=VibeZ 4\n'+f'Url={args.repo_url}\nDefaultBranch=alpha\nGPGKey={public64}\n')
+        (publication/'vibez4-alpha.flatpakref').write_text('[Flatpak Ref]\n'+f'Name={APP}\nBranch=alpha\nTitle=VibeZ 4\nSuggestRemoteName=vibez4-alpha-channel\nIsRuntime=false\nUrl={args.repo_url}\nGPGKey={public64}\nRuntimeRepo=https://flathub.org/repo/flathub.flatpakrepo\n')
         (publication/'.nojekyll').touch()
         if not (publication/'summary.sig').is_file():parser.error('Signed repository summary is missing')
         for path in publication.rglob('*'):

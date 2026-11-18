@@ -25,7 +25,6 @@ struct MonitorState {
 impl Default for MonitorState {fn default()->Self{Self{started:false,connection:None,handle:None,file:None,prefs:Preference::default(),phase:"not_flatpak",progress:0,running:String::new(),local:String::new(),remote:String::new(),target:None,busy:false,error:String::new()}}}
 fn shared()->&'static Mutex<MonitorState>{static STATE:OnceLock<Mutex<MonitorState>>=OnceLock::new();STATE.get_or_init(||Mutex::new(MonitorState::default()))}
 fn active_flatpak()->bool{Path::new("/.flatpak-info").is_file()&&std::env::var("FLATPAK_ID").ok().as_deref()==Some(APP_ID)}
-fn restricted_screen()->bool{std::env::var_os("VIBEZ_SAFE_OUTPUT").is_some()}
 fn valid_commit(value:&str)->bool{value.len()==64&&value.bytes().all(|b|b.is_ascii_hexdigit())}
 fn monitor_path(value:&str)->bool{value.starts_with("/org/freedesktop/portal/Flatpak/update_monitor/")&&value.len()<=512&&value.bytes().all(|b|b.is_ascii_alphanumeric()||matches!(b,b'/'|b'_'))}
 fn available(s:&MonitorState)->bool{valid_commit(&s.remote)&&s.remote!=s.local}
@@ -133,7 +132,6 @@ pub fn set_automatic(app:&AppHandle,enabled:bool)->Result<Value,String>{
 /// locally as well as by the desktop portal; later monitor signals can update.
 pub fn request_update(app:&AppHandle)->Result<Value,String>{
     if !active_flatpak(){return Err("This is not the Flatpak Alpha installation".into());}
-    if restricted_screen(){error(app,"screen_restricted","A system dialog cannot be placed safely with the configured screen protection");return Err("The configured screen protection does not allow a Flatpak update window".into());}
     let (connection,path)={let mut s=shared().lock().map_err(|_|"Update state unavailable")?;if s.busy{return Ok(state_unlocked(&s));}
         let pair=(s.connection.clone().ok_or("Flatpak update monitor is not ready")?,s.handle.clone().ok_or("Flatpak update monitor is not ready")?);s.target=valid_commit(&s.remote).then(||s.remote.clone());s.busy=true;s.progress=0;s.phase="installing";s.error.clear();pair};
     announce(app);let task_app=app.clone();
@@ -175,7 +173,6 @@ fn parented_update(app:&AppHandle,connection:gio::DBusConnection,path:String){
     }else{error(app,"error","This desktop cannot parent the update permission window");}
 }
 fn call_update(app:&AppHandle,connection:&gio::DBusConnection,path:&str,parent:&str){
-    if restricted_screen(){error(app,"screen_restricted","The configured screen protection does not allow a Flatpak update window");return;}
     let parameters=glib::Variant::tuple_from_iter([parent.to_variant(),options()]);let app=app.clone();
     connection.call(Some(BUS),path,MONITOR,"Update",Some(&parameters),None,gio::DBusCallFlags::NONE,-1,None::<&gio::Cancellable>,move|result|{
         if let Err(e)=result{error(&app,"error",e);}

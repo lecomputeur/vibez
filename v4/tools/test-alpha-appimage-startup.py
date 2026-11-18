@@ -79,7 +79,7 @@ def main():
     assert re.fullmatch(r'4\.\d+\.\d+-(alpha|beta)\.\d+',args.version)
     work=args.work.resolve();assert not work.exists();work.mkdir()
     env=dict(os.environ);original_home=env.get('HOME')
-    for key in ['DISPLAY','WAYLAND_DISPLAY','DBUS_SESSION_BUS_ADDRESS','DBUS_STARTER_ADDRESS','DBUS_STARTER_BUS_TYPE','AT_SPI_BUS_ADDRESS','VIBEZ_SAFE_OUTPUT','APPIMAGE','APPDIR','GDK_BACKEND','LD_LIBRARY_PATH','GIO_MODULE_DIR','GIO_EXTRA_MODULES','GIO_USE_TLS','G_TLS_BACKEND','PYTHONPATH','PYTHONHOME','GNOME_KEYRING_CONTROL','GNOME_KEYRING_PID','SSH_AUTH_SOCK','SSH_AGENT_PID','GPG_AGENT_INFO']:
+    for key in ['DISPLAY','WAYLAND_DISPLAY','DBUS_SESSION_BUS_ADDRESS','DBUS_STARTER_ADDRESS','DBUS_STARTER_BUS_TYPE','AT_SPI_BUS_ADDRESS','APPIMAGE','APPDIR','GDK_BACKEND','LD_LIBRARY_PATH','GIO_MODULE_DIR','GIO_EXTRA_MODULES','GIO_USE_TLS','G_TLS_BACKEND','PYTHONPATH','PYTHONHOME','GNOME_KEYRING_CONTROL','GNOME_KEYRING_PID','SSH_AUTH_SOCK','SSH_AGENT_PID','GPG_AGENT_INFO']:
         env.pop(key,None)
     for key,folder in [('XDG_CONFIG_HOME','config'),('XDG_DATA_HOME','data'),('XDG_CACHE_HOME','cache'),('XDG_STATE_HOME','state'),('XDG_RUNTIME_DIR','runtime'),('TMPDIR','tmp')]:
         path=work/folder;path.mkdir(mode=0o700);env[key]=str(path)
