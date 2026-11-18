@@ -7,19 +7,23 @@ behind in `_claude-build/release-alphaNN/` and stops with a clear message when
 something is missing. Nothing here publishes without the explicit `publish`
 step, and `--dry-run` prints the commands instead of running them.
 
+Since 17 November 2026 VibeZ is winding down: Mistral released the official
+Vibe Desktop for macOS and Windows. Releases are Linux-only until the official
+Linux app is available. There is no native CI for Windows or macOS and no
+Microsoft Store package any more; Beta 4 was the last version for them.
+
   bump        next version in the source tree, changes and highlights in release.json
-  freeze      private git repo, snapshot, encrypted source, CI workflow and branch
-  ci-start    upload the encrypted source, push the branch, start the workflow
+  freeze      private git repo and source snapshot of this release
   linux       deb, rpm, Arch, Flatpak and AppImage from this source tree
-  ci-collect  wait for the workflow, verify the frozen-source proofs, gather 13 packages
-  feeds       signed update feeds for all 13 formats
-  draft       the English release text and a draft prerelease with 11 assets
+  collect     gather and check the five Linux packages
+  feeds       signed Linux-only update feeds for the five formats
+  draft       the English release text and a draft prerelease with 5 assets
   publish     publish the prerelease, update the channels and the Flatpak branch,
               record published_version, open the downloads pull request
   status      what exists for this release
 
-Secrets are used in place only: the GPG passphrase file and the minisign key
-are passed as paths to gpg and the feed tool, never read or printed here.
+Secrets are used in place only: the minisign key is passed as a path to the
+feed tool, never read or printed here.
 VibeZ 3.0.9 and its channel are never touched; every release is a prerelease.
 """
 import argparse
@@ -51,10 +55,9 @@ LAST_ALPHA = '4.0.0-alpha.31'
 VERSION_FILES = ['backend/standalone_engine.py', 'backend/web_connector.py', 'backend/workspace_engine.py', 'desktop/package-lock.json',
                  'desktop/package.json', 'desktop/src-tauri/Cargo.lock', 'desktop/src-tauri/Cargo.toml', 'desktop/src-tauri/tauri.conf.json']
 LINUX_FORMATS = ['AppImage', 'deb', 'flatpak', 'pkg.tar.zst', 'rpm']
-RELEASE_ASSETS = ['Linux-x64.AppImage', 'Linux-x64.deb', 'Linux-x64.flatpak', 'Linux-x64.pkg.tar.zst', 'Linux-x64.rpm',
-                  'macOS-arm64.app.tar.gz', 'macOS-arm64.dmg', 'macOS-x64.app.tar.gz', 'macOS-x64.dmg',
-                  'Windows-x64-Setup.exe', 'Windows-x64.msi']
-FEED_ONLY = ['macOS-arm64.zip', 'macOS-x64.zip']
+# Linux only since the wind-down (17 Nov 2026): the official Vibe Desktop serves Windows and macOS.
+RELEASE_ASSETS = ['Linux-x64.AppImage', 'Linux-x64.deb', 'Linux-x64.flatpak', 'Linux-x64.pkg.tar.zst', 'Linux-x64.rpm']
+OFFICIAL_APP = 'https://mistral.ai/products/vibe/'
 
 
 class StepError(Exception):
@@ -122,49 +125,24 @@ def asset_names(version):
 
 
 def feed_names(version):
-    return ['VibeZ-%s-%s' % (version, suffix) for suffix in RELEASE_ASSETS + FEED_ONLY]
-
-
-def workflow_for(previous_text, previous, version, file_count):
-    """The CI workflow of the previous Alpha, retargeted at this one."""
-    text = previous_text.replace(previous, version)
-    old_label, new_label = label(previous).replace(' ', ''), label(version).replace(' ', '')
-    text = re.sub(r"\['4\.0\.0-alpha\.14','4\.0\.0-(?:alpha|beta)\.\d+'\]", "['4.0.0-alpha.14','%s']" % previous, text)
-    text = re.sub(r'==\d+ and len\(set\(names\)\)', '==%d and len(set(names))' % file_count, text)
-    text = text.replace('frozen %s' % old_label, 'frozen %s' % new_label)
-    # The source asset name check accepts Beta archives as well as Alpha ones.
-    text = text.replace(r"VibeZ-4\.0\.0-alpha\.\d+-native-source-", r"VibeZ-4\.0\.0-(?:alpha|beta)\.\d+-native-source-")
-    # Windows also leaves a Store package (MSIX) for Partner Center, outside the release assets.
-    if 'alpha-source/artifacts/ci-store/*' not in text:
-        text = text.replace("            alpha-source/artifacts/ci-packages/*\n", "            alpha-source/artifacts/ci-packages/*\n            alpha-source/artifacts/ci-store/*\n")
-    needles = [version, "'%s'" % previous, '==%d and' % file_count, 'frozen %s' % new_label]
-    if 'native-source-' in previous_text: needles.append(r'(?:alpha|beta)\.\d+-native-source-')
-    if 'ci-packages/*' in previous_text: needles.append('ci-store/*')
-    for needle in needles:
-        if needle not in text:
-            raise StepError('Workflow retargeting failed at ' + needle)
-    return text
+    return asset_names(version)
 
 
 def release_body(spec, previous):
     changes = ''.join('- %s\n' % line for line in spec['changes'])
-    beta = stage_of(spec['version'])[0] == 'beta'
-    store = ('The Microsoft Store version (VibeZ Desktop V4) follows separately and is updated by the Store.' if beta
-             else 'No MSIX is included.')
     # The tester agreed to be thanked by username only (issue 49, 2026-11-13).
-    thanks = ('### Thanks\n\nThank you to [ActiveUser435](https://github.com/ActiveUser435) for testing nearly every Alpha in depth; those reports shaped the V4 Beta.\n\n'
-              if beta else '')
-    return ('## VibeZ V4 %s\n\n**Available for Linux, Windows, Intel Mac and Apple Silicon.**\n\n'
-            'The main difference from VibeZ 3 is local-folder access: keep your existing Mistral web conversations and link folders on your computer to a project or conversation. '
-            'Browse those files in the right-hand panel and review proposed changes before saving them.\n\n'
-            'V4 installs separately from VibeZ 3.0.9 and keeps its own profile and settings. It does not overwrite or remove 3.0.9.\n\n'
-            '### Changes since %s\n\n%s\n%s### Please help test V4\n\n'
-            'Try it with copies of test files. Feedback on automatic folder linking in Mistral Work, especially how long a link takes after restarting VibeZ, is very welcome. '
-            'The Diagnostics window (Settings → Diagnostics) has a **Copy report** button with the step timing and connection facts, without keys or full addresses; pasting that report helps a lot.\n\n'
-            '[Share feedback](https://github.com/lecomputeur/vibez/discussions/56) or [report a bug](https://github.com/lecomputeur/vibez/issues/new/choose), '
-            'including your operating system, package format and exact version.\n\n'
-            'Automatic updates use the separate V4 channels, apart from VibeZ 3. Use an installer for the first installation. On macOS, choose the DMG for your processor; '
-            '`.app.tar.gz` files are used by automatic updates. %s\n') % (label(spec['version']), label(previous), changes, thanks, store)
+    thanks = ('### Thanks\n\nThank you to [ActiveUser435](https://github.com/ActiveUser435) and [HumanistAtypik](https://github.com/HumanistAtypik) '
+              'for their detailed testing and reports.\n\n')
+    return ('## VibeZ V4 %s\n\n**Available for Linux.**\n\n'
+            'Mistral released the official [Vibe Desktop](%s) for macOS and Windows, so VibeZ is winding down. '
+            'Until the official Linux app is available, VibeZ keeps supporting Linux with fixes. '
+            'On Windows and macOS, please use the official app; V4 Beta 4 was the last VibeZ version for them.\n\n'
+            'V4 lets Mistral Work and Code use local folders you choose, with every file change shown for your approval. '
+            'It installs separately from VibeZ 3 and keeps its own profile and settings.\n\n'
+            '### Changes since %s\n\n%s\n%s'
+            '[Report a Linux problem](https://github.com/lecomputeur/vibez/issues/new/choose) with your distribution, package format and exact version.\n\n'
+            'Automatic updates use the separate V4 channels, apart from VibeZ 3. Use an installer for the first installation. No MSIX is included.\n'
+            ) % (label(spec['version']), OFFICIAL_APP, label(previous), changes, thanks)
 
 
 def source_manifest(archive):
@@ -286,9 +264,7 @@ class Release:
         self.say('MCP versions: ' + (check.stdout.strip().splitlines() or ['no report'])[-1])
 
     def freeze(self):
-        passphrase = self.args.passphrase_file or os.environ.get('VIBEZ_ALPHA_PASSPHRASE_FILE')
-        if not passphrase:
-            raise StepError('freeze needs --passphrase-file (or VIBEZ_ALPHA_PASSPHRASE_FILE)')
+        """Commit this release's sources in the private repo and keep a source snapshot; no CI is needed for Linux."""
         repo = self.private_repo(self.dir, self.previous_dir)
         self.copy_sources(repo)
         self.run(['git', 'add', '-A'], cwd=repo)
@@ -301,61 +277,19 @@ class Release:
             shutil.rmtree(snapshot)
         self.run([sys.executable, 'management/manage.py', 'snapshot', '--output', snapshot], cwd=repo)
         archive = self.need(snapshot / 'private-source.tar.gz', 'snapshot archive')
-        ci = self.dir / 'ci'; ci.mkdir(exist_ok=True)
-        for old in ci.glob('VibeZ-%s-native-source-*.tar.gz.gpg' % self.version):
-            (ci / 'superseded').mkdir(exist_ok=True); shutil.move(str(old), ci / 'superseded' / old.name)
-        encrypted = ci / 'source.tar.gz.gpg'
-        self.run(['gpg', '--batch', '--yes', '--no-symkey-cache', '--pinentry-mode', 'loopback', '--passphrase-file', passphrase,
-                  '--cipher-algo', 'AES256', '--symmetric', '--output', encrypted, archive], quiet=True)
         if self.dry:
             return
-        digest = hashlib.sha256(encrypted.read_bytes()).hexdigest()
-        name = 'VibeZ-%s-native-source-%s.tar.gz.gpg' % (self.version, digest[:16])
-        encrypted.rename(ci / name)
-        # Binary round trip: the decrypted archive must be the snapshot, byte for byte.
-        raw = subprocess.run(['gpg', '--batch', '--no-symkey-cache', '--pinentry-mode', 'loopback', '--passphrase-file', passphrase, '--decrypt', str(ci / name)],
-                             capture_output=True).stdout
-        if hashlib.sha256(raw).hexdigest() != hashlib.sha256(archive.read_bytes()).hexdigest():
-            raise StepError('Encrypted source does not decrypt to the snapshot')
         count, manifest = source_manifest(archive)
-        request = {'version': self.version, 'source_version': self.version,
-                   'url': 'https://github.com/%s/releases/download/%s/%s' % (REPO, CHANNEL_TAG, name), 'sha256': digest,
-                   'source_manifest_sha256': manifest, 'file_count': count, 'targets': ['windows-x64', 'macos-x64', 'macos-arm64']}
-        (ci / 'alpha-build-request.json').write_text(json.dumps(request, indent=2) + '\n')
-        previous_yml = self.need(self.previous_dir / 'ci/v4-alpha-build.yml', 'previous workflow')
-        (ci / 'v4-alpha-build.yml').write_text(workflow_for(previous_yml.read_text(), self.previous, self.version, count))
+        (self.dir / 'release-meta.json').write_text(json.dumps({'version': self.version, 'previous': self.previous, 'file_count': count,
+                                                                 'source_manifest_sha256': manifest}, indent=1) + '\n')
         self.say('frozen source: %d files, manifest %s' % (count, manifest[:16]))
+
+    def gh_repo(self):
+        """A clone of the public repository for the Flatpak branch and the downloads pull request."""
         gh_repo = self.dir / 'gh-repo'
-        branch = 'vibe/%s-release-%s' % (self.tag, self.date)
         if not gh_repo.exists():
             self.run(['git', 'clone', '-q', '--filter=blob:none', 'https://github.com/%s.git' % REPO, gh_repo])
-            self.run(['git', 'checkout', '-q', '-b', branch, 'origin/main'], cwd=gh_repo)
-        (gh_repo / '.github/workflows').mkdir(parents=True, exist_ok=True)
-        shutil.copy2(ci / 'v4-alpha-build.yml', gh_repo / '.github/workflows/v4-alpha-build.yml')
-        shutil.copy2(ci / 'alpha-build-request.json', gh_repo / 'alpha-build-request.json')
-        self.run(['git', 'add', '.github/workflows/v4-alpha-build.yml', 'alpha-build-request.json'], cwd=gh_repo)
-        if self.run(['git', 'status', '--porcelain'], cwd=gh_repo, capture=True).stdout.strip():
-            self.run(['git'] + AUTHOR + ['commit', '-q', '-m', 'Build frozen V4 %s native packages' % self.label], cwd=gh_repo)
-        (self.dir / 'release-meta.json').write_text(json.dumps({'version': self.version, 'previous': self.previous, 'branch': branch, 'source': name}, indent=1) + '\n')
-        self.say('CI branch %s ready in %s' % (branch, gh_repo))
-
-    def meta(self):
-        path = self.need(self.dir / 'release-meta.json', 'release-meta.json (run freeze first)')
-        return json.loads(path.read_text()) if not self.dry else {'branch': 'vibe/%s-release-%s' % (self.tag, self.date), 'source': 'SOURCE.gpg'}
-
-    def ci_start(self):
-        meta = self.meta(); gh_repo = self.dir / 'gh-repo'
-        source = self.need(self.dir / 'ci' / meta['source'], 'encrypted source')
-        self.run(['gh', 'release', 'upload', CHANNEL_TAG, '--repo', REPO, source])
-        self.run(['git', '-C', gh_repo, 'push', 'origin', meta['branch']])
-        self.run(['gh', 'workflow', 'run', 'v4-alpha-build.yml', '--repo', REPO, '--ref', meta['branch']])
-        if self.dry:
-            return
-        time.sleep(20)
-        run_id = self.run(['gh', 'run', 'list', '--repo', REPO, '--workflow', 'v4-alpha-build.yml', '--branch', meta['branch'], '--limit', '1',
-                           '--json', 'databaseId', '-q', '.[0].databaseId'], capture=True).stdout.strip()
-        (self.dir / 'ci/run-id.txt').write_text(run_id + '\n')
-        self.say('workflow run %s started' % run_id)
+        return gh_repo
 
     def linux(self):
         tools = self.need(APPIMAGE_TOOLS, 'AppImage tools')
@@ -415,73 +349,37 @@ class Release:
                 self.need(self.dir / ('VibeZ-%s-Linux-x64.%s' % (self.version, suffix)), 'Linux package')
         self.say('five Linux packages in %s' % self.dir)
 
-    def ci_collect(self):
-        run_id = self.need(self.dir / 'ci/run-id.txt', 'run-id.txt (run ci-start first)').read_text().strip() if not self.dry else 'RUN'
-        self.run(['gh', 'run', 'watch', run_id, '--repo', REPO, '--exit-status', '--interval', '30'], timeout=7200)
-        artifacts = self.dir / 'ci-artifacts'
-        shutil.rmtree(artifacts, ignore_errors=True)
-        if not self.dry: artifacts.mkdir()
-        self.run(['gh', 'run', 'download', run_id, '--repo', REPO, '--dir', artifacts])
+    def collect(self):
+        """The five Linux packages of this release, side by side, ready for signing."""
+        self.need(self.dir / 'release-meta.json', 'release-meta.json (run freeze first)')
+        packages = self.dir / 'packages'
+        if not self.dry:
+            shutil.rmtree(packages, ignore_errors=True); packages.mkdir()
+        for suffix in LINUX_FORMATS:
+            source = self.need(self.dir / ('VibeZ-%s-Linux-x64.%s' % (self.version, suffix)), 'Linux package (run linux first)')
+            if not self.dry:
+                shutil.copy2(source, packages)
         if self.dry:
             return
-        # A rerun of a failed job (Apple refused notarization four times on
-        # 13 Nov 2026) leaves one artifact per attempt: alpha-<target>-<attempt>.
-        # Only the last attempt of each target counts.
-        latest = {}
-        for folder in sorted(artifacts.iterdir()):
-            target, _, attempt = folder.name.rpartition('-')
-            if folder.is_dir() and target and attempt.isdigit():
-                latest[target] = max(latest.get(target, 0), int(attempt))
-        for folder in list(artifacts.iterdir()):
-            target, _, attempt = folder.name.rpartition('-')
-            if folder.is_dir() and attempt.isdigit() and int(attempt) < latest.get(target, 0):
-                shutil.rmtree(folder)
-                self.say('ignored earlier attempt ' + folder.name) if hasattr(self, 'say') else print('* ignored earlier attempt ' + folder.name)
-        want = json.loads((self.dir / 'ci/alpha-build-request.json').read_text())['source_manifest_sha256']
-        proofs = 0
-        for proof in artifacts.glob('*/vibez/vibez/alpha-source/artifacts/ci-proof/frozen-source-*.json'):
-            data = json.loads(proof.read_text())
-            if not (data.get('passed') and data.get('source_manifest_sha256') == want):
-                raise StepError('Frozen-source proof failed: ' + proof.name)
-            proofs += 1
-        if proofs != 3:
-            raise StepError('Expected 3 frozen-source proofs, found %d' % proofs)
-        for sums in artifacts.glob('*/vibez/vibez/alpha-source/artifacts/ci-packages/SHA256SUMS'):
-            self.run(['sha256sum', '-c', '--quiet', 'SHA256SUMS'], cwd=sums.parent)
-        packages = self.dir / 'packages-13'
-        shutil.rmtree(packages, ignore_errors=True); packages.mkdir()
-        for item in artifacts.glob('*/vibez/vibez/alpha-source/artifacts/ci-packages/VibeZ-*'):
-            shutil.copy2(item, packages / item.name)
-        for suffix in LINUX_FORMATS:
-            shutil.copy2(self.need(self.dir / ('VibeZ-%s-Linux-x64.%s' % (self.version, suffix)), 'Linux package (run linux first)'), packages)
         names = sorted(p.name for p in packages.iterdir())
         if names != sorted(feed_names(self.version)):
-            raise StepError('packages-13 differs from the 13 expected files: %s' % names)
-        self.say('13 packages verified in %s' % packages)
-        # The Beta's Windows build also leaves the Microsoft Store package. It is
-        # never a release asset: the maintainer uploads it in Partner Center.
-        if stage_of(self.version)[0] == 'beta':
-            store = self.dir / 'store'
-            shutil.rmtree(store, ignore_errors=True); store.mkdir()
-            found = list(artifacts.glob('*/vibez/vibez/alpha-source/artifacts/ci-store/VibeZ-*.msix'))
-            if len(found) != 1 or found[0].name != 'VibeZ-%s-Windows-x64-Store.msix' % self.version:
-                raise StepError('Expected one Store MSIX from the Windows build, found %s' % [p.name for p in found])
-            shutil.copy2(found[0], store / found[0].name)
-            self.say('Store package for Partner Center in %s' % store)
+            raise StepError('packages differs from the 5 expected Linux files: %s' % names)
+        self.say('5 Linux packages in %s' % packages)
 
     def feeds(self):
         key = self.args.minisign_key or os.environ.get('VIBEZ_ALPHA_MINISIGN_KEY')
         if not key:
             raise StepError('feeds needs --minisign-key (or VIBEZ_ALPHA_MINISIGN_KEY)')
-        packages = self.need(self.dir / 'packages-13', 'packages-13 (run ci-collect first)')
+        packages = self.need(self.dir / 'packages', 'packages (run collect first)')
         notes = self.dir / 'feed-notes.txt'
         if not notes.exists() and not self.dry:
-            notes.write_text('V4 %s: %s VibeZ 3.0.9 stays separate.' % (self.label, self.spec['changes'][0].split('. ')[0] + '.'))
+            notes.write_text('V4 %s for Linux: %s VibeZ 3 stays separate.' % (self.label, self.spec['changes'][0].split('. ')[0] + '.'))
         out = self.dir / 'feeds-out'
         shutil.rmtree(out, ignore_errors=True)
         with self.logfile('feeds.log') as log:
             command = [sys.executable, 'tools/prepare-alpha-update-feeds.py', '--artifacts', packages, '--output', out, '--version', self.version,
-                       '--previous-version', self.previous, '--minisign-private-key', key, '--gpg-homedir', Path.home() / '.vibez4-alpha-signing', '--notes-file', notes]
+                       '--previous-version', self.previous, '--minisign-private-key', key, '--gpg-homedir', Path.home() / '.vibez4-alpha-signing', '--notes-file', notes,
+                       '--linux-only']
             if self.dry:
                 self.run(command)
             else:
@@ -489,7 +387,7 @@ class Release:
         if self.dry:
             return
         proof = json.loads((out / 'feed-proof.json').read_text())
-        if not (proof.get('passed') and proof.get('all_artifact_signatures_verified') and proof.get('all_gpg_signatures_verified') and proof.get('complete_format_count') == 13):
+        if not (proof.get('passed') and proof.get('all_artifact_signatures_verified') and proof.get('all_gpg_signatures_verified') and proof.get('complete_format_count') == len(LINUX_FORMATS) and proof.get('scope') == 'linux-only'):
             raise StepError('Feed proof failed: %s' % {k: proof.get(k) for k in ('passed', 'complete_format_count')})
         upload = out / 'upload'; upload.mkdir()
         for item in (out / 'channel').iterdir():
@@ -497,10 +395,10 @@ class Release:
         for name in ('alpha', 'alpha-linux'):
             shutil.copy2(out / 'channel' / (name + '.json'), upload / ('%s-%s.json' % (name, self.version)))
             shutil.copy2(out / 'channel' / (name + '.json.asc'), upload / ('%s-%s.json.asc' % (name, self.version)))
-        self.say('feeds for 13 formats signed; upload set in %s' % upload)
+        self.say('Linux-only feeds for 5 formats signed; upload set in %s' % upload)
 
     def draft(self):
-        packages = self.need(self.dir / 'packages-13', 'packages-13')
+        packages = self.need(self.dir / 'packages', 'packages (run collect first)')
         body = self.dir / 'release-body.md'
         if not body.exists() and not self.dry:
             body.write_text(release_body(self.spec, self.previous))
@@ -511,12 +409,12 @@ class Release:
             return
         remote = json.loads(self.run(['gh', 'release', 'view', 'v' + self.version, '--repo', REPO, '--json', 'isDraft,isPrerelease,assets'], capture=True).stdout)
         sizes = {a['name']: a['size'] for a in remote['assets']}
-        if not remote['isDraft'] or not remote['isPrerelease'] or len(sizes) != 11:
-            raise StepError('Draft release is not a draft prerelease with 11 assets')
+        if not remote['isDraft'] or not remote['isPrerelease'] or len(sizes) != len(RELEASE_ASSETS):
+            raise StepError('Draft release is not a draft prerelease with %d assets' % len(RELEASE_ASSETS))
         for asset in assets:
             if sizes.get(asset.name) != asset.stat().st_size:
                 raise StepError('Asset size differs: ' + asset.name)
-        self.say('draft v%s: 11 assets, sizes verified' % self.version)
+        self.say('draft v%s: %d Linux assets, sizes verified' % (self.version, len(RELEASE_ASSETS)))
 
     def publish(self):
         upload = self.need(self.dir / 'feeds-out/upload', 'feed upload set (run feeds first)')
@@ -534,7 +432,7 @@ class Release:
         self.run(['gh', 'release', 'upload', CHANNEL_TAG, '--repo', REPO] + [upload / n for n in versioned])
         self.run(['gh', 'release', 'upload', CHANNEL_TAG, '--repo', REPO, '--clobber'] + [upload / n for n in ('alpha.json', 'alpha.json.asc', 'alpha-linux.json', 'alpha-linux.json.asc')])
         publication = self.need(self.dir / ('flatpak-publication-%s' % self.version), 'Flatpak publication (run linux first)')
-        worktree = self.dir / 'flatpak-wt'; gh_repo = self.dir / 'gh-repo'
+        worktree = self.dir / 'flatpak-wt'; gh_repo = self.gh_repo()
         if not worktree.exists():
             self.run(['git', 'fetch', '-q', 'origin', FLATPAK_BRANCH], cwd=gh_repo)
             self.run(['git', 'worktree', 'add', '-q', worktree, 'FETCH_HEAD', '-b', 'v4-alpha-flatpak-update-%s' % self.tag], cwd=gh_repo)
@@ -553,7 +451,8 @@ class Release:
         self.run(['git', 'fetch', '-q', 'origin', 'main'], cwd=gh_repo)
         self.run(['git', 'checkout', '-q', '-B', branch, 'origin/main'], cwd=gh_repo)
         self.run([sys.executable, 'tools/refresh-alpha-downloads.py', '--site', gh_repo, '--check-links'], cwd=BASE)
-        self.run(['git', 'add', 'README.md', 'docs/index.html', 'docs/linux.html', 'docs/macos.html', 'docs/windows.html'], cwd=gh_repo)
+        # Windows and macOS pages are a fixed archive since the wind-down.
+        self.run(['git', 'add', 'README.md', 'docs/index.html', 'docs/linux.html'], cwd=gh_repo)
         self.run(['git'] + AUTHOR + ['commit', '-q', '-m', 'Refresh V4 %s downloads and highlights' % self.label], cwd=gh_repo)
         # The site check wants each sitemap date to be the page's last change: today's commit.
         if (gh_repo / 'tools/site/sitemap-lastmod.py').exists():
@@ -562,13 +461,13 @@ class Release:
             self.run(['git'] + AUTHOR + ['commit', '-q', '--amend', '--no-edit'], cwd=gh_repo)
         self.run(['git', '-C', gh_repo, 'push', 'origin', branch])
         self.run(['gh', 'pr', 'create', '--repo', REPO, '--base', 'main', '--head', branch, '--title', 'Refresh V4 %s downloads and highlights' % self.label,
-                  '--body', 'Points the V4 Alpha download buttons in README.md and docs/ to the published v%s prerelease and refreshes the highlights. '
-                            'VibeZ 3.0.9 remains the stable release; its downloads and links are unchanged.' % self.version])
+                  '--body', 'Points the V4 Linux download buttons in README.md, docs/index.html and docs/linux.html to the published v%s prerelease and refreshes the highlights. '
+                            'The Windows and macOS archive pages and the VibeZ 3 downloads are unchanged.' % self.version])
         self.say('published v%s; channels and Flatpak branch updated; downloads PR opened (merge after review)' % self.version)
 
     def status(self):
         checks = {'release dir': self.dir, 'private repo': self.dir / 'repo', 'snapshot': self.dir / 'snapshot/private-source.tar.gz',
-                  'encrypted source': self.dir / 'ci', 'run id': self.dir / 'ci/run-id.txt', 'packages-13': self.dir / 'packages-13',
+                  'release meta': self.dir / 'release-meta.json', 'packages': self.dir / 'packages',
                   'feeds': self.dir / 'feeds-out/feed-proof.json', 'release body': self.dir / 'release-body.md', 'flatpak worktree': self.dir / 'flatpak-wt'}
         for label, path in checks.items():
             print('%-18s %s %s' % (label, 'ok ' if path.exists() else '-- ', path))
@@ -579,13 +478,12 @@ class Release:
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('step', choices=['bump', 'freeze', 'ci-start', 'linux', 'ci-collect', 'feeds', 'draft', 'publish', 'status'])
+    parser.add_argument('step', choices=['bump', 'freeze', 'linux', 'collect', 'feeds', 'draft', 'publish', 'status'])
     parser.add_argument('--version', help='release version (default: management/release.json)')
     parser.add_argument('--next', help='bump: the next version')
     parser.add_argument('--changes-file', help='bump: one release change per line')
     parser.add_argument('--highlights', help='bump: download_highlights for the public site')
     parser.add_argument('--message', help='freeze: commit message for the private repo')
-    parser.add_argument('--passphrase-file', help='freeze: GPG passphrase file (read by gpg only)')
     parser.add_argument('--minisign-key', help='feeds: minisign private key file (read by the feed tool only)')
     parser.add_argument('--title', help='draft: release title')
     parser.add_argument('--dry-run', action='store_true')
