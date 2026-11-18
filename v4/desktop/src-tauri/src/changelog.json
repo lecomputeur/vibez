@@ -1,6 +1,15 @@
 {
  "versions": [
   {
+   "version": "4.0.0-beta.5",
+   "date": "2026-11-18",
+   "changes": [
+    "Mistral now has its own desktop app, Vibe Desktop, for Windows and macOS. What's new opens once after this update with a farewell and a Get Vibe Desktop button.",
+    "This is the last VibeZ V4 for Windows and macOS. On those systems VibeZ stops checking for updates; the Microsoft Store copy keeps its Store updates.",
+    "VibeZ for Linux stays supported, with fixes, until the official Vibe Desktop for Linux is available."
+   ]
+  },
+  {
    "version": "4.0.0-beta.4",
    "date": "2026-11-15",
    "changes": [
