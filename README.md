@@ -20,7 +20,7 @@ On 17 November 2026 Mistral released **Vibe Desktop** for macOS and Windows: Wor
 ## What happens now
 
 - **Windows and macOS:** use the official [Vibe Desktop](https://mistral.ai/products/vibe/). VibeZ for Windows and Mac is no longer developed and receives no further updates. The existing downloads stay available in the [release archive](https://github.com/lecomputeur/vibez/releases).
-- **Linux:** Mistral says Linux support is coming soon. Until the official Linux app is available, VibeZ keeps supporting Linux: VibeZ 3.1.0 and the V4 Beta, with fixes for [reported problems](https://github.com/lecomputeur/vibez/issues/new/choose).
+- **Linux:** Mistral says Linux support is coming soon. Until the official Linux app is available, VibeZ keeps supporting Linux: VibeZ 3.2.0 and the V4 Beta, with fixes for [reported problems](https://github.com/lecomputeur/vibez/issues/new/choose).
 - **The code:** stays on GitHub under the MIT license. Development is winding down; no new features are planned.
 
 ## Thank you
@@ -40,16 +40,16 @@ V4 lets Mistral Work and Code use local folders you choose, with every file chan
 >
 > [Download V4 Beta 4](https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-beta.4) · [Linux installation guide](https://lecomputeur.github.io/vibez/linux.html#v4-alpha) · [Report a Linux problem](https://github.com/lecomputeur/vibez/issues/new/choose)
 
-## VibeZ 3.1.0 downloads
+## VibeZ 3.2.0 downloads
 
-The **VibeZ 3.1.0** build produced and verified all twelve files below from one frozen source commit. Linux is still supported; the Windows and macOS files remain as an archive and are no longer updated.
+The **VibeZ 3.2.0** build produced and verified all twelve files below from one frozen source commit. Linux is still supported; the Windows and macOS files remain as an archive and are no longer updated.
 
 | Platform | Downloads |
 |---|---|
-| **Linux x86-64** | [AppImage](https://github.com/lecomputeur/vibez/releases/download/v3.1.0/VibeZ-3.1.0-Linux-x64.AppImage) · [DEB](https://github.com/lecomputeur/vibez/releases/download/v3.1.0/VibeZ-3.1.0-Linux-x64.deb) · [RPM](https://github.com/lecomputeur/vibez/releases/download/v3.1.0/VibeZ-3.1.0-Linux-x64.rpm) · [Arch/Pacman](https://github.com/lecomputeur/vibez/releases/download/v3.1.0/VibeZ-3.1.0-Linux-x64.pkg.tar.zst) · [Flatpak](https://github.com/lecomputeur/vibez/releases/download/v3.1.0/VibeZ-3.1.0-Linux-x64.flatpak) |
-| **Windows x64** (archive) | [Setup EXE](https://github.com/lecomputeur/vibez/releases/download/v3.1.0/VibeZ-3.1.0-Windows-x64-Setup.exe) · [MSI](https://github.com/lecomputeur/vibez/releases/download/v3.1.0/VibeZ-3.1.0-Windows-x64.msi) · [Store submission MSIX](https://github.com/lecomputeur/vibez/releases/download/v3.1.0/VibeZ-3.1.0-Windows-x64-Store.msix) |
-| **macOS Apple Silicon** (archive) | [DMG](https://github.com/lecomputeur/vibez/releases/download/v3.1.0/VibeZ-3.1.0-macOS-arm64.dmg) · [ZIP](https://github.com/lecomputeur/vibez/releases/download/v3.1.0/VibeZ-3.1.0-macOS-arm64.zip) |
-| **macOS Intel** (archive) | [DMG](https://github.com/lecomputeur/vibez/releases/download/v3.1.0/VibeZ-3.1.0-macOS-x64.dmg) · [ZIP](https://github.com/lecomputeur/vibez/releases/download/v3.1.0/VibeZ-3.1.0-macOS-x64.zip) |
+| **Linux x86-64** | [AppImage](https://github.com/lecomputeur/vibez/releases/download/v3.2.0/VibeZ-3.2.0-Linux-x64.AppImage) · [DEB](https://github.com/lecomputeur/vibez/releases/download/v3.2.0/VibeZ-3.2.0-Linux-x64.deb) · [RPM](https://github.com/lecomputeur/vibez/releases/download/v3.2.0/VibeZ-3.2.0-Linux-x64.rpm) · [Arch/Pacman](https://github.com/lecomputeur/vibez/releases/download/v3.2.0/VibeZ-3.2.0-Linux-x64.pkg.tar.zst) · [Flatpak](https://github.com/lecomputeur/vibez/releases/download/v3.2.0/VibeZ-3.2.0-Linux-x64.flatpak) |
+| **Windows x64** (archive) | [Setup EXE](https://github.com/lecomputeur/vibez/releases/download/v3.2.0/VibeZ-3.2.0-Windows-x64-Setup.exe) · [MSI](https://github.com/lecomputeur/vibez/releases/download/v3.2.0/VibeZ-3.2.0-Windows-x64.msi) · [Store submission MSIX](https://github.com/lecomputeur/vibez/releases/download/v3.2.0/VibeZ-3.2.0-Windows-x64-Store.msix) |
+| **macOS Apple Silicon** (archive) | [DMG](https://github.com/lecomputeur/vibez/releases/download/v3.2.0/VibeZ-3.2.0-macOS-arm64.dmg) · [ZIP](https://github.com/lecomputeur/vibez/releases/download/v3.2.0/VibeZ-3.2.0-macOS-arm64.zip) |
+| **macOS Intel** (archive) | [DMG](https://github.com/lecomputeur/vibez/releases/download/v3.2.0/VibeZ-3.2.0-macOS-x64.dmg) · [ZIP](https://github.com/lecomputeur/vibez/releases/download/v3.2.0/VibeZ-3.2.0-macOS-x64.zip) |
 
 macOS publication requires Developer ID signing, notarization and stapling. Direct Windows EXE/MSI installers are unsigned; Windows may show a reputation warning. The unsigned MSIX is for Partner Center submission, not the recommended direct installer. Building it does **not** mean Microsoft has certified or published the update.
 
