@@ -34,7 +34,7 @@ os = _cap_sys.modules['_vibez_capfs']
 _spec = importlib.util.spec_from_file_location('vibez_workspace', Path(__file__).with_name('workspace_engine.py'))
 base = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(base)
-VERSION = '4.0.0-beta.4'
+VERSION = '4.0.0-beta.5'
 SYNC_REASON = 'Automatic sync with the Mistral website is not available: no supported connection was found. Export a conversation to bring its context yourself.'
 
 
