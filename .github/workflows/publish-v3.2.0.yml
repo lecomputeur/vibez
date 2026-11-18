@@ -7,7 +7,7 @@ permissions:
   contents: read
   actions: read
 concurrency:
-  group: publish-verified-vibez-310
+  group: publish-verified-vibez-320
   cancel-in-progress: false
 defaults:
   run:
@@ -85,7 +85,7 @@ jobs:
           EXISTS: ${{ steps.state.outputs.exists }}
         run: |
           if [ "$EXISTS" != true ]; then
-            gh release create v3.2.0 --repo "$GITHUB_REPOSITORY" --target "$SOURCE" --draft --title 'VibeZ 3.2.0 — VibeZ V4 Beta is out' --notes-file RELEASE-NOTES-3.2.0.md
+            gh release create v3.2.0 --repo "$GITHUB_REPOSITORY" --target "$SOURCE" --draft --title 'VibeZ 3.2.0 — Mistral Vibe has its own desktop app' --notes-file RELEASE-NOTES-3.2.0.md
           fi
           gh release upload v3.2.0 verified-assets/* legacy-feed/latest.yml legacy-feed/latest-linux.yml legacy-feed/latest-mac.yml --clobber --repo "$GITHUB_REPOSITORY"
       - name: Verify uploaded packages before publication
@@ -111,7 +111,7 @@ jobs:
           match=re.fullmatch(r'v(\d+)\.(\d+)\.(\d+)',latest['tag_name'])
           assert match and tuple(map(int,match.groups()))<=(3,1,0), 'A newer release became Latest during preparation'
           PYCODE
-          gh release edit v3.2.0 --repo "$GITHUB_REPOSITORY" --target "$SOURCE" --draft=false --latest --title 'VibeZ 3.2.0 — VibeZ V4 Beta is out' --notes-file RELEASE-NOTES-3.2.0.md
+          gh release edit v3.2.0 --repo "$GITHUB_REPOSITORY" --target "$SOURCE" --draft=false --latest --title 'VibeZ 3.2.0 — Mistral Vibe has its own desktop app' --notes-file RELEASE-NOTES-3.2.0.md
           test "$(gh api repos/$GITHUB_REPOSITORY/releases/latest --jq .tag_name)" = v3.2.0
           test "$(gh api repos/$GITHUB_REPOSITORY/git/ref/tags/v3.2.0 --jq .object.sha)" = "$SOURCE"
           echo 'VibeZ 3.2.0 is public and Latest. All twelve packages match the validated immutable source. Store package and listing text are ready for separate Partner Center submission.' >> "$GITHUB_STEP_SUMMARY"
