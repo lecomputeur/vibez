@@ -32,6 +32,10 @@ pub fn store_packaged()->bool{
     let mut length=0u32;unsafe{GetCurrentPackageFullName(&mut length,std::ptr::null_mut())==122&&length>0}
 }
 #[cfg(not(target_os="windows"))]pub fn store_packaged()->bool{false}
+/// Mistral released the official Vibe Desktop for Windows and macOS (17 Nov 2026).
+/// Beta 5 is the last VibeZ for them: it no longer asks the update channel, which
+/// from then on only carries Linux versions. The Store copy is left to the Store.
+pub fn ended()->bool{cfg!(any(target_os="windows",target_os="macos"))&&!store_packaged()}
 fn native_mode()->bool {
     #[cfg(target_os="linux")]{return !is_flatpak()&&std::env::var_os("APPIMAGE").is_some();}
     #[cfg(not(target_os="linux"))]{true}
@@ -43,6 +47,7 @@ fn update_state(app:&tauri::AppHandle,value:Value){
 pub fn state()->Value {
     #[cfg(target_os="linux")] if is_flatpak(){return alpha_flatpak_update::state();}
     if store_packaged(){return json!({"status":"automatic","automatic":true,"kind":"store","channel":"store","current":env!("CARGO_PKG_VERSION")});}
+    if ended(){return json!({"status":"ended","automatic":false,"kind":"ended","current":env!("CARGO_PKG_VERSION")});}
     let mut value=stored().lock().map(|v|v.clone()).unwrap_or_else(|_|json!({"status":"error"}));
     if system_mode(){
         value=json!({"status":"automatic","automatic":true,"kind":"system","channel":"v4-alpha"});
@@ -80,7 +85,7 @@ fn private_write(path:&Path,bytes:&[u8])->Result<(),String>{
     std::fs::rename(tmp,path).map_err(err)
 }
 async fn check_inner(app:&tauri::AppHandle)->Result<(),String>{
-    if store_packaged(){update_state(app,state());return Ok(());}
+    if store_packaged()||ended(){update_state(app,state());return Ok(());}
     if system_mode(){update_state(app,state());return Ok(());}
     if !native_mode(){return Err("The Alpha update service is missing. Install the full V4 Alpha package.".into());}
     update_state(app,json!({"status":"checking","automatic":true,"channel":"v4-alpha"}));

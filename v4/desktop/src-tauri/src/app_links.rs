@@ -12,6 +12,8 @@ fn address(link:&str)->Option<&'static str> {
         "license"=>"https://github.com/lecomputeur/vibez/blob/main/v4/LICENSE",
         "website"=>"https://lecomputeur.github.io/vibez/",
         "tester"=>"https://github.com/ActiveUser435",
+        // Mistral's own desktop app (17 Nov 2026); VibeZ is winding down.
+        "official"=>"https://mistral.ai/products/vibe/",
         _=>return None,
     })
 }
@@ -45,6 +47,7 @@ pub async fn app_open_link(webview:Webview,app:tauri::AppHandle,link:String)->Re
             let url=address(name).unwrap();
             assert!(url.starts_with("https://github.com/")||url.starts_with("https://lecomputeur.github.io/vibez/"),"{url}");
         }
+        assert_eq!(address("official"),Some("https://mistral.ai/products/vibe/"));
         for name in ["","https://example.org","file:///etc/passwd","Report","report ","../report"] {assert!(address(name).is_none(),"{name}");}
     }
 }
