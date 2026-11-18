@@ -36,9 +36,9 @@ It has been a true pleasure.
 
 V4 lets Mistral Work and Code use local folders you choose, with every file change shown for your approval. It installs next to VibeZ 3 with its own profile and settings.
 
-> Beta 4 is available for Linux. Beta 4 lets Mistral search your project folder, read large files in parts, and propose edits, moves and deletions that you approve in VibeZ, all at once with Save all.
+> Beta 5 is available for Linux. Beta 5 says goodbye: Mistral now has its own desktop app, Vibe Desktop. It is the last VibeZ V4 for Windows and macOS; VibeZ for Linux stays supported until the official Linux app is available.
 >
-> [Download V4 Beta 4](https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-beta.4) · [Linux installation guide](https://lecomputeur.github.io/vibez/linux.html#v4-alpha) · [Report a Linux problem](https://github.com/lecomputeur/vibez/issues/new/choose)
+> [Download V4 Beta 5](https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-beta.5) · [Linux installation guide](https://lecomputeur.github.io/vibez/linux.html#v4-alpha) · [Report a Linux problem](https://github.com/lecomputeur/vibez/issues/new/choose)
 
 ## VibeZ 3.1.0 downloads
 
