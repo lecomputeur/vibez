@@ -1,3 +1,7 @@
+# VibeZ 3.2.0 — Mistral Vibe has its own desktop app
+
+VibeZ 3.2.0 shows a one-time farewell notice: Mistral released the official Vibe Desktop for macOS and Windows, and VibeZ is winding down. The tray link "Try VibeZ V4 Beta" becomes "Get Vibe Desktop". Windows and macOS receive no further updates after 3.2.0; Linux stays supported until the official Linux app is available. Translated into all 34 interface languages; nothing else changed. See the [release notes](RELEASE-NOTES-3.2.0.md).
+
 # VibeZ 3.1.0 — VibeZ V4 Beta is out
 
 VibeZ 3.1.0 adds a one-time notice that VibeZ V4 Beta is available, plus tray-menu links to the V4 Beta, Discussions, new issues and the repository, translated into all 34 interface languages. Nothing else changed. See the [release notes](RELEASE-NOTES-3.1.0.md).
