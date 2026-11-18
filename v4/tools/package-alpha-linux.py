@@ -26,7 +26,7 @@ def main():
         if duplicate.exists():
             assert duplicate.is_file() and not duplicate.is_symlink(),'Unexpected duplicate launcher type'
             assert duplicate.read_text()==original,'Generated duplicate launcher does not match Alpha identity'
-            assert 'Name=VibeZ V4 Beta\n' in original and f'Exec={BINARY}\n' in original,'Unexpected launcher identity'
+            assert 'Name=VibeZ 4\n' in original and f'Exec={BINARY}\n' in original,'Unexpected launcher identity'
             duplicate.unlink()
         public=re.sub(r'^Exec=.*$',f'Exec={BINARY}',original,flags=re.M)
         assert public!=original or f'Exec={BINARY}' in original

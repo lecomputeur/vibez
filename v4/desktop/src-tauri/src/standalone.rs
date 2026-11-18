@@ -288,7 +288,7 @@ fn startup_failure(window:&tauri::WebviewWindow,message:&str)->! {
         // Let the main window map first, so the dialog can be placed over it.
         for _ in 0..200 {if !gtk::events_pending(){break;} gtk::main_iteration_do(false);}
         let dialog=gtk::MessageDialog::new(parent.as_ref(),gtk::DialogFlags::MODAL|gtk::DialogFlags::DESTROY_WITH_PARENT,gtk::MessageType::Error,gtk::ButtonsType::Close,message);
-        dialog.set_title("VibeZ V4 Beta");
+        dialog.set_title("VibeZ 4");
         dialog.set_keep_above(true);
         dialog.set_position(if parent.is_some(){gtk::WindowPosition::CenterOnParent}else{gtk::WindowPosition::Center});
         dialog.run();
@@ -663,7 +663,7 @@ fn make_login(
     let data = app.path().app_data_dir().map_err(err)?.join("webview");
     let mut builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(url))
         .data_directory(data)
-        .title(format!("VibeZ V4 Beta · {}",classic_language::text(app,"autoConnect")))
+        .title(format!("VibeZ 4 · {}",classic_language::text(app,"autoConnect")))
         .inner_size(lw as f64,lh as f64)
         .min_inner_size(420_f64.min(lw as f64),480_f64.min(lh as f64))
         .position(lx as f64,ly as f64)
@@ -837,7 +837,7 @@ fn main() {
     }
     if std::env::args().any(|a| a == "--version") {
         println!(
-            "VibeZ V4 Beta · {} · standalone app",
+            "VibeZ 4 · {} · standalone app",
             env!("CARGO_PKG_VERSION")
         );
         return;
@@ -930,12 +930,12 @@ fn main() {
             #[cfg(target_os = "linux")]
             {
                 gtk::glib::set_prgname(Some(APP_ID));
-                gtk::glib::set_application_name("VibeZ V4 Beta");
+                gtk::glib::set_application_name("VibeZ 4");
                 gtk::gdk::set_program_class(APP_ID);
             }
             let window =
                 WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-                    .title(format!("VibeZ V4 Beta · {}", env!("CARGO_PKG_VERSION")))
+                    .title(format!("VibeZ 4 · {}", env!("CARGO_PKG_VERSION")))
                     .data_directory(data.join("standalone-ui"))
                     .inner_size(1280., 860.)
                     .min_inner_size(760., 520.)

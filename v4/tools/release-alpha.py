@@ -10,7 +10,7 @@ step, and `--dry-run` prints the commands instead of running them.
 Since 17 November 2026 VibeZ is winding down: Mistral released the official
 Vibe Desktop for macOS and Windows. Releases are Linux-only until the official
 Linux app is available. There is no native CI for Windows or macOS and no
-Microsoft Store package any more; Beta 4 was the last version for them.
+Microsoft Store package any more; Beta 5 was the last version for them.
 
   bump        next version in the source tree, changes and highlights in release.json
   freeze      private git repo and source snapshot of this release
@@ -24,7 +24,9 @@ Microsoft Store package any more; Beta 4 was the last version for them.
 
 Secrets are used in place only: the minisign key is passed as a path to the
 feed tool, never read or printed here.
-VibeZ 3.0.9 and its channel are never touched; every release is a prerelease.
+VibeZ 3.0.9 and its channel are never touched. Alpha and Beta versions are prereleases;
+a final 4.x.y (4.0.0 on 18 Nov 2026) is published as Latest, with the legacy
+Electron feed files copied from the previous Latest so VibeZ 2.x stays quiet.
 """
 import argparse
 import contextlib
@@ -50,6 +52,10 @@ BUNDLE = BUILD / 'release-alpha23/ci/vibez-alpha-private.bundle'
 APPIMAGE_TOOLS = BUILD / 'release-alpha24/appimage-tools'
 AUTHOR = ['-c', 'user.name=lecomputeur', '-c', 'user.email=121440176+lecomputeur@users.noreply.github.com']
 VERSION_RE = re.compile(r'^4\.0\.0-(alpha|beta)\.([1-9]\d*)$')
+FINAL_RE = re.compile(r'^4\.0\.(0|[1-9]\d*)$')
+# The final 4.0.0 follows the last Beta; 4.0.1 and later fix Linux only.
+LAST_BETA = '4.0.0-beta.5'
+LEGACY_FEEDS = ['latest.yml', 'latest-linux.yml', 'latest-mac.yml']
 # The Beta follows the last Alpha; Alpha 31 taught every Alpha install to accept it.
 LAST_ALPHA = '4.0.0-alpha.31'
 VERSION_FILES = ['backend/standalone_engine.py', 'backend/web_connector.py', 'backend/workspace_engine.py', 'desktop/package-lock.json',
@@ -65,10 +71,17 @@ class StepError(Exception):
 
 
 def stage_of(version):
+    final = FINAL_RE.match(version or '')
+    if final:
+        return 'final', int(final.group(1))
     match = VERSION_RE.match(version or '')
     if not match:
-        raise StepError('Not a V4 Alpha or Beta version: %r' % (version,))
+        raise StepError('Not a V4 Alpha, Beta or final 4.0.x version: %r' % (version,))
     return match.group(1), int(match.group(2))
+
+
+def is_final(version):
+    return stage_of(version)[0] == 'final'
 
 
 def alpha_number(version):
@@ -76,19 +89,21 @@ def alpha_number(version):
 
 
 def tag(version):
-    """alpha31, beta1: used in folder and branch names."""
+    """alpha31, beta1, 4.0.0: used in folder and branch names."""
     stage, number = stage_of(version)
-    return '%s%d' % (stage, number)
+    return version if stage == 'final' else '%s%d' % (stage, number)
 
 
 def label(version):
-    """Alpha 31, Beta 1: used in titles and messages."""
+    """Alpha 31, Beta 1, 4.0.0: used in titles and messages."""
     stage, number = stage_of(version)
-    return '%s %d' % (stage.capitalize(), number)
+    return version if stage == 'final' else '%s %d' % (stage.capitalize(), number)
 
 
 def previous_of(version):
     stage, number = stage_of(version)
+    if stage == 'final':
+        return LAST_BETA if number == 0 else '4.0.%d' % (number - 1)
     if stage == 'beta' and number == 1:
         return LAST_ALPHA
     return '4.0.0-%s.%d' % (stage, number - 1)
@@ -128,7 +143,29 @@ def feed_names(version):
     return asset_names(version)
 
 
+def final_body(spec, previous):
+    changes = ''.join('- %s\n' % line for line in spec['changes'])
+    return ('## VibeZ %s for Linux\n\n'
+            'VibeZ 4 brings Mistral Work and Code to your own folders on Linux. Keep the familiar Mistral web interface, '
+            'link a local folder to a project or conversation, browse its files beside the chat, and let Mistral search, read and propose changes. '
+            'Every edit, move or deletion is a proposal you approve in VibeZ; nothing on your disk changes without you.\n\n'
+            '### Changes since %s\n\n%s\n'
+            '### Thank you\n\n'
+            'VibeZ 4 grew through more than thirty Alphas and five Betas. Thank you to [ActiveUser435](https://github.com/ActiveUser435), '
+            'who tested nearly every Alpha in depth, to [HumanistAtypik](https://github.com/HumanistAtypik), whose careful reports made VibeZ work on '
+            'non-standard Linux systems, and to everyone who tested, starred and shared feedback.\n\n'
+            '### Installing\n\n'
+            'Choose the AppImage, DEB, RPM, Arch package or Flatpak for your distribution; the [Linux installation guide]'
+            '(https://lecomputeur.github.io/vibez/linux.html#v4-alpha) explains each one. VibeZ 4 installs separately from VibeZ 3 and keeps its own '
+            'profile and settings. Installs of the Alphas and Betas update to %s automatically.\n\n'
+            'Mistral released the official [Vibe Desktop](%s) for macOS and Windows; VibeZ for Linux stays supported until the official Linux app is available. '
+            '[Report a Linux problem](https://github.com/lecomputeur/vibez/issues/new/choose) with your distribution, package format and exact version.\n'
+            ) % (spec['version'], label(previous), changes, spec['version'], OFFICIAL_APP)
+
+
 def release_body(spec, previous):
+    if is_final(spec['version']):
+        return final_body(spec, previous)
     changes = ''.join('- %s\n' % line for line in spec['changes'])
     # The tester agreed to be thanked by username only (issue 49, 2026-11-13).
     thanks = ('### Thanks\n\nThank you to [ActiveUser435](https://github.com/ActiveUser435) and [HumanistAtypik](https://github.com/HumanistAtypik) '
@@ -136,7 +173,7 @@ def release_body(spec, previous):
     return ('## VibeZ V4 %s\n\n**Available for Linux.**\n\n'
             'Mistral released the official [Vibe Desktop](%s) for macOS and Windows, so VibeZ is winding down. '
             'Until the official Linux app is available, VibeZ keeps supporting Linux with fixes. '
-            'On Windows and macOS, please use the official app; V4 Beta 4 was the last VibeZ version for them.\n\n'
+            'On Windows and macOS, please use the official app; V4 Beta 5 was the last VibeZ version for them.\n\n'
             'V4 lets Mistral Work and Code use local folders you choose, with every file change shown for your approval. '
             'It installs separately from VibeZ 3 and keeps its own profile and settings.\n\n'
             '### Changes since %s\n\n%s\n%s'
@@ -402,28 +439,43 @@ class Release:
         body = self.dir / 'release-body.md'
         if not body.exists() and not self.dry:
             body.write_text(release_body(self.spec, self.previous))
-        title = self.args.title or 'VibeZ V4 %s' % self.label
+        final = is_final(self.version)
+        title = self.args.title or ('VibeZ %s for Linux' % self.version if final else 'VibeZ V4 %s' % self.label)
         assets = [packages / name for name in asset_names(self.version)]
-        self.run(['gh', 'release', 'create', 'v' + self.version, '--repo', REPO, '--draft', '--prerelease', '--latest=false', '--title', title, '--notes-file', body] + assets)
+        if final:
+            # VibeZ 2.x (Electron) reads latest*.yml from whatever release is Latest; carry over the
+            # files that keep it on 2.0.2, exactly as every VibeZ 3 release did.
+            legacy = self.dir / 'legacy-feed'
+            if not self.dry: legacy.mkdir(exist_ok=True)
+            current = self.run(['gh', 'api', 'repos/%s/releases/latest' % REPO, '-q', '.tag_name'], capture=True).stdout.strip() if not self.dry else 'v3.2.0'
+            self.run(['gh', 'release', 'download', current, '--repo', REPO, '--dir', legacy, '--clobber'] + sum((['--pattern', n] for n in LEGACY_FEEDS), []))
+            assets += [legacy / n for n in LEGACY_FEEDS]
+        kind = [] if final else ['--prerelease', '--latest=false']
+        self.run(['gh', 'release', 'create', 'v' + self.version, '--repo', REPO, '--draft'] + kind + ['--title', title, '--notes-file', body] + assets)
         if self.dry:
             return
         remote = json.loads(self.run(['gh', 'release', 'view', 'v' + self.version, '--repo', REPO, '--json', 'isDraft,isPrerelease,assets'], capture=True).stdout)
         sizes = {a['name']: a['size'] for a in remote['assets']}
-        if not remote['isDraft'] or not remote['isPrerelease'] or len(sizes) != len(RELEASE_ASSETS):
-            raise StepError('Draft release is not a draft prerelease with %d assets' % len(RELEASE_ASSETS))
+        if not remote['isDraft'] or remote['isPrerelease'] == final or len(sizes) != len(assets):
+            raise StepError('Draft release is not a draft %s with %d assets' % ('release' if final else 'prerelease', len(assets)))
         for asset in assets:
             if sizes.get(asset.name) != asset.stat().st_size:
                 raise StepError('Asset size differs: ' + asset.name)
-        self.say('draft v%s: %d Linux assets, sizes verified' % (self.version, len(RELEASE_ASSETS)))
+        self.say('draft v%s: %d assets, sizes verified' % (self.version, len(assets)))
 
     def publish(self):
         upload = self.need(self.dir / 'feeds-out/upload', 'feed upload set (run feeds first)')
-        self.run(['gh', 'release', 'edit', 'v' + self.version, '--repo', REPO, '--draft=false', '--prerelease', '--latest=false'])
+        final = is_final(self.version)
         if not self.dry:
             latest = self.run(['gh', 'api', 'repos/%s/releases/latest' % REPO, '-q', '.tag_name'], capture=True).stdout.strip()
-            # Latest is always the stable VibeZ 3 line (3.1.0 since 2026-11-14); a V4 release must never be Latest.
-            if not re.fullmatch(r'v3\.\d+\.\d+', latest):
-                raise StepError('Latest release changed to %s; stop and check' % latest)
+            # Before 4.0.0, Latest was the VibeZ 3 line; a final 4.0.x replaces it, an Alpha or Beta never does.
+            if not re.fullmatch(r'v3\.\d+\.\d+|v4\.0\.\d+', latest) or (not final and not latest.startswith('v3.')):
+                raise StepError('Latest release is %s; stop and check' % latest)
+        self.run(['gh', 'release', 'edit', 'v' + self.version, '--repo', REPO, '--draft=false'] + (['--prerelease=false', '--latest'] if final else ['--prerelease', '--latest=false']))
+        if final and not self.dry:
+            latest = self.run(['gh', 'api', 'repos/%s/releases/latest' % REPO, '-q', '.tag_name'], capture=True).stdout.strip()
+            if latest != 'v' + self.version:
+                raise StepError('v%s did not become Latest (Latest is %s)' % (self.version, latest))
         before = self.dir / 'channel-before'
         if not self.dry: before.mkdir(exist_ok=True)
         for name in ('alpha.json', 'alpha.json.asc', 'alpha-linux.json', 'alpha-linux.json.asc'):
@@ -461,7 +513,7 @@ class Release:
             self.run(['git'] + AUTHOR + ['commit', '-q', '--amend', '--no-edit'], cwd=gh_repo)
         self.run(['git', '-C', gh_repo, 'push', 'origin', branch])
         self.run(['gh', 'pr', 'create', '--repo', REPO, '--base', 'main', '--head', branch, '--title', 'Refresh V4 %s downloads and highlights' % self.label,
-                  '--body', 'Points the V4 Linux download buttons in README.md, docs/index.html and docs/linux.html to the published v%s prerelease and refreshes the highlights. '
+                  '--body', 'Points the V4 Linux download buttons in README.md, docs/index.html and docs/linux.html to the published v%s release and refreshes the highlights. '
                             'The Windows and macOS archive pages and the VibeZ 3 downloads are unchanged.' % self.version])
         self.say('published v%s; channels and Flatpak branch updated; downloads PR opened (merge after review)' % self.version)
 

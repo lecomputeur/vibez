@@ -310,7 +310,7 @@ def main():
     parser.add_argument('--publication',type=Path)
     parser.add_argument('--worker',action='store_true')
     args=parser.parse_args();WORK=args.work.resolve();VERSION=args.expected_version
-    if not re.fullmatch(r'4\.\d+\.\d+-(alpha|beta)\.\d+',VERSION):parser.error('Expected a separate V4 Alpha or Beta version')
+    if not re.fullmatch(r'4\.\d+\.\d+(-(alpha|beta)\.\d+)?',VERSION):parser.error('Expected a separate V4 Alpha or Beta version')
     if args.worker:return worker()
     if not args.bundle:parser.error('--bundle is required')
     assert not WORK.exists(),'Use a new private validation directory'

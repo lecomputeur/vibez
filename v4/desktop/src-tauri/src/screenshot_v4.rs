@@ -15,7 +15,7 @@ impl PreviewState {
     pub fn new() -> Self { Self { capture_busy: AtomicBool::new(false), smoke: false } }
 }
 
-pub fn title() -> String { "VibeZ V4 Beta".into() }
+pub fn title() -> String { "VibeZ 4".into() }
 
 /// The V3 preview showed these in its status bar. The V4 dialog reports its
 /// own result, so only keep a trace for diagnostics.

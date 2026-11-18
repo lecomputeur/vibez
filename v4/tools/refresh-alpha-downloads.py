@@ -31,14 +31,19 @@ LEAD = '%s is available for Linux. '
 # Before the wind-down the paragraph named every platform; both forms are recognised.
 PLATFORMS = r'(?:Linux, Windows, Intel and Apple Silicon Macs|Linux)'
 VERSION_RE = re.compile(r'^4\.0\.0-(alpha|beta)\.(\d+)$')
-README_PARAGRAPH = re.compile(r'^> (?:Alpha|Beta) (\d+) is available for ' + PLATFORMS + r'\. .*$', re.M)
-HTML_PARAGRAPH = re.compile(r'<p class="alpha-feedback">(?:Alpha|Beta) (\d+) is available for ' + PLATFORMS + r'\. .*?</p>')
+FINAL_RE = re.compile(r'^4\.0\.(\d+)$')
+NAMED = r'(?:(?:Alpha|Beta) \d+|VibeZ 4\.0\.\d+)'
+README_PARAGRAPH = re.compile(r'^> ' + NAMED + r' is available for ' + PLATFORMS + r'\. .*$', re.M)
+HTML_PARAGRAPH = re.compile(r'<p class="alpha-feedback">' + NAMED + r' is available for ' + PLATFORMS + r'\. .*?</p>')
 
 
 def release_key(version):
-    """Order of V4 versions: every Alpha before every Beta. A bare number means Alpha N."""
+    """Order of V4 versions: every Alpha, then every Beta, then 4.0.0, 4.0.1. A bare number means Alpha N."""
     if isinstance(version, int):
         return (0, version)
+    final = FINAL_RE.match(version or '')
+    if final:
+        return (2, int(final.group(1)))
     match = VERSION_RE.match(version or '')
     if not match:
         raise ValueError('Not a V4 Alpha or Beta version: %r' % (version,))
@@ -55,7 +60,7 @@ def as_version(value):
 
 def label(version):
     stage, number = release_key(version)
-    return '%s %d' % (('Alpha', 'Beta')[stage], number)
+    return 'VibeZ %s' % version if stage == 2 else '%s %d' % (('Alpha', 'Beta')[stage], number)
 
 
 def clean_highlights(text):
@@ -71,7 +76,7 @@ def clean_highlights(text):
 
 def current_alpha(text):
     """The V4 version the file points at now, from its download buttons."""
-    versions = set(re.findall(r'4\.0\.0-(?:alpha|beta)\.\d+', text))
+    versions = set(re.findall(r'4\.0\.0-(?:alpha|beta)\.\d+|(?<![\d.])4\.0\.\d+(?![-.\d])', text))
     if len(versions) != 1:
         raise ValueError('The file points at %s V4 versions; expected exactly one' % (len(versions) or 'no'))
     return versions.pop()
@@ -88,7 +93,9 @@ def refresh_text(name, text, new_version, highlights):
         raise ValueError('%s does not contain exactly one Alpha highlights paragraph' % name)
     text = pattern.sub(('> ' + paragraph) if name.endswith('.md') else ('<p class="alpha-feedback">' + paragraph + '</p>'), text, count=1)
     text = text.replace(old_version, new_version)
-    text = re.sub(r'\b%s\b' % label(old_version), label(new_version), text)
+    text = re.sub(r'\b%s\b' % re.escape(label(old_version)), label(new_version), text)
+    # "Download V4 Beta 5" reads "Download VibeZ 4.0.0" once the final version is out.
+    text = text.replace('V4 VibeZ 4.0.', 'VibeZ 4.0.')
     return text
 
 

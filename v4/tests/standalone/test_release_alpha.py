@@ -17,6 +17,23 @@ class ReleaseToolTests(unittest.TestCase):
         self.assertEqual((tool.tag('4.0.0-beta.5'), tool.label('4.0.0-beta.5')), ('beta5', 'Beta 5'))
         with self.assertRaises(tool.StepError): tool.stage_of('4.0.0-rc.1')
 
+    def test_the_final_4_0_0_follows_the_last_beta_and_fixes_follow_it(self):
+        self.assertEqual(tool.previous_of('4.0.0'), tool.LAST_BETA)
+        self.assertEqual(tool.previous_of('4.0.1'), '4.0.0')
+        self.assertEqual((tool.tag('4.0.0'), tool.label('4.0.0')), ('4.0.0', '4.0.0'))
+        self.assertTrue(tool.is_final('4.0.0')); self.assertFalse(tool.is_final('4.0.0-beta.5'))
+        with self.assertRaises(tool.StepError): tool.stage_of('4.1.0')
+        with self.assertRaises(tool.StepError): tool.stage_of('4.0.01')
+
+    def test_final_release_body_is_for_linux_users_and_thanks_the_testers(self):
+        body = tool.release_body({'version': '4.0.0', 'changes': ['Final change.']}, '4.0.0-beta.5')
+        self.assertIn('## VibeZ 4.0.0 for Linux\n\n', body)
+        self.assertIn('### Changes since Beta 5\n\n- Final change.\n', body)
+        self.assertIn('ActiveUser435', body); self.assertIn('HumanistAtypik', body)
+        self.assertIn('update to 4.0.0 automatically', body)
+        self.assertIn('https://mistral.ai/products/vibe/', body)
+        self.assertNotIn('Beta 4 was the last', body); self.assertNotIn('DMG', body)
+
     def test_releases_are_linux_only_after_the_wind_down(self):
         assets = tool.asset_names('4.0.0-beta.5')
         self.assertEqual(assets, ['VibeZ-4.0.0-beta.5-Linux-x64.%s' % s for s in ('AppImage', 'deb', 'flatpak', 'pkg.tar.zst', 'rpm')])
