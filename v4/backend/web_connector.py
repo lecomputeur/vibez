@@ -92,7 +92,7 @@ def modern_meta(params):
     meta = params.get('_meta') if isinstance(params, dict) else None
     if isinstance(meta, dict) and isinstance(meta.get(META + 'protocolVersion'), str): return meta
     return None
-VERSION = '4.0.0-beta.4'
+VERSION = '4.0.0-beta.5'
 UUID_TEXT = r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}'
 # Existing Work UUIDs remain unchanged; Code and loose conversations are separate.
 ID = re.compile(r'^(?:code-|chat-)?' + UUID_TEXT + r'$')

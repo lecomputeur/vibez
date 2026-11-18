@@ -25,6 +25,16 @@ test('a Microsoft Store install says updates are automatic and offers no check o
  assert.equal(view.key,'updateAutomatic');assert.equal(view.store,true);assert.equal(view.allow,false);
  assert.equal(presentation({kind:'system',status:'automatic',automatic:true}).store,false);
 });
+test('Windows and macOS after the wind-down say updates ended, point to Vibe Desktop and offer no check',()=>{
+ const view=presentation({kind:'ended',status:'ended',automatic:false});
+ assert.equal(view.key,'farewellWinMac');assert.equal(view.store,true,'no Check now');assert.equal(view.attention,true,'shown in Settings');
+ assert.equal(view.allow,false);assert.equal(view.busy,false);
+ for(const [code,dictionary] of Object.entries(translations)){
+  for(const key of ['farewellTitle','farewellBody','farewellWinMac','farewellLinux','farewellButton'])assert.ok(dictionary[key]?.trim(),code+'/'+key);
+  assert.ok(dictionary.farewellBody.includes('Vibe Desktop')&&dictionary.farewellButton.includes('Vibe Desktop'),code);
+  assert.ok(dictionary.farewellLinux.includes('Linux')&&!dictionary.farewellLinux.includes('Windows'),code);
+ }
+});
 test('permission and check actions cannot interrupt an active transaction',()=>{
  for(const status of ['checking','downloading','installing'])assert.equal(presentation({kind:'flatpak',status,consent_required:true}).busy,true,status);
  assert.equal(presentation({kind:'flatpak',status:'ready',busy:true}).busy,true);

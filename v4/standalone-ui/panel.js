@@ -111,7 +111,10 @@ async function boot(){
 }boot().catch(e=>webNotice(e));
 // What's new: after an update, every version this installation has not shown yet; from Settings, all versions.
 function versionLabel(v){const m=/^(\d+)\.\d+\.\d+-(alpha|beta|rc)\.(\d+)$/.exec(v||'');return m?`V${m[1]} ${m[2][0].toUpperCase()+m[2].slice(1)} ${m[3]}`:String(v||'');}
+// Mistral released Vibe Desktop for Windows and macOS: Linux keeps VibeZ until Mistral's Linux app exists.
+const linuxDesktop=(()=>{const agent=typeof navigator==='object'&&navigator?String(navigator.userAgent||''):'';return /Linux/.test(agent)&&!/Android/.test(agent);})();
 function renderWhatsNew(data,updated){
+ $('farewell-winmac').hidden=linuxDesktop;$('farewell-linux').hidden=!linuxDesktop;
  $('whats-new-intro').textContent=updated?t('whatsNewUpdated').split('{version}').join(versionLabel(data.current)):t('whatsNewHelp');
  $('whats-new-english').hidden=(window.vibezLanguage.state?.().resolved||'en')==='en';
  const list=$('whats-new-list');list.replaceChildren();

@@ -1,13 +1,15 @@
-//! One-time local notice that VibeZ V4 Beta is available, plus fixed project links.
+//! One-time local farewell notice: Mistral released the official Vibe Desktop and VibeZ is winding down.
+//! The notice and the tray link to the official app and fixed project pages.
 //! Only the constant HTTPS addresses below can be opened; pages pass a link name, never a URL.
 use std::{path::{Path,PathBuf},time::Duration};
 use tauri::{AppHandle,Manager,WebviewUrl,WebviewWindowBuilder};
 use tauri_plugin_opener::OpenerExt;
 use crate::{desktop_ui,err,policy};
 pub const LABEL:&str="v4notice";
-const MARKER:&str="v4-beta-notice-shown";
+// A new marker: profiles that saw the 3.1.0 V4 Beta notice still see this farewell once.
+const MARKER:&str="farewell-notice-shown";
 pub const LINKS:[(&str,&str);4]=[
-    ("v4beta","https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-beta.3"),
+    ("official","https://mistral.ai/products/vibe/"),
     ("discussions","https://github.com/lecomputeur/vibez/discussions"),
     ("issue","https://github.com/lecomputeur/vibez/issues/new/choose"),
     ("repo","https://github.com/lecomputeur/vibez"),
@@ -23,7 +25,7 @@ pub async fn show(app:&AppHandle)->Result<(),String>{
     if let Some(w)=app.get_webview_window(LABEL){w.show().map_err(err)?;return w.set_focus().map_err(err);}
     let window=WebviewWindowBuilder::new(app,LABEL,WebviewUrl::App("v4notice.html".into()))
         .title(format!("{} · {}",crate::title(),desktop_ui::preview(app,"v4NoticeTitle")))
-        .inner_size(460.,330.).min_inner_size(360.,280.).visible(false).resizable(true)
+        .inner_size(500.,380.).min_inner_size(380.,300.).visible(false).resizable(true)
         .data_directory(app.path().app_data_dir().map_err(err)?.join("controls"))
         .data_store_identifier([118,105,98,101,122,51,0,0,0,0,0,0,0,0,0,1])
         .on_navigation(policy::local_url).on_new_window(|_,_|tauri::webview::NewWindowResponse::Deny).build().map_err(err)?;
@@ -53,8 +55,12 @@ pub async fn action(app:&AppHandle,action:&str)->Result<(),String>{
         for (name,url) in LINKS {
             let parsed=url::Url::parse(url).unwrap();
             assert_eq!(parsed.scheme(),"https",  "{name}");
-            assert_eq!(parsed.host_str(),Some("github.com"),"{name}");
-            assert!(parsed.path().starts_with("/lecomputeur/vibez"),"{name}");
+            if name=="official" {
+                assert_eq!((parsed.host_str(),parsed.path()),(Some("mistral.ai"),"/products/vibe/"));
+            } else {
+                assert_eq!(parsed.host_str(),Some("github.com"),"{name}");
+                assert!(parsed.path().starts_with("/lecomputeur/vibez"),"{name}");
+            }
             assert_eq!(link(name),Some(url));
         }
         assert!(link("https://example.com").is_none());
@@ -62,7 +68,7 @@ pub async fn action(app:&AppHandle,action:&str)->Result<(),String>{
         assert!(link("").is_none());
     }
     #[test] fn marker_records_once() {
-        let dir=std::env::temp_dir().join(format!("vibez-v4-notice-{}",std::process::id()));
+        let dir=std::env::temp_dir().join(format!("vibez-farewell-notice-{}",std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path=dir.join(MARKER);
         assert!(!path.exists());record(&path).unwrap();assert!(path.exists());

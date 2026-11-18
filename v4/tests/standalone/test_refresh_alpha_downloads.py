@@ -40,12 +40,12 @@ class RefreshDownloadsTests(unittest.TestCase):
     def test_versions_buttons_and_paragraph_follow_release_json(self):
         self.assertEqual(tool.main(['--site', str(self.site), '--release', str(self.release)]), 0)
         readme = (self.site / 'README.md').read_text()
-        self.assertIn('> Alpha 27 is available for Linux, Windows, Intel and Apple Silicon Macs. In Mistral Work, linking keeps working after a restart, and the title chip is hidden in sent messages.', readme)
+        self.assertIn('> Alpha 27 is available for Linux. In Mistral Work, linking keeps working after a restart, and the title chip is hidden in sent messages.', readme)
         self.assertNotIn('Old highlights', readme)
         self.assertIn('[Download V4 Alpha 27](https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-alpha.27)', readme)
         self.assertIn('Explore VibeZ 3.0.9', readme)
         linux = (self.site / 'docs/linux.html').read_text()
-        self.assertIn('<p class="alpha-feedback">Alpha 27 is available for Linux, Windows, Intel and Apple Silicon Macs. In Mistral Work', linux)
+        self.assertIn('<p class="alpha-feedback">Alpha 27 is available for Linux. In Mistral Work', linux)
         self.assertIn('VibeZ-4.0.0-alpha.27-Linux-x64.flatpak">Alpha 27 · Flatpak', linux)
         self.assertIn('VibeZ-3.0.9-Linux-x64.deb">3.0.9 DEB', linux, 'the stable release is untouched')
         self.assertIn('VibeZ 3.0.9 improves Linux routing.', linux)
@@ -59,13 +59,26 @@ class RefreshDownloadsTests(unittest.TestCase):
         self.release.write_text(json.dumps({'version': '4.0.0-beta.1', 'download_highlights': 'The open Beta of VibeZ 4, with Mistral Work and local project folders'}))
         self.assertEqual(tool.main(['--site', str(self.site), '--release', str(self.release)]), 0)
         readme = (self.site / 'README.md').read_text()
-        self.assertIn('> Beta 1 is available for Linux, Windows, Intel and Apple Silicon Macs. The open Beta', readme)
+        self.assertIn('> Beta 1 is available for Linux. The open Beta', readme)
         self.assertIn('[Download V4 Beta 1](https://github.com/lecomputeur/vibez/releases/tag/v4.0.0-beta.1)', readme)
         linux = (self.site / 'docs/linux.html').read_text()
         self.assertIn('VibeZ-4.0.0-beta.1-Linux-x64.flatpak">Beta 1 · Flatpak', linux)
         self.assertNotIn('alpha.26', linux); self.assertIn('3.0.9 DEB', linux)
         with self.assertRaises(ValueError):
             tool.refresh_text('README.md', readme, '4.0.0-alpha.40', 'Going back from a Beta to an Alpha is never right')
+
+    def test_only_linux_pages_follow_new_releases_and_the_archive_stays(self):
+        """After the wind-down Windows and macOS are a fixed archive: their pages keep the last version."""
+        archive = (self.site / 'docs/windows.html').read_text()
+        self.assertEqual(tool.main(['--site', str(self.site), '--release', str(self.release)]), 0)
+        for name in ('windows', 'macos'):
+            self.assertEqual((self.site / 'docs' / (name + '.html')).read_text(), archive)
+        index = (self.site / 'docs/index.html').read_text()
+        self.assertIn('<p class="alpha-feedback">Alpha 27 is available for Linux. ', index)
+        # A page that already uses the Linux-only wording is refreshed the same way.
+        self.release.write_text(json.dumps({'version': '4.0.0-alpha.28', 'download_highlights': 'Linux only from now on, until the official Linux app arrives'}))
+        self.assertEqual(tool.main(['--site', str(self.site), '--release', str(self.release)]), 0)
+        self.assertIn('> Alpha 28 is available for Linux. Linux only from now on', (self.site / 'README.md').read_text())
 
     def test_dry_run_and_guards(self):
         self.assertEqual(tool.main(['--site', str(self.site), '--release', str(self.release), '--dry-run']), 0)

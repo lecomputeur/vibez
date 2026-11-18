@@ -302,6 +302,16 @@ test('a Code project whose rules keep failing is retried only a few times by the
  assert.equal(p.byId.get('project-rules-text').textContent,messages.en.projectRulesUnavailable);
 });
 
+test('What\'s new carries the farewell: Windows and macOS read that updates end, and the button opens only the fixed official page',async()=>{
+ const missed={current:'4.0.0-beta.5',versions:[{version:'4.0.0-beta.5',date:'2026-11-18',changes:['Farewell.']}]};
+ const p=panel({answers:{whats_new_get:()=>missed}});await p.settle();await new Promise(r=>setTimeout(r,1600));
+ assert.equal(p.byId.get('whats-new-dialog').open,true);
+ assert.equal(p.byId.get('farewell-winmac').hidden,false,'the test runner is not a Linux desktop webview');assert.equal(p.byId.get('farewell-linux').hidden,true);
+ const html=fs.readFileSync(path.join(root,'standalone-ui/panel.html'),'utf8');
+ assert.match(html,/<section id="farewell"[^>]*>.*data-link="official" data-v4="farewellButton"/);
+ assert.match(fs.readFileSync(path.join(root,'desktop/src-tauri/src/app_links.rs'),'utf8'),/"official"=>"https:\/\/mistral\.ai\/products\/vibe\/"/);
+});
+
 test('after an update the panel opens once with every missed version, and Settings shows all versions again',async()=>{
  const missed={current:'4.0.0-beta.5',versions:[{version:'4.0.0-beta.5',date:'2026-11-20',changes:['Five.']},{version:'4.0.0-beta.4',date:'2026-11-18',changes:['Four a.','Four b.']}]};
  const all={current:'4.0.0-beta.5',versions:[...missed.versions,{version:'4.0.0-beta.3',changes:['Three.']}]};
@@ -348,7 +358,7 @@ test('Settings offers Report a problem, Share feedback and About, and links only
  const html=fs.readFileSync(path.join(root,'standalone-ui/panel.html'),'utf8'),rust=fs.readFileSync(path.join(root,'desktop/src-tauri/src/app_links.rs'),'utf8');
  assert.match(html,/© 2026 Le Computeur/,'the maker is named as in the licence');
  const links=[...html.matchAll(/data-link="([^"]+)"/g)].map(m=>m[1]);
- assert.deepEqual(links.sort(),['feedback','license','report','source','website']);
+ assert.deepEqual(links.sort(),['feedback','license','official','report','source','website']);
  for(const link of links)assert.ok(rust.includes('"'+link+'"=>"https://'),link+' is a fixed address in the app');
  for(const key of ['menuReport','menuFeedback','aboutTitle','aboutThanks'])for(const [code,d]of Object.entries(messages))assert.ok(d[key],code+':'+key);
 });
