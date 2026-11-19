@@ -16,6 +16,7 @@ import subprocess
 import urllib.request
 import xml.etree.ElementTree as ET
 from xml.sax.saxutils import escape
+NAMES = ('VibeZ 4 ', 'VibeZ V4 ')  # 4.0.0 and later; the Alphas and Betas before it
 
 ROOT=Path(__file__).resolve().parents[1]
 APP='nl.lecomputeur.vibez4.alpha'
@@ -152,7 +153,7 @@ def main():
     base=dependency_base(args,log) if args.legacy_indicators else None
     if base is not None and tree_digest(base)!=BASE_TREE_SHA:parser.error('Dependency base differs from the verified published Flatpak tree')
     version=run([binary,'--version'],log).strip()
-    if VERSION not in version or 'VibeZ V4 ' not in version:parser.error(f'Unexpected executable identity: {version}')
+    if VERSION not in version or not any(name in version for name in NAMES):parser.error(f'Unexpected executable identity: {version}')
 
     # Dynamic indicator libraries are copied from a hashed published dependency
     # base, not from this host. Preserve their original source/commit manifest.

@@ -19,6 +19,7 @@ import sys
 import tarfile
 import tempfile
 import time
+NAMES = ('VibeZ 4 ', 'VibeZ V4 ')  # 4.0.0 and later; the Alphas and Betas before it
 
 BASE = Path(__file__).resolve().parents[1]
 APP = 'nl.lecomputeur.vibez4.alpha'
@@ -44,7 +45,7 @@ def run(command, **kwargs):
 
 def version(executable, expected, env):
     found = run([executable, '--version'], env=env, text=True, timeout=20)
-    require('VibeZ V4 ' in found and expected in found, 'Installed app reports an unexpected Alpha version')
+    require(any(name in found for name in NAMES) and expected in found, 'Installed app reports an unexpected Alpha version')
     return found.strip()
 
 
@@ -331,7 +332,7 @@ def verify_unix(args):
                 owned.update(linux_fixture_processes(work))
                 if digest(executable) == digest(args.to_package):
                     tree = run(['xwininfo', '-root', '-tree'], env=env, text=True)
-                    if 'VibeZ V4 ' in tree and expected in tree:
+                    if any(name in tree for name in NAMES) and expected in tree:
                         (work / 'updated-window-tree.txt').write_text(tree)
                         actual_window = True; break
             elif not (staged / 'release.json').exists():

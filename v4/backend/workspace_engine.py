@@ -70,7 +70,7 @@ MAX_CONTEXT = 650_000
 MAX_LINE = 1_200_000
 API = "https://api.mistral.ai/v1"
 CONSOLE = "https://console.mistral.ai"
-VERSION = "4.0.0-beta.5"
+VERSION = "4.0.0"
 MCP_SERVER_NAME = "VibeZ-local-files"
 WORKSPACE_SOURCE = "Local MCP server · VibeZ workspace"
 # Protocol text can also be shown by Mistral, outside VibeZ's translated local

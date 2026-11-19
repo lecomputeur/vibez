@@ -22,6 +22,7 @@ CAPTURE=r'''
 import gi,sys
 gi.require_version('Gdk','3.0');gi.require_version('GdkX11','3.0')
 from gi.repository import Gdk,GdkX11
+NAMES = ('VibeZ 4 ', 'VibeZ V4 ')  # 4.0.0 and later; the Alphas and Betas before it
 display=Gdk.Display.get_default();assert display is not None
 window=GdkX11.X11Window.foreign_new_for_display(display,int(sys.argv[1],16));assert window is not None
 width,height=window.get_width(),window.get_height()
@@ -116,7 +117,7 @@ def main():
             owned.update(descendants(native.pid))
             assert native.poll() is None,'AppImage exited before its window appeared; see native.log'
             tree=subprocess.check_output(['/usr/bin/xwininfo','-root','-tree'],env=env,text=True)
-            match=next((line for line in tree.splitlines() if 'VibeZ V4 ' in line and args.version in line),None)
+            match=next((line for line in tree.splitlines() if any(name in line for name in NAMES) and args.version in line),None)
             if match:
                 window=re.search(r'0x[0-9a-fA-F]+',match)[0];(work/'private-window-tree.txt').write_text(tree);break
             time.sleep(.15)

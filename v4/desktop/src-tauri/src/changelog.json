@@ -1,6 +1,16 @@
 {
  "versions": [
   {
+   "version": "4.0.0",
+   "date": "2026-11-18",
+   "changes": [
+    "VibeZ 4 is final. The name in titles, the menu and the packages is now VibeZ 4; your settings, linked folders and updates carry over.",
+    "VibeZ works on Linux systems with a non-standard file layout, such as NixOS: it finds Python on its own and no longer stops at startup over a safe-output check.",
+    "Choose folder and New workspace open your desktop's own file dialog, starting at the last folder you used or your home folder.",
+    "When Mistral is slow to answer the first time, the rules of a Code project are fetched again by themselves."
+   ]
+  },
+  {
    "version": "4.0.0-beta.5",
    "date": "2026-11-18",
    "changes": [

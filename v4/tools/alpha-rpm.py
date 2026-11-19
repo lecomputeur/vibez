@@ -20,8 +20,11 @@ BINARY = 'vibez4-alpha'
 PRODUCT = 'VibeZ V4 Alpha'  # install path; unchanged so updates keep working
 LABEL = 'VibeZ 4'
 from alpha_linux_payload import version as alpha_version, updater
+NAMES = ('VibeZ 4 ', 'VibeZ V4 ')  # 4.0.0 and later; the Alphas and Betas before it
 VERSION = alpha_version()
-NUMERIC_VERSION, PRERELEASE = VERSION.split('-', 1)  # PRERELEASE: alpha.31, beta.1
+NUMERIC_VERSION, _, PRERELEASE = VERSION.partition('-')  # PRERELEASE: alpha.31, beta.1, or empty for 4.0.0
+# RPM release 0.beta.5 sorts before 1, so 4.0.0-1 updates every Alpha and Beta (the updater expects exactly this).
+RPM_RELEASE = '0.' + PRERELEASE if PRERELEASE else '1'
 BACKEND = Path('usr/lib') / PRODUCT / 'backend'
 BACKEND_FILES = {'workspace_engine.py', 'standalone_engine.py', 'web_connector.py',
                  'automatic_connector.py', 'project_import.py', 'multi_workspace.py', 'capfs.py','document_reader.py','document_writer.py'}
@@ -53,7 +56,7 @@ def main():
     assert binary.is_file() and not binary.is_symlink()
     assert APP_ID.encode() in binary.read_bytes(), 'Missing independent application identity'
     version = subprocess.check_output([str(binary), '--version'], text=True, timeout=10)
-    assert VERSION in version and 'VibeZ V4 ' in version, version
+    assert VERSION in version and any(name in version for name in NAMES), version
     resources = payload / BACKEND
     assert resources.is_dir()
     assert {p.name for p in resources.iterdir() if p.is_file()} == BACKEND_FILES
@@ -120,7 +123,7 @@ def main():
 %global __os_install_post %{{nil}}
 Name: {BINARY}
 Version: {NUMERIC_VERSION}
-Release: 0.{PRERELEASE}
+Release: {RPM_RELEASE}
 Summary: Mistral desktop client with local project folders (Alpha)
 License: MIT
 URL: https://github.com/lecomputeur/vibez
@@ -188,7 +191,7 @@ cp -a . %{{buildroot}}/
     shutil.copy2(rpm, output)
     report = {
         'version': VERSION, 'package': str(output), 'rpm_name': BINARY,
-        'rpm_version_release': f'{NUMERIC_VERSION}-0.{PRERELEASE}', 'sha256': digest(output),
+        'rpm_version_release': f'{NUMERIC_VERSION}-{RPM_RELEASE}', 'sha256': digest(output),
         'source_binary_sha256': digest(binary), 'build_directory': str(work),
         'independent_identity': APP_ID, 'only_allowlisted_update_service_hooks': True,
         'no_conflicts_or_obsoletes': True, 'automatic_elf_requires': required,

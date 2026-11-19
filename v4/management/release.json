@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "version": "4.0.0-beta.5",
+  "version": "4.0.0",
   "stage": "development",
   "installed_version": "4.0.0-alpha.26",
-  "published_version": "4.0.0-beta.5",
+  "published_version": "4.0.0",
   "stable_version": "3.0.9",
   "channel": "v4-alpha",
   "source_private": false,
@@ -46,10 +46,11 @@
     "macos-arm64"
   ],
   "changes": [
-    "Mistral now has its own desktop app, Vibe Desktop, for Windows and macOS. What's new opens once after this update with a farewell and a Get Vibe Desktop button.",
-    "This is the last VibeZ V4 for Windows and macOS. On those systems VibeZ stops checking for updates; the Microsoft Store copy keeps its Store updates.",
-    "VibeZ for Linux stays supported, with fixes, until the official Vibe Desktop for Linux is available."
+    "VibeZ 4 is final. The name in titles, the menu and the packages is now VibeZ 4; your settings, linked folders and updates carry over.",
+    "VibeZ works on Linux systems with a non-standard file layout, such as NixOS: it finds Python on its own and no longer stops at startup over a safe-output check.",
+    "Choose folder and New workspace open your desktop's own file dialog, starting at the last folder you used or your home folder.",
+    "When Mistral is slow to answer the first time, the rules of a Code project are fetched again by themselves."
   ],
   "related_issues": [],
-  "download_highlights": "Beta 5 says goodbye: Mistral now has its own desktop app, Vibe Desktop. It is the last VibeZ V4 for Windows and macOS; VibeZ for Linux stays supported until the official Linux app is available."
+  "download_highlights": "VibeZ 4 is final: Mistral Work and Code with your own folders on Linux, every change shown for your approval. It also works on systems such as NixOS and uses your desktop's own file dialog."
 }

@@ -21,7 +21,7 @@ from urllib.parse import urlsplit
 BASE = Path(__file__).resolve().parents[1]
 DESKTOP = BASE / 'desktop'
 VERSION = json.loads((DESKTOP / 'package.json').read_text())['version']
-assert re.fullmatch(r'4\.[0-9]+\.[0-9]+-(alpha|beta)\.[1-9][0-9]*', VERSION)
+assert re.fullmatch(r'4\.[0-9]+\.[0-9]+(-(alpha|beta)\.[1-9][0-9]*)?', VERSION)
 TARGETS = {'windows-x64': 'x86_64-pc-windows-msvc', 'macos-x64': 'x86_64-apple-darwin', 'macos-arm64': 'aarch64-apple-darwin'}
 
 

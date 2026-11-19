@@ -36,7 +36,7 @@ def main():
     assert platform.machine()=='x86_64','This Alpha packaging path is Linux x64 only'
     log=args.deployment_log.read_text();assert '[gstreamer/stdout] -- Deploying files into AppDir root directory --' in log
     assert f'ERROR: Could not find suitable icon for Icon entry: {APP_ID}' in log and 'Failed to run plugin: gstreamer (exit code: 1)' in log,'Only the known post-deployment icon failure can resume here'
-    desktop=app/'usr/share/applications/VibeZ V4 Alpha.desktop';text=desktop.read_text();assert f'Icon={APP_ID}\n' in text and 'Exec=vibez4-alpha\n' in text and 'Name=VibeZ V4 Beta\n' in text
+    desktop=app/'usr/share/applications/VibeZ V4 Alpha.desktop';text=desktop.read_text();assert f'Icon={APP_ID}\n' in text and 'Exec=vibez4-alpha\n' in text and 'Name=VibeZ 4\n' in text
     icon=app/f'usr/share/icons/hicolor/512x512/apps/{APP_ID}.png';icon.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(BASE/'desktop/src-tauri/icons/icon.png',icon);icon.chmod(0o644)
     assert icon.read_bytes()==(BASE/'desktop/src-tauri/icons/icon.png').read_bytes()
     root_icon=app/f'{APP_ID}.png';shutil.copyfile(icon,root_icon);root_icon.chmod(0o644)

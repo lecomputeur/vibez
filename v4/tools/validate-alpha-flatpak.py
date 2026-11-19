@@ -30,6 +30,7 @@ import gi,json,os,tempfile,importlib.util
 from pathlib import Path
 gi.require_version('Gtk','3.0')
 from gi.repository import Gtk,GLib
+NAMES = ('VibeZ 4 ', 'VibeZ V4 ')  # 4.0.0 and later; the Alphas and Betas before it
 PRIVATE_RUNTIME=__PRIVATE_RUNTIME__
 def namespace_path(raw):
  # Only this test has a nested private XDG_RUNTIME_DIR. Flatpak maps its
@@ -168,10 +169,10 @@ def launch_exported_desktop(env):
     deadline=time.monotonic()+3
     while time.monotonic()<deadline:
         before=subprocess.check_output(['xwininfo','-root','-tree'],env=env,text=True)
-        if 'VibeZ V4 ' not in before:break
+        if not any(name in before for name in NAMES):break
         while GLib.MainContext.default().iteration(False):pass
         time.sleep(.05)
-    assert 'VibeZ V4 ' not in before,'Previous direct-launch window was not closed before desktop launch'
+    assert not any(name in before for name in NAMES),'Previous direct-launch window was not closed before desktop launch'
     pids=[];statuses={}
     def setup_child(*_):os.setsid()
     def remember_pid(_desktop,pid,*_):pids.append(int(pid))
@@ -199,10 +200,10 @@ def launch_exported_desktop(env):
             tree='';deadline=time.monotonic()+20
             while time.monotonic()<deadline and alive(pid):
                 tree=subprocess.check_output(['xwininfo','-root','-tree'],env=env,text=True)
-                if 'VibeZ V4 ' in tree:break
+                if any(name in tree for name in NAMES):break
                 while GLib.MainContext.default().iteration(False):pass
                 time.sleep(.1)
-            assert 'VibeZ V4 ' in tree and alive(pid),'Exported desktop entry did not open Alpha in private Xvfb'
+            assert any(name in tree for name in NAMES) and alive(pid),'Exported desktop entry did not open Alpha in private Xvfb'
             (WORK/'desktop-private-x11-tree.txt').write_text(tree)
             deadline=time.monotonic()+3
             while time.monotonic()<deadline:
@@ -264,16 +265,16 @@ def worker():
             time.sleep(.02)
         common=['flatpak','run','--user','--nosocket=wayland','--socket=x11','--nosocket=pulseaudio','--nodevice=dri','--no-a11y-bus','--env=GDK_BACKEND=x11','--env=LIBGL_ALWAYS_SOFTWARE=1','--env=WEBKIT_DISABLE_COMPOSITING_MODE=1']
         version=run([*common,APP,'--version'],os.environ.copy(),WORK/'version.log')
-        assert 'VibeZ V4 ' in version and VERSION in version,version
+        assert any(name in version for name in NAMES) and VERSION in version,version
         gui_log=(WORK/'gui.log').open('w');logs.append(gui_log)
         gui=subprocess.Popen([*common,APP],env=os.environ.copy(),stdout=gui_log,stderr=subprocess.STDOUT,start_new_session=True);processes.append(gui)
         tree='';deadline=time.monotonic()+20
         while time.monotonic()<deadline and gui.poll() is None:
             tree=subprocess.check_output(['xwininfo','-root','-tree'],env=os.environ.copy(),text=True)
-            if 'VibeZ V4 ' in tree:break
+            if any(name in tree for name in NAMES):break
             while GLib.MainContext.default().iteration(False):pass
             time.sleep(.15)
-        assert 'VibeZ V4 ' in tree and gui.poll() is None,'No Alpha window in private Xvfb'
+        assert any(name in tree for name in NAMES) and gui.poll() is None,'No Alpha window in private Xvfb'
         (WORK/'private-x11-tree.txt').write_text(tree)
         deadline=time.monotonic()+4
         while time.monotonic()<deadline:
