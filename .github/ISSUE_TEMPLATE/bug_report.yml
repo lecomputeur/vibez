@@ -6,17 +6,19 @@ body:
   - type: markdown
     attributes:
       value: |
+        VibeZ for Linux is still supported: Linux reports are read and fixed where possible. VibeZ for Windows and macOS is no longer updated; please use the official [Vibe Desktop](https://mistral.ai/products/vibe/) there.
+
         Thank you for helping improve VibeZ. You do not need to know whether the cause is VibeZ or Mistral before reporting it.
         English is helpful, but you are welcome to describe the problem in your own language.
 
-        [Ask a question](https://github.com/lecomputeur/vibez/discussions/categories/q-a) · [Suggest an idea](https://github.com/lecomputeur/vibez/discussions/categories/ideas) · [Help test V4](https://github.com/lecomputeur/vibez/discussions/56)
+        [Ask a question](https://github.com/lecomputeur/vibez/discussions/categories/q-a) · [Suggest an idea](https://github.com/lecomputeur/vibez/discussions/categories/ideas)
 
   - type: input
     id: version
     attributes:
       label: Exact VibeZ version
       description: Copy the version from Settings or the window title. Older versions may show it under About.
-      placeholder: "3.0.9 or 4.0.0-alpha.<number>"
+      placeholder: "4.0.0 or 3.2.0"
     validations:
       required: true
 
