@@ -1,15 +1,14 @@
 # Help improve VibeZ
 
-Testing, clear bug reports, wording suggestions and code all help. You do not need to be a programmer.
+VibeZ for Linux is still supported, so Linux bug reports are the most useful help right now. Testing, wording suggestions and code help too. You do not need to be a programmer.
 
-**Start here:** [Contributor guide](https://lecomputeur.github.io/vibez/contribute.html) · [Current test discussion](https://github.com/lecomputeur/vibez/discussions/56) · [Release progress](https://github.com/lecomputeur/vibez/milestones)
+**Start here:** [Contributor guide](https://lecomputeur.github.io/vibez/contribute.html) · [Report a Linux problem](https://github.com/lecomputeur/vibez/issues/new/choose) · [Release progress](https://github.com/lecomputeur/vibez/milestones)
 
 | I want to… | Go here |
 |---|---|
 | Report something broken | [Open a bug report](https://github.com/lecomputeur/vibez/issues/new/choose) |
 | Suggest a feature or discuss a change | [Ideas](https://github.com/lecomputeur/vibez/discussions/categories/ideas) |
 | Ask how something works | [Questions and answers](https://github.com/lecomputeur/vibez/discussions/categories/q-a) |
-| Help test V4 Beta | [The V4 testing discussion](https://github.com/lecomputeur/vibez/discussions/56) |
 | Improve a translation | [Start a wording discussion](https://github.com/lecomputeur/vibez/discussions/new?category=ideas) with the language, current wording and your suggestion |
 | Contribute code or documentation | Read [Code and documentation](#code-and-documentation), then [open a pull request](https://github.com/lecomputeur/vibez/compare) |
 

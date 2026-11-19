@@ -9,6 +9,6 @@ contact_links:
   - name: Ideas and feature requests
     url: https://github.com/lecomputeur/vibez/discussions/categories/ideas
     about: Suggest an improvement or discuss an idea before starting work.
-  - name: V4 Alpha testing and general feedback
-    url: https://github.com/lecomputeur/vibez/discussions/56
-    about: Find the Alpha testing conversation. For a specific bug, use the bug report form or its existing issue.
+  - name: VibeZ for Linux carries on
+    url: https://lecomputeur.github.io/vibez/linux.html
+    about: VibeZ 4.0.0 and 3.2.0 for Linux stay supported until the official Linux app arrives. Use the bug report form for any Linux problem.

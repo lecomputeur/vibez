@@ -5,11 +5,12 @@
 <h1>VibeZ</h1>
 <h2>Mistral Vibe has its own desktop app</h2>
 
-<p><strong>VibeZ is winding down.</strong></p>
+<p><strong>VibeZ is winding down on Windows and macOS. On Linux, VibeZ carries on.</strong></p>
 
 <p>
 <a href="https://mistral.ai/products/vibe/"><strong>Get the official Vibe Desktop</strong></a> ·
 <a href="https://lecomputeur.github.io/vibez/linux.html">VibeZ for Linux</a> ·
+<a href="https://github.com/lecomputeur/vibez/issues/new/choose">Report a Linux problem</a> ·
 <a href="https://github.com/lecomputeur/vibez/releases">Release archive</a>
 </p>
 
@@ -20,7 +21,7 @@ On 17 November 2026 Mistral released **Vibe Desktop** for macOS and Windows: Wor
 ## What happens now
 
 - **Windows and macOS:** use the official [Vibe Desktop](https://mistral.ai/products/vibe/). VibeZ for Windows and Mac is no longer developed and receives no further updates. The existing downloads stay available in the [release archive](https://github.com/lecomputeur/vibez/releases).
-- **Linux:** Mistral says Linux support is coming soon. Until the official Linux app is available, VibeZ keeps supporting Linux: VibeZ 3.2.0 and VibeZ 4, with fixes for [reported problems](https://github.com/lecomputeur/vibez/issues/new/choose).
+- **Linux: VibeZ carries on.** Mistral says Linux support is coming soon. Until the official Linux app is available, VibeZ 4.0.0 and VibeZ 3.2.0 stay fully supported and keep getting updates. Something not working? [Report a Linux problem](https://github.com/lecomputeur/vibez/issues/new/choose): every report is read and fixed where possible.
 - **The code:** stays on GitHub under the MIT license. Development is winding down; no new features are planned.
 
 ## Thank you
