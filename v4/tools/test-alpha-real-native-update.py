@@ -23,7 +23,7 @@ NAMES = ('VibeZ 4 ', 'VibeZ V4 ')  # 4.0.0 and later; the Alphas and Betas befor
 
 BASE = Path(__file__).resolve().parents[1]
 APP = 'nl.lecomputeur.vibez4.alpha'
-VERSION = re.compile(r'^4\.\d+\.\d+-(?:alpha|beta)\.[1-9]\d*$')
+VERSION = re.compile(r'^4\.\d+\.\d+(?:-(?:alpha|beta)\.[1-9]\d*)?$')
 PROTECTED = ('GH_TOKEN', 'GITHUB_TOKEN', 'MAC_CERTIFICATE_P12_BASE64', 'MAC_CERTIFICATE_PASSWORD',
              'APPLE_API_KEY_P8_BASE64', 'APPLE_API_KEY_ID', 'APPLE_API_ISSUER', 'APPLE_TEAM_ID',
              'TAURI_SIGNING_PRIVATE_KEY', 'TAURI_SIGNING_PRIVATE_KEY_PATH', 'TAURI_SIGNING_PRIVATE_KEY_PASSWORD')
