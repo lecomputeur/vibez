@@ -61,7 +61,7 @@ class ManagementTests(unittest.TestCase):
         p=self.root/'desktop/src-tauri/tauri.conf.json';value=json.loads(p.read_text());value['identifier']='nl.lecomputeur.vibez3';p.write_text(json.dumps(value))
         with self.assertRaisesRegex(m.ReleaseError,'identity'):m.check(self.root)
     def test_future_version_is_strictly_next_alpha(self):
-        for version in [self.current,'4.0.0-alpha.14','4.0.0-alpha.17','4.0.1','4.0.0-beta.4','4.0.0-alpha.016','3.0.10']:
+        for version in [self.current,'4.0.0-alpha.14','4.0.0-alpha.17','4.0.2','4.0.0-beta.4','4.0.0-alpha.016','3.0.10']:
             with self.subTest(version=version):
                 with self.assertRaises(m.ReleaseError):m.plan(self.root,version,self.base/'invalid')
                 self.assertFalse((self.base/'invalid').exists())
