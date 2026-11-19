@@ -4,5 +4,5 @@ mode=archive-z2
 indexed-deltas=true
 
 [flatpak]
-title=VibeZ V4 Beta
+title=VibeZ 4
 default-branch=alpha
