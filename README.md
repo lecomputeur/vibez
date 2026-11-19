@@ -20,7 +20,7 @@ On 17 November 2026 Mistral released **Vibe Desktop** for macOS and Windows: Wor
 ## What happens now
 
 - **Windows and macOS:** use the official [Vibe Desktop](https://mistral.ai/products/vibe/). VibeZ for Windows and Mac is no longer developed and receives no further updates. The existing downloads stay available in the [release archive](https://github.com/lecomputeur/vibez/releases).
-- **Linux:** Mistral says Linux support is coming soon. Until the official Linux app is available, VibeZ keeps supporting Linux: VibeZ 3.2.0 and the V4 Beta, with fixes for [reported problems](https://github.com/lecomputeur/vibez/issues/new/choose).
+- **Linux:** Mistral says Linux support is coming soon. Until the official Linux app is available, VibeZ keeps supporting Linux: VibeZ 3.2.0 and VibeZ 4, with fixes for [reported problems](https://github.com/lecomputeur/vibez/issues/new/choose).
 - **The code:** stays on GitHub under the MIT license. Development is winding down; no new features are planned.
 
 ## Thank you
@@ -32,9 +32,9 @@ Thank you also to [wdeschepper-btb](https://github.com/wdeschepper-btb), [punk12
 It has been a true pleasure.
 — Le Computeur
 
-## VibeZ V4 Beta for Linux
+## VibeZ 4 for Linux
 
-V4 lets Mistral Work and Code use local folders you choose, with every file change shown for your approval. It installs next to VibeZ 3 with its own profile and settings.
+VibeZ 4 lets Mistral Work and Code use local folders you choose, with every file change shown for your approval. It installs next to VibeZ 3 with its own profile and settings.
 
 > VibeZ 4.0.0 is available for Linux. VibeZ 4 is final: Mistral Work and Code with your own folders on Linux, every change shown for your approval. It also works on systems such as NixOS and uses your desktop's own file dialog.
 >
