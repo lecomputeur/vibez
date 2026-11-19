@@ -52,10 +52,14 @@ impl Fixture {
         let file = root.join("candidate.AppImage");
         fs::write(&file, &payload).unwrap();
         let mut next = Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
-        // The next release of the same stage: alpha.N -> alpha.N+1, beta.N -> beta.N+1.
-        let (stage, number) = next.pre.as_str().split_once('.').unwrap();
-        let number = number.parse::<u32>().unwrap() + 1;
-        next.pre = semver::Prerelease::new(&format!("{stage}.{number}")).unwrap();
+        // The next release of the same stage: alpha.N -> alpha.N+1, beta.N -> beta.N+1,
+        // and a final 4.0.N -> 4.0.N+1.
+        if let Some((stage, number)) = next.pre.as_str().split_once('.') {
+            let number = number.parse::<u32>().unwrap() + 1;
+            next.pre = semver::Prerelease::new(&format!("{stage}.{number}")).unwrap();
+        } else {
+            next.patch += 1;
+        }
         let cli =
             Path::new(env!("CARGO_MANIFEST_DIR")).join("../node_modules/@tauri-apps/cli/tauri.js");
         let private = root.join("throwaway.key");
@@ -270,9 +274,12 @@ fn restored_package_must_be_signed_for_the_exact_announced_alpha_version() {
     let (_app, updater) = fixture.updater();
     let mut raw = fixture.manifest();
     let mut later = fixture.next.clone();
-    let (stage, number) = later.pre.as_str().split_once('.').unwrap();
-    let number = number.parse::<u32>().unwrap() + 1;
-    later.pre = semver::Prerelease::new(&format!("{stage}.{number}")).unwrap();
+    if let Some((stage, number)) = later.pre.as_str().split_once('.') {
+        let number = number.parse::<u32>().unwrap() + 1;
+        later.pre = semver::Prerelease::new(&format!("{stage}.{number}")).unwrap();
+    } else {
+        later.patch += 1;
+    }
     raw["version"] = json!(later.to_string());
     raw["platforms"]["linux-x86_64-appimage"]["url"] = json!(format!(
         "https://github.com/lecomputeur/vibez/releases/download/v{0}/VibeZ-{0}-Linux-x64.AppImage",
