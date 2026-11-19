@@ -13,6 +13,7 @@ import signal
 import subprocess
 import tempfile
 import time
+NAMES = ('VibeZ 4 ', 'VibeZ V4 ')  # 4.0.0 and later; the Alphas and Betas before it
 
 assert Path('/.dockerenv').exists(), 'Only run inside the isolated Docker test container'
 assert os.environ.get('VIBEZ_ALPHA_CONTAINER_GUI_TEST')=='1'
@@ -57,7 +58,7 @@ with tempfile.TemporaryDirectory(prefix='vibez-alpha-rpm-gui-') as temp:
             for _ in range(100):
                 assert native.poll() is None, 'Native app exited during startup: '+(root/'native.log').read_text()[-3000:]
                 raw=subprocess.check_output(['xwininfo','-root','-tree'],text=True,env=env)
-                line=next((line for line in raw.splitlines() if 'VibeZ V4 ' in line and '4.0.0-alpha.3' in line),None)
+                line=next((line for line in raw.splitlines() if any(name in line for name in NAMES) and '4.0.0-alpha.3' in line),None)
                 if line:
                     window=re.search(r'0x[0-9a-fA-F]+',line)[0]
                     break

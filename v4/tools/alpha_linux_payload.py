@@ -1,6 +1,7 @@
 """Shared Alpha-only Linux packaging checks; no install or service activation."""
 import hashlib, importlib.util, json, re, shutil, subprocess
 from pathlib import Path
+NAMES = ('VibeZ 4 ', 'VibeZ V4 ')  # 4.0.0 and later; the Alphas and Betas before it
 BASE=Path(__file__).resolve().parents[1]
 APP_ID='nl.lecomputeur.vibez4.alpha'; BINARY='vibez4-alpha'; PRODUCT='VibeZ V4 Alpha'
 BACKEND=Path('usr/lib')/PRODUCT/'backend'
@@ -28,7 +29,7 @@ def check_payload(payload,expected=None):
     assert binary.is_file() and not binary.is_symlink(),'Missing Alpha binary'
     assert APP_ID.encode() in binary.read_bytes(),'Missing independent Alpha application identity'
     result=subprocess.check_output([str(binary),'--version'],text=True,timeout=10)
-    assert value in result and 'VibeZ V4 ' in result,result
+    assert value in result and any(name in result for name in NAMES),result
     resources=payload/BACKEND;assert resources.is_dir()
     assert {p.name for p in resources.iterdir() if p.is_file()}==BACKEND_FILES,'All backend modules must be bundled'
     assert (resources/'vendor/cloudflared-linux-amd64').is_file()

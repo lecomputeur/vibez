@@ -19,10 +19,11 @@ import sys
 import tarfile
 import tempfile
 import time
+NAMES = ('VibeZ 4 ', 'VibeZ V4 ')  # 4.0.0 and later; the Alphas and Betas before it
 
 BASE = Path(__file__).resolve().parents[1]
 APP = 'nl.lecomputeur.vibez4.alpha'
-VERSION = re.compile(r'^4\.\d+\.\d+-(?:alpha|beta)\.[1-9]\d*$')
+VERSION = re.compile(r'^4\.\d+\.\d+(?:-(?:alpha|beta)\.[1-9]\d*)?$')
 PROTECTED = ('GH_TOKEN', 'GITHUB_TOKEN', 'MAC_CERTIFICATE_P12_BASE64', 'MAC_CERTIFICATE_PASSWORD',
              'APPLE_API_KEY_P8_BASE64', 'APPLE_API_KEY_ID', 'APPLE_API_ISSUER', 'APPLE_TEAM_ID',
              'TAURI_SIGNING_PRIVATE_KEY', 'TAURI_SIGNING_PRIVATE_KEY_PATH', 'TAURI_SIGNING_PRIVATE_KEY_PASSWORD')
@@ -44,7 +45,7 @@ def run(command, **kwargs):
 
 def version(executable, expected, env):
     found = run([executable, '--version'], env=env, text=True, timeout=20)
-    require('VibeZ V4 ' in found and expected in found, 'Installed app reports an unexpected Alpha version')
+    require(any(name in found for name in NAMES) and expected in found, 'Installed app reports an unexpected Alpha version')
     return found.strip()
 
 
@@ -331,7 +332,7 @@ def verify_unix(args):
                 owned.update(linux_fixture_processes(work))
                 if digest(executable) == digest(args.to_package):
                     tree = run(['xwininfo', '-root', '-tree'], env=env, text=True)
-                    if 'VibeZ V4 ' in tree and expected in tree:
+                    if any(name in tree for name in NAMES) and expected in tree:
                         (work / 'updated-window-tree.txt').write_text(tree)
                         actual_window = True; break
             elif not (staged / 'release.json').exists():

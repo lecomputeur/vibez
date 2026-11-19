@@ -11,7 +11,7 @@ BASE = Path(__file__).resolve().parents[2]
 class ReleaseIdentityTests(unittest.TestCase):
     def test_native_frontend_backend_and_mcp_versions_agree(self):
         expected = json.loads((BASE/'desktop/package.json').read_text())['version']
-        self.assertRegex(expected, r'^4\.\d+\.\d+-(alpha|beta)\.[1-9]\d*$')
+        self.assertRegex(expected, r'^4\.\d+\.\d+(-(alpha|beta)\.[1-9]\d*)?$')
         native = json.loads((BASE/'desktop/src-tauri/tauri.conf.json').read_text())
         self.assertEqual(native['version'], expected)
         cargo = (BASE/'desktop/src-tauri/Cargo.toml').read_text()
