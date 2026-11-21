@@ -294,6 +294,10 @@ for(const mode of ['website-fixture','unguarded-inactive','unguarded-work-projec
   // Chromium/Safari. It is not a model node or an uploaded image. Count it
   // separately; any other DOM image is still a failure in a text-only test.
   assert(snapshot.domImages.every(n=>n.className==='ProseMirror-separator'&&n.src===null&&n.alt===''),JSON.stringify({mode,turn,snapshot}));separators+=snapshot.domImages.length;
+  // The standard model-based HTML serializer also excludes the cursor
+  // helper. This does not assume which serializer the hosted Mistral uses.
+  const serializedImages=await evaluate('(async()=>{const {DOMSerializer}=await import("prosemirror-model");const root=document.createElement("div");root.append(DOMSerializer.fromSchema(view.state.schema).serializeFragment(view.state.doc.content));return root.querySelectorAll("img").length})()');
+  assert.equal(serializedImages,0);
   assert.equal(snapshot.references.length,linked?1:0);for(const ref of snapshot.references)assert.equal(ref.subType,'connection');
   await clickSend();
   const sent=await evaluate('window.typedProbe.submitted.at(-1)');let imageCount=0,text='';const walk=n=>{if(n.type==='image')imageCount++;if(n.type==='text')text+=n.text;for(const c of n.content||[])walk(c)};walk(sent);
@@ -301,7 +305,7 @@ for(const mode of ['website-fixture','unguarded-inactive','unguarded-work-projec
  }
  const measured=await evaluate('({trustedInputs:window.typedProbe.trustedInputs,pastedFiles:window.typedProbe.pastedFiles,messages:window.typedProbe.submitted.length})');
  assert(measured.trustedInputs>=messages.length);assert.equal(measured.pastedFiles,0);assert.equal(measured.messages,messages.length);
- typedRuns.push({mode,...measured,typed_text_preserved:true,image_nodes_at_submit:0,decorative_editor_separators_observed:separators});
+ typedRuns.push({mode,...measured,typed_text_preserved:true,image_nodes_at_submit:0,standard_html_serialized_images:0,decorative_editor_separators_observed:separators});
 });
 fs.writeFileSync(path.join(out,'typed-messages.json'),JSON.stringify({passed:true,scope:'Offline real-ProseMirror editor document and trusted text input; not a live Mistral request or its network serializer',runs:typedRuns},null,2)+'\n');
 
