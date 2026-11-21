@@ -68,6 +68,9 @@ pub fn sync(app:&tauri::AppHandle,view:&Webview,url:&url::Url,project:Option<&pr
     if !projects::origin(url){return;}
     let verified=project.filter(|p|official_web::confirmed_project(app,url,&p.id));
     let payload=app.state::<ComposerState>().0.lock().map(|s|s.payload(verified.map(|p|p.id.as_str()),url)).unwrap_or(Value::Null);
+    let notice=serde_json::to_string(&classic_language::text(app,"emptyClipboardAttachment")).expect("attachment notice");
+    let guard=include_str!("composer_attachments.js").replace("__VIBEZ_EMPTY_ATTACHMENT_MESSAGE__",&notice);
+    let _=view.eval(guard);
     let source=include_str!("connector_mention.js").replace("__VIBEZ_CONNECTOR_CONTEXT__",&payload.to_string());
     let _=view.eval(source);
 }

@@ -305,7 +305,8 @@
     "farewellBody": "Mistral heeft Vibe Desktop uitgebracht, de officiële app voor macOS en Windows. VibeZ was een tijdelijke vervanger voor die app en wordt nu afgebouwd. Bedankt dat je VibeZ gebruikte!",
     "farewellWinMac": "VibeZ voor Windows en Mac krijgt geen updates meer. We raden je aan over te stappen op de officiële app.",
     "farewellButton": "Vibe Desktop downloaden",
-    "farewellLinux": "VibeZ voor Linux blijft ondersteund tot de officiële Linux-app beschikbaar is."
+    "farewellLinux": "VibeZ voor Linux blijft ondersteund tot de officiële Linux-app beschikbaar is.",
+    "emptyClipboardAttachment": "De geplakte inhoud bevatte een lege afbeelding of link. Controleer je bericht en voeg het bestand zo nodig opnieuw toe."
   },
   "en": {
     "localFiles": "Local files",
@@ -613,7 +614,8 @@
     "farewellBody": "Mistral has released Vibe Desktop, the official app for macOS and Windows. VibeZ was a stand-in for that app and is now winding down. Thank you for using VibeZ!",
     "farewellWinMac": "VibeZ for Windows and Mac receives no further updates. We recommend switching to the official app.",
     "farewellButton": "Get Vibe Desktop",
-    "farewellLinux": "VibeZ for Linux stays supported until the official Linux app is available."
+    "farewellLinux": "VibeZ for Linux stays supported until the official Linux app is available.",
+    "emptyClipboardAttachment": "An empty image or link was found in the pasted content. Check your message and attach the file again if needed."
   },
   "de": {
     "localFiles": "Lokale Dateien",
@@ -921,7 +923,8 @@
     "farewellBody": "Mistral hat Vibe Desktop veröffentlicht, die offizielle App für macOS und Windows. VibeZ war ein Ersatz für diese App und wird jetzt eingestellt. Danke, dass du VibeZ genutzt hast!",
     "farewellWinMac": "VibeZ für Windows und Mac erhält keine Updates mehr. Wir empfehlen, zur offiziellen App zu wechseln.",
     "farewellButton": "Vibe Desktop holen",
-    "farewellLinux": "VibeZ für Linux wird weiter unterstützt, bis die offizielle Linux-App verfügbar ist."
+    "farewellLinux": "VibeZ für Linux wird weiter unterstützt, bis die offizielle Linux-App verfügbar ist.",
+    "emptyClipboardAttachment": "Der eingefügte Inhalt enthielt ein leeres Bild oder einen leeren Link. Prüfen Sie Ihre Nachricht und hängen Sie die Datei bei Bedarf erneut an."
   },
   "fr": {
     "localFiles": "Fichiers locaux",
@@ -1229,7 +1232,8 @@
     "farewellBody": "Mistral a publié Vibe Desktop, l’application officielle pour macOS et Windows. VibeZ remplaçait cette application en attendant et s’arrête maintenant progressivement. Merci d’avoir utilisé VibeZ !",
     "farewellWinMac": "VibeZ pour Windows et Mac ne recevra plus de mises à jour. Nous vous conseillons de passer à l’application officielle.",
     "farewellButton": "Obtenir Vibe Desktop",
-    "farewellLinux": "VibeZ pour Linux reste pris en charge jusqu’à la sortie de l’application Linux officielle."
+    "farewellLinux": "VibeZ pour Linux reste pris en charge jusqu’à la sortie de l’application Linux officielle.",
+    "emptyClipboardAttachment": "Le contenu collé contenait une image ou un lien vide. Vérifiez votre message et joignez à nouveau le fichier si nécessaire."
   },
   "es": {
     "localFiles": "Archivos locales",
@@ -1537,7 +1541,8 @@
     "farewellBody": "Mistral ha lanzado Vibe Desktop, la aplicación oficial para macOS y Windows. VibeZ ocupaba el lugar de esa aplicación y ahora deja de desarrollarse poco a poco. ¡Gracias por usar VibeZ!",
     "farewellWinMac": "VibeZ para Windows y Mac ya no recibirá actualizaciones. Te recomendamos cambiar a la aplicación oficial.",
     "farewellButton": "Obtener Vibe Desktop",
-    "farewellLinux": "VibeZ para Linux seguirá teniendo soporte hasta que esté disponible la aplicación oficial para Linux."
+    "farewellLinux": "VibeZ para Linux seguirá teniendo soporte hasta que esté disponible la aplicación oficial para Linux.",
+    "emptyClipboardAttachment": "An empty image or link was found in the pasted content. Check your message and attach the file again if needed."
   },
   "it": {
     "localFiles": "File locali",
@@ -1845,7 +1850,8 @@
     "farewellBody": "Mistral ha rilasciato Vibe Desktop, l’app ufficiale per macOS e Windows. VibeZ ne faceva le veci e ora viene dismessa gradualmente. Grazie per aver usato VibeZ!",
     "farewellWinMac": "VibeZ per Windows e Mac non riceverà altri aggiornamenti. Ti consigliamo di passare all’app ufficiale.",
     "farewellButton": "Scarica Vibe Desktop",
-    "farewellLinux": "VibeZ per Linux resta supportata finché non sarà disponibile l’app ufficiale per Linux."
+    "farewellLinux": "VibeZ per Linux resta supportata finché non sarà disponibile l’app ufficiale per Linux.",
+    "emptyClipboardAttachment": "An empty image or link was found in the pasted content. Check your message and attach the file again if needed."
   },
   "pt": {
     "localFiles": "Arquivos locais",
@@ -2153,7 +2159,8 @@
     "farewellBody": "A Mistral lançou o Vibe Desktop, a aplicação oficial para macOS e Windows. O VibeZ substituía essa aplicação e o seu desenvolvimento vai agora terminar gradualmente. Obrigado por usar o VibeZ!",
     "farewellWinMac": "O VibeZ para Windows e Mac deixa de receber atualizações. Recomendamos que mude para a aplicação oficial.",
     "farewellButton": "Obter o Vibe Desktop",
-    "farewellLinux": "O VibeZ para Linux continua a ser suportado até a aplicação oficial para Linux estar disponível."
+    "farewellLinux": "O VibeZ para Linux continua a ser suportado até a aplicação oficial para Linux estar disponível.",
+    "emptyClipboardAttachment": "An empty image or link was found in the pasted content. Check your message and attach the file again if needed."
   },
   "pl": {
     "localFiles": "Pliki lokalne",
@@ -2461,7 +2468,8 @@
     "farewellBody": "Mistral wydał Vibe Desktop, oficjalną aplikację na macOS i Windows. VibeZ zastępował tę aplikację, a teraz jego rozwój jest stopniowo kończony. Dziękujemy za korzystanie z VibeZ!",
     "farewellWinMac": "VibeZ na Windows i Maca nie będzie już otrzymywać aktualizacji. Zalecamy przejście na oficjalną aplikację.",
     "farewellButton": "Pobierz Vibe Desktop",
-    "farewellLinux": "VibeZ dla systemu Linux pozostaje wspierany, dopóki nie pojawi się oficjalna aplikacja dla systemu Linux."
+    "farewellLinux": "VibeZ dla systemu Linux pozostaje wspierany, dopóki nie pojawi się oficjalna aplikacja dla systemu Linux.",
+    "emptyClipboardAttachment": "Wklejona treść zawierała pusty obraz lub link. Sprawdź wiadomość i w razie potrzeby ponownie załącz plik."
   },
   "uk": {
     "localFiles": "Локальні файли",
@@ -2769,7 +2777,8 @@
     "farewellBody": "Mistral випустила Vibe Desktop — офіційний застосунок для macOS і Windows. VibeZ замінював цей застосунок, а тепер його розвиток поступово завершується. Дякуємо, що користувалися VibeZ!",
     "farewellWinMac": "VibeZ для Windows і Mac більше не отримуватиме оновлень. Радимо перейти на офіційний застосунок.",
     "farewellButton": "Завантажити Vibe Desktop",
-    "farewellLinux": "VibeZ для Linux підтримуватиметься, доки не з’явиться офіційний застосунок для Linux."
+    "farewellLinux": "VibeZ для Linux підтримуватиметься, доки не з’явиться офіційний застосунок для Linux.",
+    "emptyClipboardAttachment": "An empty image or link was found in the pasted content. Check your message and attach the file again if needed."
   },
   "tr": {
     "localFiles": "Yerel dosyalar",
@@ -3077,7 +3086,8 @@
     "farewellBody": "Mistral, macOS ve Windows için resmi uygulama olan Vibe Desktop’ı yayımladı. VibeZ bu uygulamanın yerini tutuyordu ve artık geliştirilmesi kademeli olarak sona eriyor. VibeZ’i kullandığınız için teşekkürler!",
     "farewellWinMac": "Windows ve Mac için VibeZ artık güncelleme almayacak. Resmi uygulamaya geçmenizi öneririz.",
     "farewellButton": "Vibe Desktop’ı edinin",
-    "farewellLinux": "Linux için VibeZ, resmi Linux uygulaması çıkana kadar desteklenmeye devam edecek."
+    "farewellLinux": "Linux için VibeZ, resmi Linux uygulaması çıkana kadar desteklenmeye devam edecek.",
+    "emptyClipboardAttachment": "An empty image or link was found in the pasted content. Check your message and attach the file again if needed."
   },
   "zh-CN": {
     "localFiles": "本地文件",
@@ -3385,7 +3395,8 @@
     "farewellBody": "Mistral 发布了 Vibe Desktop，这是适用于 macOS 和 Windows 的官方应用。VibeZ 一直是该应用的替代品，现在将逐步停止开发。感谢你使用 VibeZ！",
     "farewellWinMac": "Windows 和 Mac 版 VibeZ 将不再获得更新。我们建议改用官方应用。",
     "farewellButton": "获取 Vibe Desktop",
-    "farewellLinux": "在官方 Linux 应用推出之前，Linux 版 VibeZ 将继续获得支持。"
+    "farewellLinux": "在官方 Linux 应用推出之前，Linux 版 VibeZ 将继续获得支持。",
+    "emptyClipboardAttachment": "An empty image or link was found in the pasted content. Check your message and attach the file again if needed."
   },
   "zh-TW": {
     "localFiles": "本機檔案",
@@ -3693,7 +3704,8 @@
     "farewellBody": "Mistral 發布了 Vibe Desktop，這是適用於 macOS 和 Windows 的官方應用程式。VibeZ 一直是這個應用程式的替代品，現在將逐步停止開發。感謝你使用 VibeZ！",
     "farewellWinMac": "Windows 和 Mac 版 VibeZ 將不再提供更新。我們建議改用官方應用程式。",
     "farewellButton": "取得 Vibe Desktop",
-    "farewellLinux": "在官方 Linux 應用程式推出之前，Linux 版 VibeZ 會繼續獲得支援。"
+    "farewellLinux": "在官方 Linux 應用程式推出之前，Linux 版 VibeZ 會繼續獲得支援。",
+    "emptyClipboardAttachment": "An empty image or link was found in the pasted content. Check your message and attach the file again if needed."
   },
   "ja": {
     "localFiles": "ローカルファイル",
@@ -4001,7 +4013,8 @@
     "farewellBody": "Mistral が macOS と Windows 向けの公式アプリ Vibe Desktop をリリースしました。VibeZ はそのアプリの代わりとして作られたもので、今後は開発を縮小します。VibeZ をご利用いただきありがとうございました！",
     "farewellWinMac": "Windows 版と Mac 版の VibeZ は今後アップデートされません。公式アプリへの切り替えをおすすめします。",
     "farewellButton": "Vibe Desktop を入手",
-    "farewellLinux": "Linux 版 VibeZ は、公式の Linux アプリが提供されるまでサポートを続けます。"
+    "farewellLinux": "Linux 版 VibeZ は、公式の Linux アプリが提供されるまでサポートを続けます。",
+    "emptyClipboardAttachment": "An empty image or link was found in the pasted content. Check your message and attach the file again if needed."
   },
   "ko": {
     "localFiles": "로컬 파일",
@@ -4309,7 +4322,8 @@
     "farewellBody": "Mistral이 macOS와 Windows용 공식 앱인 Vibe Desktop을 출시했습니다. VibeZ는 그 앱을 대신해 왔으며 이제 개발을 점차 종료합니다. VibeZ를 사용해 주셔서 감사합니다!",
     "farewellWinMac": "Windows 및 Mac용 VibeZ는 더 이상 업데이트되지 않습니다. 공식 앱으로 전환하시길 권장합니다.",
     "farewellButton": "Vibe Desktop 받기",
-    "farewellLinux": "Linux용 VibeZ는 공식 Linux 앱이 나올 때까지 계속 지원됩니다."
+    "farewellLinux": "Linux용 VibeZ는 공식 Linux 앱이 나올 때까지 계속 지원됩니다.",
+    "emptyClipboardAttachment": "An empty image or link was found in the pasted content. Check your message and attach the file again if needed."
   },
   "hi": {
     "localFiles": "स्थानीय फ़ाइलें",
@@ -4617,7 +4631,8 @@
     "farewellBody": "Mistral ने macOS और Windows के लिए आधिकारिक ऐप Vibe Desktop जारी किया है। VibeZ अब तक उस ऐप की जगह काम करता था और अब इसका विकास धीरे-धीरे बंद किया जा रहा है। VibeZ इस्तेमाल करने के लिए धन्यवाद!",
     "farewellWinMac": "Windows और Mac के लिए VibeZ को अब कोई अपडेट नहीं मिलेगा। हम आधिकारिक ऐप पर जाने की सलाह देते हैं।",
     "farewellButton": "Vibe Desktop पाएँ",
-    "farewellLinux": "आधिकारिक Linux ऐप उपलब्ध होने तक Linux के लिए VibeZ समर्थित रहेगा।"
+    "farewellLinux": "आधिकारिक Linux ऐप उपलब्ध होने तक Linux के लिए VibeZ समर्थित रहेगा।",
+    "emptyClipboardAttachment": "An empty image or link was found in the pasted content. Check your message and attach the file again if needed."
   },
   "bn": {
     "localFiles": "স্থানীয় ফাইল",
@@ -4925,7 +4940,8 @@
     "farewellBody": "Mistral macOS ও Windows-এর জন্য অফিসিয়াল অ্যাপ Vibe Desktop প্রকাশ করেছে। VibeZ এতদিন সেই অ্যাপের বিকল্প ছিল এবং এখন ধীরে ধীরে এর উন্নয়ন বন্ধ করা হচ্ছে। VibeZ ব্যবহার করার জন্য ধন্যবাদ!",
     "farewellWinMac": "Windows ও Mac-এর জন্য VibeZ আর কোনো আপডেট পাবে না। আমরা অফিসিয়াল অ্যাপে চলে যাওয়ার পরামর্শ দিই।",
     "farewellButton": "Vibe Desktop নিন",
-    "farewellLinux": "অফিসিয়াল Linux অ্যাপ না আসা পর্যন্ত Linux-এর জন্য VibeZ সমর্থিত থাকবে।"
+    "farewellLinux": "অফিসিয়াল Linux অ্যাপ না আসা পর্যন্ত Linux-এর জন্য VibeZ সমর্থিত থাকবে।",
+    "emptyClipboardAttachment": "An empty image or link was found in the pasted content. Check your message and attach the file again if needed."
   },
   "pa": {
     "localFiles": "ਸਥਾਨਕ ਫਾਈਲਾਂ",
@@ -5233,7 +5249,8 @@
     "farewellBody": "Mistral ਨੇ macOS ਅਤੇ Windows ਲਈ ਅਧਿਕਾਰਤ ਐਪ Vibe Desktop ਜਾਰੀ ਕੀਤੀ ਹੈ। VibeZ ਹੁਣ ਤੱਕ ਉਸ ਐਪ ਦੀ ਥਾਂ ਕੰਮ ਕਰਦੀ ਸੀ ਅਤੇ ਹੁਣ ਇਸਦਾ ਵਿਕਾਸ ਹੌਲੀ-ਹੌਲੀ ਬੰਦ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ। VibeZ ਵਰਤਣ ਲਈ ਧੰਨਵਾਦ!",
     "farewellWinMac": "Windows ਅਤੇ Mac ਲਈ VibeZ ਨੂੰ ਹੁਣ ਕੋਈ ਅੱਪਡੇਟ ਨਹੀਂ ਮਿਲੇਗਾ। ਅਸੀਂ ਅਧਿਕਾਰਤ ਐਪ ਵਰਤਣ ਦੀ ਸਲਾਹ ਦਿੰਦੇ ਹਾਂ।",
     "farewellButton": "Vibe Desktop ਲਓ",
-    "farewellLinux": "ਅਧਿਕਾਰਤ Linux ਐਪ ਉਪਲਬਧ ਹੋਣ ਤੱਕ Linux ਲਈ VibeZ ਸਮਰਥਿਤ ਰਹੇਗੀ।"
+    "farewellLinux": "ਅਧਿਕਾਰਤ Linux ਐਪ ਉਪਲਬਧ ਹੋਣ ਤੱਕ Linux ਲਈ VibeZ ਸਮਰਥਿਤ ਰਹੇਗੀ।",
+    "emptyClipboardAttachment": "An empty image or link was found in the pasted content. Check your message and attach the file again if needed."
   },
   "mr": {
     "localFiles": "स्थानिक फायली",
@@ -5541,7 +5558,8 @@
     "farewellBody": "Mistral ने macOS आणि Windows साठी अधिकृत ॲप Vibe Desktop प्रसिद्ध केले आहे. VibeZ आतापर्यंत त्या ॲपची जागा घेत होते आणि आता त्याचा विकास हळूहळू थांबवला जात आहे. VibeZ वापरल्याबद्दल धन्यवाद!",
     "farewellWinMac": "Windows आणि Mac साठी VibeZ ला यापुढे कोणतेही अपडेट मिळणार नाहीत. आम्ही अधिकृत ॲपवर जाण्याची शिफारस करतो.",
     "farewellButton": "Vibe Desktop मिळवा",
-    "farewellLinux": "अधिकृत Linux ॲप उपलब्ध होईपर्यंत Linux साठी VibeZ ला समर्थन मिळत राहील."
+    "farewellLinux": "अधिकृत Linux ॲप उपलब्ध होईपर्यंत Linux साठी VibeZ ला समर्थन मिळत राहील.",
+    "emptyClipboardAttachment": "An empty image or link was found in the pasted content. Check your message and attach the file again if needed."
   },
   "te": {
     "localFiles": "స్థానిక ఫైళ్లు",
@@ -5849,7 +5867,8 @@
     "farewellBody": "Mistral, macOS మరియు Windows కోసం అధికారిక యాప్ అయిన Vibe Desktop ను విడుదల చేసింది. VibeZ ఇప్పటివరకు ఆ యాప్‌కు ప్రత్యామ్నాయంగా ఉంది, ఇప్పుడు దాని అభివృద్ధి క్రమంగా ఆపివేయబడుతోంది. VibeZ ఉపయోగించినందుకు ధన్యవాదాలు!",
     "farewellWinMac": "Windows మరియు Mac కోసం VibeZ కి ఇకపై అప్‌డేట్‌లు రావు. అధికారిక యాప్‌కు మారమని మేము సూచిస్తున్నాము.",
     "farewellButton": "Vibe Desktop పొందండి",
-    "farewellLinux": "అధికారిక Linux యాప్ అందుబాటులోకి వచ్చే వరకు Linux కోసం VibeZ కి మద్దతు కొనసాగుతుంది."
+    "farewellLinux": "అధికారిక Linux యాప్ అందుబాటులోకి వచ్చే వరకు Linux కోసం VibeZ కి మద్దతు కొనసాగుతుంది.",
+    "emptyClipboardAttachment": "An empty image or link was found in the pasted content. Check your message and attach the file again if needed."
   },
   "ta": {
     "localFiles": "உள்ளூர் கோப்புகள்",
@@ -6157,7 +6176,8 @@
     "farewellBody": "Mistral, macOS மற்றும் Windows-க்கான அதிகாரப்பூர்வ ஆப்பான Vibe Desktop-ஐ வெளியிட்டுள்ளது. VibeZ இதுவரை அந்த ஆப்புக்கு மாற்றாக இருந்தது; இப்போது அதன் உருவாக்கம் படிப்படியாக நிறுத்தப்படுகிறது. VibeZ-ஐப் பயன்படுத்தியதற்கு நன்றி!",
     "farewellWinMac": "Windows மற்றும் Mac-க்கான VibeZ இனி புதுப்பிப்புகளைப் பெறாது. அதிகாரப்பூர்வ ஆப்புக்கு மாறுமாறு பரிந்துரைக்கிறோம்.",
     "farewellButton": "Vibe Desktop-ஐப் பெறுக",
-    "farewellLinux": "அதிகாரப்பூர்வ Linux ஆப் கிடைக்கும் வரை Linux-க்கான VibeZ தொடர்ந்து ஆதரிக்கப்படும்."
+    "farewellLinux": "அதிகாரப்பூர்வ Linux ஆப் கிடைக்கும் வரை Linux-க்கான VibeZ தொடர்ந்து ஆதரிக்கப்படும்.",
+    "emptyClipboardAttachment": "An empty image or link was found in the pasted content. Check your message and attach the file again if needed."
   },
   "gu": {
     "localFiles": "સ્થાનિક ફાઇલો",
@@ -6465,7 +6485,8 @@
     "farewellBody": "Mistral એ macOS અને Windows માટેની સત્તાવાર એપ Vibe Desktop રજૂ કરી છે. VibeZ અત્યાર સુધી તે એપનું સ્થાન લેતી હતી અને હવે તેનો વિકાસ ધીમે ધીમે બંધ કરવામાં આવી રહ્યો છે. VibeZ વાપરવા બદલ આભાર!",
     "farewellWinMac": "Windows અને Mac માટે VibeZ ને હવે કોઈ અપડેટ મળશે નહીં. અમે સત્તાવાર એપ પર જવાની ભલામણ કરીએ છીએ.",
     "farewellButton": "Vibe Desktop મેળવો",
-    "farewellLinux": "સત્તાવાર Linux એપ ઉપલબ્ધ થાય ત્યાં સુધી Linux માટે VibeZ ને સપોર્ટ મળતો રહેશે."
+    "farewellLinux": "સત્તાવાર Linux એપ ઉપલબ્ધ થાય ત્યાં સુધી Linux માટે VibeZ ને સપોર્ટ મળતો રહેશે.",
+    "emptyClipboardAttachment": "An empty image or link was found in the pasted content. Check your message and attach the file again if needed."
   },
   "id": {
     "localFiles": "Berkas lokal",
@@ -6773,7 +6794,8 @@
     "farewellBody": "Mistral telah merilis Vibe Desktop, aplikasi resmi untuk macOS dan Windows. VibeZ selama ini menjadi pengganti aplikasi tersebut dan kini dihentikan secara bertahap. Terima kasih telah menggunakan VibeZ!",
     "farewellWinMac": "VibeZ untuk Windows dan Mac tidak akan menerima pembaruan lagi. Kami sarankan beralih ke aplikasi resmi.",
     "farewellButton": "Dapatkan Vibe Desktop",
-    "farewellLinux": "VibeZ untuk Linux tetap didukung hingga aplikasi Linux resmi tersedia."
+    "farewellLinux": "VibeZ untuk Linux tetap didukung hingga aplikasi Linux resmi tersedia.",
+    "emptyClipboardAttachment": "An empty image or link was found in the pasted content. Check your message and attach the file again if needed."
   },
   "vi": {
     "localFiles": "Tệp cục bộ",
@@ -7081,7 +7103,8 @@
     "farewellBody": "Mistral đã phát hành Vibe Desktop, ứng dụng chính thức cho macOS và Windows. VibeZ vốn thay thế cho ứng dụng đó và giờ sẽ dần ngừng phát triển. Cảm ơn bạn đã sử dụng VibeZ!",
     "farewellWinMac": "VibeZ cho Windows và Mac sẽ không nhận thêm bản cập nhật nào. Chúng tôi khuyên bạn chuyển sang ứng dụng chính thức.",
     "farewellButton": "Tải Vibe Desktop",
-    "farewellLinux": "VibeZ cho Linux vẫn được hỗ trợ cho đến khi có ứng dụng Linux chính thức."
+    "farewellLinux": "VibeZ cho Linux vẫn được hỗ trợ cho đến khi có ứng dụng Linux chính thức.",
+    "emptyClipboardAttachment": "An empty image or link was found in the pasted content. Check your message and attach the file again if needed."
   },
   "th": {
     "localFiles": "ไฟล์ในเครื่อง",
@@ -7389,7 +7412,8 @@
     "farewellBody": "Mistral เปิดตัว Vibe Desktop แอปทางการสำหรับ macOS และ Windows แล้ว VibeZ เคยใช้แทนแอปนั้น และตอนนี้จะค่อย ๆ ยุติการพัฒนา ขอบคุณที่ใช้ VibeZ!",
     "farewellWinMac": "VibeZ สำหรับ Windows และ Mac จะไม่ได้รับการอัปเดตอีก เราแนะนำให้เปลี่ยนไปใช้แอปทางการ",
     "farewellButton": "รับ Vibe Desktop",
-    "farewellLinux": "VibeZ สำหรับ Linux จะยังได้รับการสนับสนุนจนกว่าแอป Linux ทางการจะพร้อมใช้งาน"
+    "farewellLinux": "VibeZ สำหรับ Linux จะยังได้รับการสนับสนุนจนกว่าแอป Linux ทางการจะพร้อมใช้งาน",
+    "emptyClipboardAttachment": "An empty image or link was found in the pasted content. Check your message and attach the file again if needed."
   },
   "fil": {
     "localFiles": "Mga lokal na file",
@@ -7697,7 +7721,8 @@
     "farewellBody": "Inilabas ng Mistral ang Vibe Desktop, ang opisyal na app para sa macOS at Windows. Pansamantalang pumalit ang VibeZ sa app na iyon at unti-unti na itong ititigil. Salamat sa paggamit ng VibeZ!",
     "farewellWinMac": "Hindi na makakatanggap ng mga update ang VibeZ para sa Windows at Mac. Inirerekomenda naming lumipat sa opisyal na app.",
     "farewellButton": "Kunin ang Vibe Desktop",
-    "farewellLinux": "Patuloy na susuportahan ang VibeZ para sa Linux hanggang magkaroon ng opisyal na Linux app."
+    "farewellLinux": "Patuloy na susuportahan ang VibeZ para sa Linux hanggang magkaroon ng opisyal na Linux app.",
+    "emptyClipboardAttachment": "An empty image or link was found in the pasted content. Check your message and attach the file again if needed."
   },
   "jv": {
     "localFiles": "Berkas lokal",
@@ -8005,7 +8030,8 @@
     "farewellBody": "Mistral wis ngrilis Vibe Desktop, aplikasi resmi kanggo macOS lan Windows. VibeZ selama iki dadi gantine aplikasi kasebut lan saiki pangembangane mandheg alon-alon. Matur nuwun wis nggunakake VibeZ!",
     "farewellWinMac": "VibeZ kanggo Windows lan Mac ora bakal nampa nganyari maneh. Kita nyaranake pindhah menyang aplikasi resmi.",
     "farewellButton": "Entuk Vibe Desktop",
-    "farewellLinux": "VibeZ kanggo Linux tetep didhukung nganti aplikasi Linux resmi kasedhiya."
+    "farewellLinux": "VibeZ kanggo Linux tetep didhukung nganti aplikasi Linux resmi kasedhiya.",
+    "emptyClipboardAttachment": "An empty image or link was found in the pasted content. Check your message and attach the file again if needed."
   },
   "sw": {
     "localFiles": "Faili za ndani",
@@ -8313,7 +8339,8 @@
     "farewellBody": "Mistral imetoa Vibe Desktop, programu rasmi ya macOS na Windows. VibeZ ilikuwa mbadala wa programu hiyo na sasa uundaji wake unasitishwa hatua kwa hatua. Asante kwa kutumia VibeZ!",
     "farewellWinMac": "VibeZ ya Windows na Mac haitapokea masasisho tena. Tunapendekeza uhamie kwenye programu rasmi.",
     "farewellButton": "Pata Vibe Desktop",
-    "farewellLinux": "VibeZ ya Linux itaendelea kutumika hadi programu rasmi ya Linux ipatikane."
+    "farewellLinux": "VibeZ ya Linux itaendelea kutumika hadi programu rasmi ya Linux ipatikane.",
+    "emptyClipboardAttachment": "An empty image or link was found in the pasted content. Check your message and attach the file again if needed."
   },
   "ha": {
     "localFiles": "Fayilolin gida",
@@ -8621,7 +8648,8 @@
     "farewellBody": "Mistral ta fitar da Vibe Desktop, manhaja ta hukuma don macOS da Windows. VibeZ ta kasance madadin wannan manhaja, kuma yanzu ana dakatar da haɓaka ta a hankali. Mun gode da amfani da VibeZ!",
     "farewellWinMac": "VibeZ don Windows da Mac ba za ta ƙara samun sabuntawa ba. Muna ba da shawarar ku koma kan manhaja ta hukuma.",
     "farewellButton": "Samu Vibe Desktop",
-    "farewellLinux": "Za a ci gaba da tallafa wa VibeZ don Linux har sai manhajar Linux ta hukuma ta samu."
+    "farewellLinux": "Za a ci gaba da tallafa wa VibeZ don Linux har sai manhajar Linux ta hukuma ta samu.",
+    "emptyClipboardAttachment": "An empty image or link was found in the pasted content. Check your message and attach the file again if needed."
   },
   "am": {
     "localFiles": "የአካባቢ ፋይሎች",
@@ -8929,7 +8957,8 @@
     "farewellBody": "Mistral ለmacOS እና ለWindows ይፋዊ መተግበሪያ የሆነውን Vibe Desktop ለቋል። VibeZ የዚያ መተግበሪያ ምትክ ሆኖ ቆይቷል፤ አሁን ልማቱ ቀስ በቀስ እየቆመ ነው። VibeZን ስለተጠቀሙ እናመሰግናለን!",
     "farewellWinMac": "ለWindows እና ለMac የሆነው VibeZ ከዚህ በኋላ ዝማኔዎችን አያገኝም። ወደ ይፋዊው መተግበሪያ እንዲቀይሩ እንመክራለን።",
     "farewellButton": "Vibe Desktop ያግኙ",
-    "farewellLinux": "ይፋዊው የLinux መተግበሪያ እስኪገኝ ድረስ ለLinux የሆነው VibeZ ድጋፍ ማግኘቱን ይቀጥላል።"
+    "farewellLinux": "ይፋዊው የLinux መተግበሪያ እስኪገኝ ድረስ ለLinux የሆነው VibeZ ድጋፍ ማግኘቱን ይቀጥላል።",
+    "emptyClipboardAttachment": "An empty image or link was found in the pasted content. Check your message and attach the file again if needed."
   },
   "ar": {
     "localFiles": "الملفات المحلية",
@@ -9237,7 +9266,8 @@
     "farewellBody": "أصدرت Mistral تطبيق Vibe Desktop، التطبيق الرسمي لنظامي macOS وWindows. كان VibeZ بديلًا مؤقتًا لهذا التطبيق، ويجري الآن إيقاف تطويره تدريجيًا. شكرًا لاستخدامك VibeZ!",
     "farewellWinMac": "لن يتلقى VibeZ لنظامي Windows وMac أي تحديثات بعد الآن. ننصحك بالانتقال إلى التطبيق الرسمي.",
     "farewellButton": "احصل على Vibe Desktop",
-    "farewellLinux": "سيظل VibeZ لنظام Linux مدعومًا إلى أن يتوفر تطبيق Linux الرسمي."
+    "farewellLinux": "سيظل VibeZ لنظام Linux مدعومًا إلى أن يتوفر تطبيق Linux الرسمي.",
+    "emptyClipboardAttachment": "An empty image or link was found in the pasted content. Check your message and attach the file again if needed."
   },
   "he": {
     "localFiles": "קבצים מקומיים",
@@ -9545,7 +9575,8 @@
     "farewellBody": "Mistral הוציאה את Vibe Desktop, האפליקציה הרשמית ל-macOS ול-Windows. VibeZ שימשה תחליף לאפליקציה הזו, ועכשיו הפיתוח שלה מסתיים בהדרגה. תודה שהשתמשתם ב-VibeZ!",
     "farewellWinMac": "VibeZ ל-Windows ול-Mac לא תקבל עוד עדכונים. מומלץ לעבור לאפליקציה הרשמית.",
     "farewellButton": "להורדת Vibe Desktop",
-    "farewellLinux": "VibeZ ל-Linux תמשיך להיתמך עד שתצא אפליקציית Linux הרשמית."
+    "farewellLinux": "VibeZ ל-Linux תמשיך להיתמך עד שתצא אפליקציית Linux הרשמית.",
+    "emptyClipboardAttachment": "An empty image or link was found in the pasted content. Check your message and attach the file again if needed."
   },
   "fa": {
     "localFiles": "فایل‌های محلی",
@@ -9853,7 +9884,8 @@
     "farewellBody": "Mistral برنامهٔ Vibe Desktop را منتشر کرده است، برنامهٔ رسمی برای macOS و Windows. VibeZ جایگزینی برای این برنامه بود و اکنون توسعه‌اش به‌تدریج متوقف می‌شود. از اینکه از VibeZ استفاده کردید سپاسگزاریم!",
     "farewellWinMac": "VibeZ برای Windows و Mac دیگر به‌روزرسانی دریافت نمی‌کند. پیشنهاد می‌کنیم به برنامهٔ رسمی بروید.",
     "farewellButton": "دریافت Vibe Desktop",
-    "farewellLinux": "VibeZ برای Linux تا زمان عرضهٔ برنامهٔ رسمی Linux پشتیبانی می‌شود."
+    "farewellLinux": "VibeZ برای Linux تا زمان عرضهٔ برنامهٔ رسمی Linux پشتیبانی می‌شود.",
+    "emptyClipboardAttachment": "An empty image or link was found in the pasted content. Check your message and attach the file again if needed."
   },
   "ur": {
     "localFiles": "مقامی فائلیں",
@@ -10161,6 +10193,7 @@
     "farewellBody": "Mistral نے Vibe Desktop جاری کر دی ہے، جو macOS اور Windows کے لیے سرکاری ایپ ہے۔ VibeZ اب تک اس ایپ کا متبادل تھی اور اب اس کی تیاری بتدریج ختم کی جا رہی ہے۔ VibeZ استعمال کرنے کا شکریہ!",
     "farewellWinMac": "Windows اور Mac کے لیے VibeZ کو اب مزید اپ ڈیٹس نہیں ملیں گی۔ ہم سرکاری ایپ پر منتقل ہونے کا مشورہ دیتے ہیں۔",
     "farewellButton": "Vibe Desktop حاصل کریں",
-    "farewellLinux": "سرکاری Linux ایپ دستیاب ہونے تک Linux کے لیے VibeZ کی معاونت جاری رہے گی۔"
+    "farewellLinux": "سرکاری Linux ایپ دستیاب ہونے تک Linux کے لیے VibeZ کی معاونت جاری رہے گی۔",
+    "emptyClipboardAttachment": "An empty image or link was found in the pasted content. Check your message and attach the file again if needed."
   }
 }

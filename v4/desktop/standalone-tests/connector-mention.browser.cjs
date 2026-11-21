@@ -2,6 +2,7 @@
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),{spawn}=require('node:child_process'),assert=require('node:assert/strict');
 const base=path.resolve(__dirname,'../..'),out=process.argv[2],pmRoot=process.argv[3]||path.join(__dirname,'editor-fixture/node_modules');fs.mkdirSync(out,{recursive:true});
 const source=fs.readFileSync(path.join(base,'desktop/src-tauri/src/connector_mention.js'),'utf8');
+const attachmentGuard=fs.readFileSync(path.join(base,'desktop/src-tauri/src/composer_attachments.js'),'utf8').replace('__VIBEZ_EMPTY_ATTACHMENT_MESSAGE__',JSON.stringify('Check the pasted content.'));
 const A='aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa',B='bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb',C='cccccccc-3333-4333-8333-cccccccccccc',E='eeeeeeee-5555-4555-8555-eeeeeeeeeeee';
 const url='https://chat.mistral.ai/work/projects/'+A,title='VibeZ · Fixture';
 const html=`<!doctype html><style>button,.ProseMirror{padding:12px;min-width:40px;min-height:20px}body{font-family:sans-serif}.ProseMirror{border:1px solid #aaa}</style><form><div id=root></div><button type=button id=menu>+</button><button type=submit id=send>Send</button></form><div id=overlay></div><script type=importmap>{"imports":{"prosemirror-model":"/vendor/prosemirror-model/dist/index.js","prosemirror-state":"/vendor/prosemirror-state/dist/index.js","prosemirror-view":"/vendor/prosemirror-view/dist/index.js","prosemirror-transform":"/vendor/prosemirror-transform/dist/index.js","orderedmap":"/vendor/orderedmap/dist/index.js"}}</script><script type=module>
@@ -14,7 +15,7 @@ window.setDoc=items=>{view.updateState(EditorState.create({schema,doc:schema.nod
 const profile=fs.mkdtempSync(path.join(os.tmpdir(),'vibez-direct-reference-'));let browser,socket,id=0;const awaiting=new Map(),errors=[],checks=[];const wait=ms=>new Promise(r=>setTimeout(r,ms));
 function cdp(method,params={}){return new Promise((resolve,reject)=>{const key=++id;awaiting.set(key,{resolve,reject});socket.send(JSON.stringify({id:key,method,params}));});}
 async function evaluate(expression){const r=await cdp('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw Error(JSON.stringify(r.exceptionDetails));return r.result.value;}
-async function fresh(target=url){await cdp('Page.navigate',{url:target});for(let n=0;n<150;n++){if(await evaluate('Boolean(window.fixtureReady)'))return;await wait(25);}throw Error('fixture load failed');}
+async function fresh(target=url){await cdp('Page.navigate',{url:target});for(let n=0;n<150;n++){if(await evaluate('Boolean(window.fixtureReady)')){await evaluate(attachmentGuard);return;}await wait(25);}throw Error('fixture load failed');}
 function config(target=url,p=A,id=B,label=title){return {project:p,connector_id:id,title:label,url:target,attach:true};}
 async function hint(value=config()){await evaluate(source.replace('__VIBEZ_CONNECTOR_CONTEXT__',JSON.stringify(value)));await wait(70);}
 async function refs(){return evaluate('refs()');}
