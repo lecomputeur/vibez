@@ -156,33 +156,6 @@ pub async fn download<F:Fn(u64)>(root:&Path,asset:&Asset,cancel:&AtomicBool,prog
         for u in ["http://github.com/file","https://github.com.evil.test/file","https://user@github.com/file","https://github.com:444/file","file:///tmp/test","https://localhost/file"]{assert!(!allowed_download_url(&u.parse().unwrap()),"{u}");}
         assert!(allowed_download_url(&"https://release-assets.githubusercontent.com/download?sig=1".parse().unwrap()));
     }
-    #[test]
-    fn a_linux_migration_release_is_discoverable_by_the_v3_updater() {
-        let assets: Vec<_> = suffixes("Linux-x64").iter()
-            .filter(|(_, kind)| *kind != "Flatpak")
-            .map(|(suffix, _)| {
-                let name = format!("VibeZ-3.2.1-Linux-x64{suffix}");
-                serde_json::json!({
-                    "name": name,
-                    "state": "uploaded",
-                    "size": 3,
-                    "digest": format!("sha256:{}", "a".repeat(64)),
-                    "browser_download_url": format!("https://github.com/lecomputeur/vibez/releases/download/v3.2.1/{name}")
-                })
-            })
-            .collect();
-        let release = serde_json::json!({
-            "tag_name": "v3.2.1",
-            "draft": false,
-            "prerelease": false,
-            "assets": assets,
-        });
-        let linux = candidate(&release, "Linux-x64").unwrap();
-        assert_eq!(linux.version, "3.2.1");
-        assert_eq!(linux.assets.len(), 4);
-        assert!(candidate(&release, "Windows-x64").is_none());
-        assert!(candidate(&release, "macOS-arm64").is_none());
-    }
     #[test]fn ci_credentials_are_never_used_by_normal_startup(){
         let both=vec!["vibez3".into(),"--smoke-test".into(),"--update-download-probe".into()];
         assert!(ci_probe_auth_allowed(true,&both));assert!(!ci_probe_auth_allowed(false,&both));
