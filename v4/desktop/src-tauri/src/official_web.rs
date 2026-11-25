@@ -598,6 +598,155 @@ pub fn monitor(app:&tauri::AppHandle) {
         }
     });
 }
+
+#[cfg(target_os = "linux")]
+fn microphone_origin(uri: &str) -> bool {
+    url::Url::parse(uri).is_ok_and(|url| {
+        safe_https(&url) && matches!(url.host_str(), Some("chat.mistral.ai" | "vibe.mistral.ai"))
+    })
+}
+
+#[cfg(target_os = "linux")]
+fn configure_microphone(webkit: &webkit2gtk::WebView) -> bool {
+    use gtk::glib::translate::ToGlibPtr;
+    use std::{cell::Cell, rc::Rc};
+    use webkit2gtk::{PermissionRequestExt, SettingsExt, UserMediaPermissionRequest,
+        UserMediaPermissionRequestExt, LoadEvent, WebViewExt};
+
+    let Some(settings) = WebViewExt::settings(webkit) else { return false; };
+    settings.set_enable_media_stream(true);
+
+    let document = Rc::new(Cell::new(0_u64));
+    let generation = Rc::clone(&document);
+    webkit.connect_load_changed(move |_, event| {
+        if event == LoadEvent::Started {
+            generation.set(generation.get().wrapping_add(1));
+        }
+    });
+    webkit.connect_permission_request(move |view, request| {
+        let audio_only = request.downcast_ref::<UserMediaPermissionRequest>().is_some_and(|media| {
+            // WebKitGTK exposes this check as a C function, with no GObject property.
+            // The borrowed pointer is valid for the lifetime of the request.
+            let display = unsafe {
+                webkit2gtk::ffi::webkit_user_media_permission_is_for_display_device(
+                    media.to_glib_none().0,
+                )
+            };
+            media.is_for_audio_device() && !media.is_for_video_device() && display == 0
+        });
+        let uri = view.uri().filter(|uri| audio_only && microphone_origin(uri));
+        let parent = view.toplevel().and_downcast::<gtk::Window>();
+        let (Some(uri), Some(parent)) = (uri, parent) else {
+            request.deny();
+            return true;
+        };
+
+        let dialog = gtk::MessageDialog::new(
+            Some(&parent), gtk::DialogFlags::MODAL | gtk::DialogFlags::DESTROY_WITH_PARENT,
+            gtk::MessageType::Question, gtk::ButtonsType::None,
+            "Allow Mistral to use the microphone?",
+        );
+        dialog.add_button("Deny", gtk::ResponseType::Cancel);
+        dialog.add_button("Allow microphone", gtk::ResponseType::Accept);
+        dialog.set_default_response(gtk::ResponseType::Cancel);
+        let request = request.clone();
+        let view = view.downgrade();
+        let generation = Rc::clone(&document);
+        let requested_document = generation.get();
+        dialog.connect_response(move |dialog, response| {
+            if response == gtk::ResponseType::Accept
+                && generation.get() == requested_document
+                && view.upgrade().and_then(|view| view.uri()).as_ref() == Some(&uri)
+            {
+                request.allow();
+            } else {
+                request.deny();
+            }
+            // This one-shot dialog has no owners that will use the widget after destruction.
+            unsafe { dialog.destroy(); }
+        });
+        dialog.show();
+        true
+    });
+    true
+}
+
+#[cfg(target_os = "linux")]
+async fn attach_microphone(view: &Webview) -> Result<(), String> {
+    let (ready, attached) = tokio::sync::oneshot::channel();
+    view.with_webview(move |platform| {
+        let _ = ready.send(configure_microphone(&platform.inner()));
+    }).map_err(err)?;
+    if tokio::time::timeout(std::time::Duration::from_secs(3), attached)
+        .await.map_err(err)?.map_err(err)?
+    {
+        Ok(())
+    } else {
+        Err("Mistral's WebKit media settings are unavailable".into())
+    }
+}
+
+#[cfg(all(test, target_os = "linux"))]
+#[test]
+fn microphone_is_limited_to_the_mistral_web_origin() {
+    for uri in ["https://chat.mistral.ai/work", "https://vibe.mistral.ai/code"] {
+        assert!(microphone_origin(uri));
+    }
+    for uri in ["http://chat.mistral.ai", "https://chat.mistral.ai:8443",
+        "https://login.mistral.ai", "https://chat.mistral.ai.example.org",
+        "https://other@chat.mistral.ai", "about:blank"]
+    {
+        assert!(!microphone_origin(uri));
+    }
+}
+
+#[cfg(all(test, target_os = "linux"))]
+#[test]
+#[ignore = "requires a graphical test display and WebKitGTK media support"]
+fn microphone_records_after_native_consent() {
+    use webkit2gtk::{SettingsExt, WebViewExt};
+
+    gtk::init().unwrap();
+    let window = gtk::Window::new(gtk::WindowType::Toplevel);
+    let webkit = webkit2gtk::WebView::new();
+    WebViewExt::settings(&webkit).unwrap().set_enable_mock_capture_devices(true);
+    assert!(configure_microphone(&webkit));
+    window.add(&webkit);
+    window.show_all();
+    webkit.load_html(r#"<!doctype html><script>
+        (async () => {
+            const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+            const recorder = new MediaRecorder(stream);
+            recorder.ondataavailable = ({data}) => {
+                document.title = data.size > 0 ? 'recorded' : 'empty';
+                stream.getTracks().forEach(track => track.stop());
+            };
+            recorder.start();
+            setTimeout(() => recorder.stop(), 800);
+        })().catch(error => { document.title = 'failed: ' + error; });
+    </script>"#, Some("https://chat.mistral.ai/work"));
+    let mut consented = false;
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
+    let context = gtk::glib::MainContext::default();
+    while std::time::Instant::now() < deadline {
+        while context.iteration(false) {}
+        if let Some(dialog) = gtk::Window::list_toplevels().into_iter()
+            .filter_map(|window| window.downcast::<gtk::MessageDialog>().ok())
+            .next()
+        {
+            dialog.response(gtk::ResponseType::Accept);
+            consented = true;
+        }
+        if let Some(title) = webkit.title().filter(|title| !title.is_empty()) {
+            assert!(consented, "WebKit recorded without a native consent prompt: {title}");
+            assert_eq!(title.as_str(), "recorded");
+            return;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    panic!("No recording result from WebKitGTK; native consent shown: {consented}");
+}
+
 #[tauri::command]
 pub async fn web_surface(webview:Webview,app:tauri::AppHandle,show:bool,route:Option<String>) -> Result<(),String> {
     require_local(&webview)?;
@@ -636,7 +785,6 @@ pub async fn web_surface(webview:Webview,app:tauri::AppHandle,show:bool,route:Op
                 // Mistral origin is eligible for project detection.
                 super::chat_downloads::navigation(&download_navigation,u)
             })
-            .on_permission_request(|_,_|tauri::webview::PermissionResponse::Deny)
             .on_new_window(move |u,features| {
                 if super::chat_downloads::blob(&u) {return super::chat_downloads::popup(&popup,u,features);}
                 if !(u.as_str()=="about:blank" || safe_https(&u)) {return tauri::webview::NewWindowResponse::Deny;}
@@ -645,12 +793,18 @@ pub async fn web_surface(webview:Webview,app:tauri::AppHandle,show:bool,route:Op
                     Err(_)=>tauri::webview::NewWindowResponse::Deny,
                 }
             });
+        #[cfg(not(target_os="linux"))]
+        let builder=builder.on_permission_request(|_,_|tauri::webview::PermissionResponse::Deny);
         let scale=window.scale_factor().map_err(err)?;
         let size=window.inner_size().map_err(err)?.to_logical::<f64>(scale);
         app.get_window("main").ok_or("Geen hoofdvenster")?.add_child(builder,LogicalPosition::new(0.,54.),LogicalSize::new(size.width.max(1.),(size.height-54.).max(1.))).map_err(err)?;
+        let view=app.get_webview("mistral-web").ok_or("Mistral webview is unavailable")?;
         #[cfg(target_os="linux")]
-        super::project_import::attach_web_hover(&app.get_webview("mistral-web").unwrap());
-        super::classic_language::bootstrap(&app,&app.get_webview("mistral-web").unwrap(),url.clone()).await?;
+        {
+            attach_microphone(&view).await?;
+            super::project_import::attach_web_hover(&view);
+        }
+        super::classic_language::bootstrap(&app,&view,url.clone()).await?;
     } else if navigate {
         app.get_webview("mistral-web").unwrap().navigate(url).map_err(err)?;
     }
