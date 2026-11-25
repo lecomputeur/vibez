@@ -203,6 +203,7 @@
 !/desktop/src-tauri/src/classic_language.rs
 !/desktop/src-tauri/src/classic_layout.rs
 !/desktop/src-tauri/src/desktop_ui.rs
+!/desktop/src-tauri/src/dictation_wav.js
 !/desktop/src-tauri/src/display_policy.rs
 !/desktop/src-tauri/src/language_extra.json
 !/desktop/src-tauri/src/language_options.json
