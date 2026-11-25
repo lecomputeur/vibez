@@ -71,15 +71,15 @@ def version(value):
     return (4, int(minor), int(patch), STAGES[stage], int(number or 0))
 
 
-def rpm_form(release):
+def rpm_form(release, migrate_v3=False):
     """4.0.0-beta.1 is packaged as RPM 4.0.0-0.beta.1, a final 4.0.0 as 4.0.0-1."""
     base, _, pre = release.partition('-')
-    return base + ('-0.' + pre if pre else '-1')
+    return base + ('-0.' + pre if pre else ('-2' if migrate_v3 else '-1'))
 
 
-def arch_form(release):
+def arch_form(release, migrate_v3=False):
     """4.0.0-beta.1 is packaged as Arch 4.0.0_beta.1-1, a final 4.0.0 as 4.0.0-1."""
-    return release.replace('-', '_', 1) + '-1'
+    return release.replace('-', '_', 1) + ('-2' if migrate_v3 else '-1')
 
 
 def allowed_url(value):
@@ -194,12 +194,13 @@ def installed():
     if shutil.which('dpkg-query'):
         result = subprocess.run(['dpkg-query', '-W', '-f=${Version}', 'vibe-z-v4-alpha'], capture_output=True, text=True)
         if result.returncode == 0:
-            version(result.stdout)
-            return 'deb', result.stdout
+            value = result.stdout.removesuffix('+v3migration1')
+            version(value)
+            return 'deb', value
     if shutil.which('rpm'):
         result = subprocess.run(['rpm', '-q', '--qf', '%{VERSION}-%{RELEASE}', 'vibez4-alpha'], capture_output=True, text=True)
         if result.returncode == 0:
-            match = re.fullmatch(r'(4\.[0-9]+\.[0-9]+)-(?:0\.((?:alpha|beta|rc)\.[1-9][0-9]*)|1)', result.stdout)
+            match = re.fullmatch(r'(4\.[0-9]+\.[0-9]+)-(?:0\.((?:alpha|beta|rc)\.[1-9][0-9]*)|[12])', result.stdout)
             if not match:
                 raise ValueError('Unexpected installed Alpha RPM version')
             value = match[1] + ('-' + match[2] if match[2] else '')
@@ -208,7 +209,7 @@ def installed():
     if shutil.which('pacman'):
         result = subprocess.run(['pacman', '-Q', 'vibez4-alpha'], capture_output=True, text=True)
         if result.returncode == 0:
-            match = re.fullmatch(r'vibez4-alpha (4\.[0-9]+\.[0-9]+)(?:_((?:alpha|beta|rc)\.[1-9][0-9]*))?-1\n?', result.stdout)
+            match = re.fullmatch(r'vibez4-alpha (4\.[0-9]+\.[0-9]+)(?:_((?:alpha|beta|rc)\.[1-9][0-9]*))?-[12]\n?', result.stdout)
             if not match:
                 raise ValueError('Unexpected installed Alpha Arch version')
             value = match[1] + ('-' + match[2] if match[2] else '')
@@ -232,12 +233,15 @@ def alpha_running():
     return False
 
 
-def validate_deb(path, release):
+def validate_deb(path, release, migrate_v3=False):
     info = run(['dpkg-deb', '-f', str(path)])
     fields = dict(line.split(':', 1) for line in info.splitlines() if line and not line[0].isspace() and ':' in line)
+    relations = {key: fields[key].strip() for key in ('Conflicts', 'Replaces', 'Breaks', 'Provides') if key in fields}
+    expected = {'Conflicts': 'vibe-z-3', 'Replaces': 'vibe-z-3'} if migrate_v3 else {}
+    deb_version = release + '+v3migration1' if migrate_v3 else release
     if (fields.get('Package', '').strip() != 'vibe-z-v4-alpha' or
-            fields.get('Version', '').strip() != release or fields.get('Architecture', '').strip() != 'amd64' or
-            {'Conflicts', 'Replaces', 'Breaks', 'Provides'} & fields.keys()):
+            fields.get('Version', '').strip() != deb_version or fields.get('Architecture', '').strip() != 'amd64' or
+            relations != expected):
         raise ValueError('Package may not replace another application')
     payload = subprocess.Popen(['dpkg-deb', '--fsys-tarfile', str(path)], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     try:
@@ -280,13 +284,16 @@ def validate_deb(path, release):
         controls.wait()
 
 
-def validate_rpm(path, release):
+def validate_rpm(path, release, migrate_v3=False):
     info = run(['rpm', '-qp', '--qf', '%{NAME}\n%{VERSION}-%{RELEASE}\n%{ARCH}', str(path)]).splitlines()
-    canonical = rpm_form(release)
+    canonical = rpm_form(release, migrate_v3)
     if info != ['vibez4-alpha', canonical, 'x86_64']:
         raise ValueError('Wrong Alpha RPM identity')
-    for flag in ['--conflicts', '--obsoletes']:
-        if run(['rpm', '-qp', flag, str(path)]).strip():
+    for flag, expected in [
+        ('--conflicts', ''),
+        ('--obsoletes', 'vibe-z-3' if migrate_v3 else ''),
+    ]:
+        if run(['rpm', '-qp', flag, str(path)]).strip() != expected:
             raise ValueError('RPM may not replace another application')
     listing = run(['rpm', '-qp', '--qf', '[%{FILENAMES}\t%{FILEMODES}\t%{FILELINKTOS}\t%{FILEUSERNAME}\t%{FILEGROUPNAME}\t%{FILECAPS}\n]', str(path)])
     seen = set()
@@ -315,7 +322,7 @@ def validate_rpm(path, release):
             raise ValueError('Unexpected RPM trigger hook')
 
 
-def validate_arch(path, release):
+def validate_arch(path, release, migrate_v3=False):
     process = subprocess.Popen(['zstd', '-dc', '--', str(path)], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     try:
         metadata, install, seen, total = None, None, set(), 0
@@ -345,9 +352,10 @@ def validate_arch(path, release):
             if line and not line.startswith('#'):
                 key, value = line.split(' = ', 1)
                 fields.setdefault(key, []).append(value)
+        relations = {key: fields[key] for key in ('conflict', 'replaces', 'provides', 'backup') if key in fields}
+        expected = {'conflict': ['vibez3'], 'replaces': ['vibez3']} if migrate_v3 else {}
         if (fields.get('pkgname') != ['vibez4-alpha'] or fields.get('arch') != ['x86_64'] or
-                fields.get('pkgver') != [arch_form(release)] or
-                {'conflict', 'replaces', 'provides', 'backup'} & fields.keys()):
+                fields.get('pkgver') != [arch_form(release, migrate_v3)] or relations != expected):
             raise ValueError('Wrong Arch identity or foreign package relationship')
     finally:
         if process.poll() is None:
