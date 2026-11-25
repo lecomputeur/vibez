@@ -2,7 +2,7 @@
 
 VibeZ V4 is a desktop client for Mistral's web conversations (Work and Code) that adds local project folders. You link a folder on your computer to a Mistral project or conversation, browse its files in the side panel and review every proposed change before it is saved. It is a Rust/Tauri 2 app with a Python engine for the local file connector.
 
-V4 is in open beta. It installs next to VibeZ 3 with its own app identity (`nl.lecomputeur.vibez4.alpha`), profile, settings and update channel, and never changes a VibeZ 3 installation. The VibeZ 3 source is in [`../desktop/`](../desktop/).
+VibeZ 4 is the supported version for Linux. It uses the app identity `nl.lecomputeur.vibez4.alpha` and its own profile and settings. The archived VibeZ 3 source is in [`../desktop/`](../desktop/).
 
 Download the current version from the [releases](https://github.com/lecomputeur/vibez/releases); contribution guidelines are in [`../CONTRIBUTING.md`](../CONTRIBUTING.md).
 
@@ -46,7 +46,15 @@ Source files are allow-listed. A new source file must be added to `management/so
 
 ## Releases and signing
 
-Releases are built and signed by the maintainer with `tools/release-alpha.py` (version bump, frozen source, Linux packages, signed Linux-only update feeds, draft prerelease). Since Mistral released the official Vibe Desktop (17 November 2026), VibeZ is winding down and releases are Linux-only. The maintainer's release working tree is kept in step with this folder by `tools/sync-public-v4.py`: `pull` brings merged pull requests in (and stops when a file changed on both sides), `push --pr` offers the maintainer's own changes as a pull request, and `release-alpha.py bump` refuses to start while merged changes are missing. Signing keys, notarization credentials and the update-feed key are never in this repository; a pull request never needs them. VibeZ 3 releases are not affected by V4 releases: the VibeZ 3 updater only accepts 3.x versions.
+Releases are built and signed by the maintainer with `tools/release-alpha.py` (version bump, frozen source, Linux packages, signed Linux-only update feeds, draft prerelease). Since Mistral released the official Vibe Desktop (17 November 2026), VibeZ is winding down and releases are Linux-only. The maintainer's release working tree is kept in step with this folder by `tools/sync-public-v4.py`: `pull` brings merged pull requests in (and stops when a file changed on both sides), `push --pr` offers the maintainer's own changes as a pull request, and `release-alpha.py bump` refuses to start while merged changes are missing. Signing keys, notarization credentials and the update-feed key are never in this repository; a pull request never needs them.
+
+### Moving Linux users from VibeZ 3 to 4
+
+The VibeZ 3 updater only recognizes 3.x release tags. The one-time `v3.2.1` entry uses the existing filename and checksum protocol and delivers the VibeZ 4.0.1 packages. VibeZ 4 remains the Latest GitHub release and keeps its signed update channels.
+
+After the regular VibeZ 4.0.1 build, run `release-alpha.py migration --version 4.0.1` to create the compatibility assets. Test the AppImage handoff and the native package replacement first. After the signed VibeZ 4.0.1 release is public, run `migration-draft` and then `migration-publish` after reviewing the draft. The DEB, RPM and Arch assets replace the VibeZ 3 package through the package manager. The AppImage updater replaces the old file in place when it is writable. VibeZ 4 can reuse the VibeZ 3 language setting when no VibeZ 4 preference is present. Sign in to the same Mistral account to access its conversations.
+
+VibeZ 3 Flatpaks downloaded from GitHub were distributed without an update origin. Those users install the VibeZ 4 Flatpak once and remove the old application without deleting its data. Flatpak remotes that carry the older app need the new app available on the same remote before they can rebase existing installations.
 
 ## MCP protocol versions
 
