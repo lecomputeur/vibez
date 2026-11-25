@@ -20,11 +20,16 @@ Microsoft Store package any more; Beta 5 was the last version for them.
   draft       the English release text and a draft prerelease with 5 assets
   publish     publish the prerelease, update the channels and the Flatpak branch,
               record published_version, open the downloads pull request
+  migration   prepare the Linux packages that take existing 3.x clients to VibeZ 4
+  migration-draft
+              create a separate draft for the 3.x updater without changing Latest
+  migration-publish
+              publish the verified 3.x updater entry after testing the draft
   status      what exists for this release
 
 Secrets are used in place only: the minisign key is passed as a path to the
 feed tool, never read or printed here.
-VibeZ 3.0.9 and its channel are never touched. Alpha and Beta versions are prereleases;
+The separate 3.x migration is opt-in for the maintainer. Alpha and Beta versions are prereleases;
 a final 4.x.y (4.0.0 on 18 Nov 2026) is published as Latest, with the legacy
 Electron feed files copied from the previous Latest so VibeZ 2.x stays quiet.
 """
@@ -48,6 +53,9 @@ BUILD = BASE / '_claude-build'
 REPO = 'lecomputeur/vibez'
 CHANNEL_TAG = 'v4-alpha-channel'
 FLATPAK_BRANCH = 'v4-alpha-flatpak'
+MIGRATION_TAG = 'v3.2.1'
+MIGRATION_VERSION = '4.0.1'
+MIGRATION_FORMATS = ('AppImage', 'deb', 'rpm', 'pkg.tar.zst')
 BUNDLE = BUILD / 'release-alpha23/ci/vibez-alpha-private.bundle'
 APPIMAGE_TOOLS = BUILD / 'release-alpha24/appimage-tools'
 AUTHOR = ['-c', 'user.name=lecomputeur', '-c', 'user.email=121440176+lecomputeur@users.noreply.github.com']
@@ -517,6 +525,100 @@ class Release:
                             'The Windows and macOS archive pages and the VibeZ 3 downloads are unchanged.' % self.version])
         self.say('published v%s; channels and Flatpak branch updated; downloads PR opened (merge after review)' % self.version)
 
+    def migration(self):
+        """The installed V3 updater requires a 3.x tag and 3.x asset names."""
+        if self.version != MIGRATION_VERSION:
+            raise StepError('The one-time VibeZ 3 migration installs VibeZ ' + MIGRATION_VERSION)
+        output = self.dir / 'migration-v3'
+        packages = self.need(self.dir / 'packages', 'packages (run collect first)')
+        payload = self.need(self.dir / 'payload', 'native package payload')
+        self.migration_assets(packages, payload, output)
+
+    def migration_assets(self, packages, payload, output):
+        targets = {ext: output / ('VibeZ-%s-Linux-x64.%s' % (MIGRATION_TAG[1:], ext))
+                   for ext in MIGRATION_FORMATS}
+        if self.dry:
+            self.say('prepare %s with VibeZ %s packages in %s' % (MIGRATION_TAG, self.version, output))
+            return
+        import tempfile
+        from alpha_linux_payload import updater
+        helper = updater()
+        if output.exists():
+            raise StepError('Migration staging already exists: %s' % output)
+        self.need(packages / ('VibeZ-%s-Linux-x64.AppImage' % self.version), 'verified V4 AppImage')
+        with tempfile.TemporaryDirectory(prefix='migration-', dir=output.parent) as stage:
+            stage = Path(stage)
+            artifacts = stage / 'assets'
+            artifacts.mkdir()
+            assets = {ext: artifacts / path.name for ext, path in targets.items()}
+            old = {ext: packages / ('VibeZ-%s-Linux-x64.%s' % (self.version, ext))
+                   for ext in MIGRATION_FORMATS}
+            shutil.copy2(old['AppImage'], assets['AppImage'])
+            helper.validate_deb(old['deb'], self.version)
+            deb = stage / 'deb'
+            self.run(['dpkg-deb', '-R', old['deb'], deb])
+            control = deb / 'DEBIAN/control'
+            contents = control.read_text()
+            contents = contents.replace(f'Version: {self.version}\n', f'Version: {self.version}+v3migration1\n', 1)
+            # Insert within the first control paragraph, before the description.
+            control.write_text(contents.replace('Description:', 'Conflicts: vibe-z-3\nReplaces: vibe-z-3\nDescription:', 1))
+            self.run(['dpkg-deb', '--root-owner-group', '-Zxz', '--build', deb, assets['deb']])
+            helper.validate_deb(assets['deb'], self.version, migrate_v3=True)
+            for ext, tool in [('rpm', 'alpha-rpm.py'), ('pkg.tar.zst', 'alpha-arch.py')]:
+                self.run([sys.executable, BASE / 'tools' / tool, '--payload', payload,
+                          '--output', assets[ext], '--migrate-v3'])
+            checksums = []
+            for path in assets.values():
+                with path.open('rb') as package:
+                    checksum = hashlib.file_digest(package, 'sha256').hexdigest()
+                checksums.append(f'{checksum}  {path.name}\n')
+            (artifacts / 'SHA256SUMS').write_text(''.join(checksums))
+            artifacts.rename(output)
+        self.say('prepared %s Linux migration packages in %s' % (MIGRATION_TAG, output))
+
+    def migration_draft(self):
+        if self.version != MIGRATION_VERSION:
+            raise StepError('The one-time VibeZ 3 migration installs VibeZ ' + MIGRATION_VERSION)
+        output = self.need(self.dir / 'migration-v3', 'migration assets (run migration first)')
+        if not self.dry:
+            target = json.loads(self.run(
+                ['gh', 'release', 'view', 'v' + self.version, '--repo', REPO,
+                 '--json', 'isDraft,isPrerelease'], capture=True).stdout)
+            if target['isDraft'] or target['isPrerelease']:
+                raise StepError('Publish stable VibeZ 4 before staging the 3.x migration')
+            self.run(['sha256sum', '--strict', '--check', 'SHA256SUMS'], cwd=output)
+        assets = [output / ('VibeZ-%s-Linux-x64.%s' % (MIGRATION_TAG[1:], ext))
+                  for ext in MIGRATION_FORMATS]
+        notes = ('One-time Linux update for existing VibeZ 3 installations. '
+                 f'The DEB, RPM, Arch and AppImage assets install VibeZ {MIGRATION_VERSION}. '
+                 'Use the package matching your existing installation. '
+                 'For Flatpak, use the [VibeZ 4 Linux download]'
+                 f'(https://github.com/{REPO}/releases/tag/v{MIGRATION_VERSION}).')
+        self.run(['gh', 'release', 'create', MIGRATION_TAG, '--repo', REPO, '--draft',
+                  '--latest=false', '--title', 'VibeZ 3 to VibeZ 4 migration for Linux',
+                  '--notes', notes, *assets, output / 'SHA256SUMS'])
+
+    def migration_publish(self):
+        if self.version != MIGRATION_VERSION:
+            raise StepError('Publish the migration from the VibeZ ' + MIGRATION_VERSION + ' release')
+        output = self.need(self.dir / 'migration-v3', 'migration assets (run migration first)')
+        if not self.dry:
+            latest = self.run(['gh', 'api', f'repos/{REPO}/releases/latest', '-q', '.tag_name'],
+                              capture=True).stdout.strip()
+            if latest != 'v' + MIGRATION_VERSION:
+                raise StepError('Expected the migration target to be the current V4 Latest release')
+            self.run(['sha256sum', '--strict', '--check', 'SHA256SUMS'], cwd=output)
+            draft = json.loads(self.run(
+                ['gh', 'api', '--paginate', f'repos/{REPO}/releases?per_page=100',
+                 '--jq', f'.[] | select(.tag_name == "{MIGRATION_TAG}")'], capture=True).stdout)
+            checksums = {(name, 'sha256:' + checksum)
+                         for checksum, name in (line.split() for line in (output / 'SHA256SUMS').read_text().splitlines())}
+            uploaded = {(asset['name'], asset.get('digest')) for asset in draft['assets']
+                        if asset['name'] != 'SHA256SUMS'}
+            if not draft['draft'] or draft['prerelease'] or uploaded != checksums:
+                raise StepError('Migration draft status or uploaded checksums differ')
+        self.run(['gh', 'release', 'edit', MIGRATION_TAG, '--repo', REPO, '--draft=false', '--latest=false'])
+
     def status(self):
         checks = {'release dir': self.dir, 'private repo': self.dir / 'repo', 'snapshot': self.dir / 'snapshot/private-source.tar.gz',
                   'release meta': self.dir / 'release-meta.json', 'packages': self.dir / 'packages',
@@ -530,7 +632,8 @@ class Release:
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('step', choices=['bump', 'freeze', 'linux', 'collect', 'feeds', 'draft', 'publish', 'status'])
+    parser.add_argument('step', choices=['bump', 'freeze', 'linux', 'collect', 'feeds', 'draft', 'publish',
+                                        'migration', 'migration-draft', 'migration-publish', 'status'])
     parser.add_argument('--version', help='release version (default: management/release.json)')
     parser.add_argument('--next', help='bump: the next version')
     parser.add_argument('--changes-file', help='bump: one release change per line')
