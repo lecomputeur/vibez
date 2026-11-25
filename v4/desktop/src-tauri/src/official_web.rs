@@ -3,6 +3,8 @@
 use super::*;
 use std::sync::{Arc, atomic::AtomicBool};
 use tauri::{LogicalPosition, LogicalSize};
+#[cfg(target_os = "linux")]
+const DICTATION_WAV: &str = include_str!("dictation_wav.js");
 #[path="workspace_projects.rs"]
 pub(super) mod projects;
 // Session-only associations come exclusively from visible links on a confirmed
@@ -704,11 +706,16 @@ fn microphone_is_limited_to_the_mistral_web_origin() {
 #[test]
 #[ignore = "requires a graphical test display and WebKitGTK media support"]
 fn microphone_records_after_native_consent() {
-    use webkit2gtk::{SettingsExt, WebViewExt};
+    use webkit2gtk::{AutoplayPolicy, SettingsExt, UserContentInjectedFrames,
+        UserContentManagerExt, UserScript, UserScriptInjectionTime, WebViewExt, WebsitePolicies};
 
     gtk::init().unwrap();
     let window = gtk::Window::new(gtk::WindowType::Toplevel);
-    let webkit = webkit2gtk::WebView::new();
+    let policies = WebsitePolicies::builder().autoplay(AutoplayPolicy::Allow).build();
+    let webkit = webkit2gtk::WebView::builder().website_policies(&policies).build();
+    webkit.user_content_manager().unwrap().add_script(&UserScript::new(
+        DICTATION_WAV, UserContentInjectedFrames::TopFrame, UserScriptInjectionTime::Start, &[], &[],
+    ));
     WebViewExt::settings(&webkit).unwrap().set_enable_mock_capture_devices(true);
     assert!(configure_microphone(&webkit));
     window.add(&webkit);
@@ -716,13 +723,38 @@ fn microphone_records_after_native_consent() {
     webkit.load_html(r#"<!doctype html><script>
         (async () => {
             const stream = await navigator.mediaDevices.getUserMedia({audio: true});
-            const recorder = new MediaRecorder(stream);
-            recorder.ondataavailable = ({data}) => {
-                document.title = data.size > 0 ? 'recorded' : 'empty';
-                stream.getTracks().forEach(track => track.stop());
-            };
+            const recorder = new MediaRecorder(stream, undefined);
+            const check = (valid, reason) => { if (!valid) throw new Error(reason); };
+            check(new MediaRecorder(stream, {}) instanceof MediaRecorder, 'explicit options lost native recorder');
+            recorder.addEventListener('error', () => { document.title = 'recorder error'; });
+            recorder.addEventListener('dataavailable', async ({data}) => {
+                try {
+                    check(recorder.mimeType === 'audio/wav' && data.type === 'audio/wav', 'wrong MIME type');
+                    const buffer = await data.arrayBuffer(), header = new DataView(buffer);
+                    check(buffer.byteLength > 44 && header.getUint32(0) === 0x52494646 &&
+                        header.getUint32(8) === 0x57415645, 'missing RIFF/WAVE header');
+                    check(header.getUint32(4, true) === buffer.byteLength - 8 &&
+                        header.getUint16(20, true) === 1 && header.getUint16(22, true) === 1 &&
+                        header.getUint32(24, true) === 16000 && header.getUint16(34, true) === 16 &&
+                        header.getUint32(40, true) === buffer.byteLength - 44, 'wrong PCM metadata');
+                    const decoder = new AudioContext();
+                    try {
+                        const decoded = await decoder.decodeAudioData(buffer);
+                        check(decoded.duration > 0.3 && decoded.numberOfChannels === 1 &&
+                            decoded.getChannelData(0).some(sample => Math.abs(sample) > 0.01), 'missing audio samples');
+                    } finally {
+                        await decoder.close();
+                    }
+                    document.title = 'recorded';
+                } catch (error) {
+                    document.title = 'failed: ' + error;
+                }
+            });
             recorder.start();
-            setTimeout(() => recorder.stop(), 800);
+            setTimeout(() => {
+                recorder.stop();
+                stream.getTracks().forEach(track => track.stop());
+            }, 1200);
         })().catch(error => { document.title = 'failed: ' + error; });
     </script>"#, Some("https://chat.mistral.ai/work"));
     let mut consented = false;
@@ -795,6 +827,8 @@ pub async fn web_surface(webview:Webview,app:tauri::AppHandle,show:bool,route:Op
             });
         #[cfg(not(target_os="linux"))]
         let builder=builder.on_permission_request(|_,_|tauri::webview::PermissionResponse::Deny);
+        #[cfg(target_os="linux")]
+        let builder=builder.initialization_script(DICTATION_WAV);
         let scale=window.scale_factor().map_err(err)?;
         let size=window.inner_size().map_err(err)?.to_logical::<f64>(scale);
         app.get_window("main").ok_or("Geen hoofdvenster")?.add_child(builder,LogicalPosition::new(0.,54.),LogicalSize::new(size.width.max(1.),(size.height-54.).max(1.))).map_err(err)?;
