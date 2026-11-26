@@ -1,6 +1,14 @@
 {
  "versions": [
   {
+   "version": "4.0.1",
+   "date": "2026-11-26",
+   "changes": [
+    "Fix Linux dictation in Mistral Work with explicit microphone consent and PCM WAV audio.",
+    "Prepare the one-time upgrade from VibeZ 3 for Linux DEB, RPM, Arch and AppImage installations."
+   ]
+  },
+  {
    "version": "4.0.0",
    "date": "2026-11-18",
    "changes": [

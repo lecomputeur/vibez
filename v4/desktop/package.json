@@ -1,6 +1,6 @@
 {
   "name": "vibez4-alpha",
-  "version": "4.0.0",
+  "version": "4.0.1",
   "private": true,
   "description": "VibeZ 3 \u2014 Rust/Tauri desktop client for Mistral Vibe",
   "scripts": {
