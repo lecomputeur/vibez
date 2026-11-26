@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "version": "4.0.0",
+  "version": "4.0.1",
   "stage": "development",
   "installed_version": "4.0.0-alpha.26",
   "published_version": "4.0.0",
@@ -46,11 +46,11 @@
     "macos-arm64"
   ],
   "changes": [
-    "VibeZ 4 is final. The name in titles, the menu and the packages is now VibeZ 4; your settings, linked folders and updates carry over.",
-    "VibeZ works on Linux systems with a non-standard file layout, such as NixOS: it finds Python on its own and no longer stops at startup over a safe-output check.",
-    "Choose folder and New workspace open your desktop's own file dialog, starting at the last folder you used or your home folder.",
-    "When Mistral is slow to answer the first time, the rules of a Code project are fetched again by themselves."
+    "Fix Linux dictation in Mistral Work with explicit microphone consent and PCM WAV audio.",
+    "Prepare the one-time upgrade from VibeZ 3 for Linux DEB, RPM, Arch and AppImage installations."
   ],
-  "related_issues": [],
-  "download_highlights": "VibeZ 4 is final: Mistral Work and Code with your own folders on Linux, every change shown for your approval. It also works on systems such as NixOS and uses your desktop's own file dialog."
+  "related_issues": [
+    102
+  ],
+  "download_highlights": "Linux dictation works in Mistral Work, with explicit microphone consent and recordings in PCM WAV."
 }
