@@ -21,7 +21,7 @@ On 17 November 2026 Mistral released **Vibe Desktop** for macOS and Windows: Wor
 ## What happens now
 
 - **Windows and macOS:** use the official [Vibe Desktop](https://mistral.ai/products/vibe/). VibeZ for Windows and Mac is no longer developed and receives no further updates. The existing downloads stay available in the [release archive](https://github.com/lecomputeur/vibez/releases).
-- **Linux: VibeZ carries on.** Mistral says Linux support is coming soon. Until the official Linux app is available, VibeZ 4.0.0 and VibeZ 3.2.0 stay fully supported and keep getting updates. Something not working? [Report a Linux problem](https://github.com/lecomputeur/vibez/issues/new/choose): every report is read and fixed where possible.
+- **Linux: VibeZ carries on.** Mistral says Linux support is coming soon. Until the official Linux app is available, VibeZ 4.0.0 is the supported version and receives fixes. Something not working? [Report a Linux problem](https://github.com/lecomputeur/vibez/issues/new/choose): every report is read and fixed where possible.
 - **The code:** stays on GitHub under the MIT license. Development is winding down; no new features are planned.
 
 ## Thank you
@@ -35,15 +35,15 @@ It has been a true pleasure.
 
 ## VibeZ 4 for Linux
 
-VibeZ 4 lets Mistral Work and Code use local folders you choose, with every file change shown for your approval. It installs next to VibeZ 3 with its own profile and settings.
+VibeZ 4 lets Mistral Work and Code use local folders you choose, with every file change shown for your approval. It uses its own profile and settings. See the [Linux upgrade guide](https://lecomputeur.github.io/vibez/linux.html#upgrade-from-v3) for existing VibeZ 3 installations.
 
 > VibeZ 4.0.0 is available for Linux. VibeZ 4 is final: Mistral Work and Code with your own folders on Linux, every change shown for your approval. It also works on systems such as NixOS and uses your desktop's own file dialog.
 >
 > [Download VibeZ 4.0.0](https://github.com/lecomputeur/vibez/releases/tag/v4.0.0) · [Linux installation guide](https://lecomputeur.github.io/vibez/linux.html#v4-alpha) · [Report a Linux problem](https://github.com/lecomputeur/vibez/issues/new/choose)
 
-## VibeZ 3.2.0 downloads
+## VibeZ 3.2.0 download archive
 
-The **VibeZ 3.2.0** build produced and verified all twelve files below from one frozen source commit. Linux is still supported; the Windows and macOS files remain as an archive and are no longer updated.
+The **VibeZ 3.2.0** build produced and verified all twelve files below from one frozen source commit. These files remain available in the archive. Current Linux installations use VibeZ 4.
 
 | Platform | Downloads |
 |---|---|

@@ -48,6 +48,7 @@ def main():
     parser.add_argument('--payload', type=Path, required=True,
                         help='Extracted verified Alpha DEB root containing usr/')
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--migrate-v3', action='store_true')
     args = parser.parse_args()
     payload = args.payload.resolve(strict=True)
     output = args.output.resolve()
@@ -117,13 +118,15 @@ def main():
     with tarfile.open(archive, 'w:gz') as stream:
         stream.add(staged, arcname='alpha-payload')
     spec = work / 'SPECS/vibez4-alpha.spec'
+    obsoletes = "Obsoletes: vibe-z-3\n" if args.migrate_v3 else ""
+    package_release = '2' if args.migrate_v3 else RPM_RELEASE
     spec.write_text(f'''%global debug_package %{{nil}}
 %global _build_id_links none
 %global __brp_mangle_shebangs %{{nil}}
 %global __os_install_post %{{nil}}
 Name: {BINARY}
 Version: {NUMERIC_VERSION}
-Release: {RPM_RELEASE}
+Release: {package_release}
 Summary: Mistral desktop client with local project folders (Alpha)
 License: MIT
 URL: https://github.com/lecomputeur/vibez
@@ -137,7 +140,7 @@ Requires: coreutils
 Requires: xdg-desktop-portal
 Requires: xdg-utils
 Recommends: xdg-desktop-portal-gtk
-AutoReqProv: yes
+{obsoletes}AutoReqProv: yes
 
 %description
 VibeZ 4 keeps the familiar Mistral web interface and connects one local
@@ -178,23 +181,21 @@ cp -a . %{{buildroot}}/
     assert len(packages) == 1
     rpm = packages[0]
     scripts = run(['rpm', '-qp', '--scripts', rpm], log)
-    helper.validate_rpm(rpm, VERSION)
+    helper.validate_rpm(rpm, VERSION, migrate_v3=args.migrate_v3)
     manifest = run(['rpm', '-qpl', rpm], log).splitlines()
     assert not any('vibez3' in line or 'vibez4.test' in line for line in manifest)
     required = run(['rpm', '-qp', '--requires', rpm], log).splitlines()
     assert any(line.startswith('libwebkit2gtk-4.1.so.0') for line in required)
     assert any(line.startswith('libc.so.6(GLIBC_') for line in required)
     assert 'python3 >= 3.10' in required
-    assert run(['rpm', '-qp', '--conflicts', rpm], log).strip() == ''
-    assert run(['rpm', '-qp', '--obsoletes', rpm], log).strip() == ''
     output.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(rpm, output)
     report = {
         'version': VERSION, 'package': str(output), 'rpm_name': BINARY,
-        'rpm_version_release': f'{NUMERIC_VERSION}-{RPM_RELEASE}', 'sha256': digest(output),
+        'rpm_version_release': f'{NUMERIC_VERSION}-{package_release}', 'sha256': digest(output),
         'source_binary_sha256': digest(binary), 'build_directory': str(work),
         'independent_identity': APP_ID, 'only_allowlisted_update_service_hooks': True,
-        'no_conflicts_or_obsoletes': True, 'automatic_elf_requires': required,
+        'no_conflicts_or_obsoletes': not args.migrate_v3, 'automatic_elf_requires': required,
         'manifest': manifest, 'installed_on_host': False, 'published': False,
         'passed': True,
     }

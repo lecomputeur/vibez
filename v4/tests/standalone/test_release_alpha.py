@@ -90,6 +90,20 @@ class ReleaseToolTests(unittest.TestCase):
         self.assertIn('--minisign-key', out.getvalue())
         self.assertIn('release-meta.json (run freeze first)', out.getvalue())
 
+    def test_migration_targets_v4_and_does_not_change_latest(self):
+        out = io.StringIO()
+        with redirect_stdout(out):
+            self.assertEqual(tool.main(['migration', '--version', '4.0.0', '--dry-run']), 2)
+            for step in ('migration', 'migration-draft', 'migration-publish'):
+                self.assertEqual(tool.main([step, '--version', '4.0.1', '--dry-run']), 0)
+        text = out.getvalue()
+        self.assertIn('create v3.2.1 --repo lecomputeur/vibez --draft --latest=false', text)
+        self.assertIn('edit v3.2.1 --repo lecomputeur/vibez --draft=false --latest=false', text)
+        for ext in ('AppImage', 'deb', 'rpm', 'pkg.tar.zst'):
+            self.assertIn(f'VibeZ-3.2.1-Linux-x64.{ext}', text)
+        self.assertNotIn('VibeZ-3.2.1-Windows', text)
+        self.assertNotIn('VibeZ-3.2.1-macOS', text)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

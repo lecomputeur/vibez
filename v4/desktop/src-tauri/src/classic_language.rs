@@ -29,6 +29,27 @@ fn site_locale(code:&str)->String {
     match code.as_str(){"en"|"nl"|"fr"|"de"|"es"|"pl"|"it"|"pt"|"ar"|"uk"=>code,_=>"en".into()}
 }
 fn os_locale()->String {sys_locale::get_locale().unwrap_or_else(||"en".into())}
+#[cfg(target_os = "linux")]
+fn v3_language(config: &std::path::Path) -> Option<String> {
+    let path = config.parent()?.join("nl.lecomputeur.vibez3").join("settings.json");
+    if !std::fs::symlink_metadata(&path).ok()?.is_file() {
+        return None;
+    }
+    let file = std::fs::File::open(path).ok()?;
+    let mut bytes = Vec::new();
+    file.take(65_537).read_to_end(&mut bytes).ok()?;
+    if bytes.len() > 65_536 {
+        return None;
+    }
+    let settings: Value = serde_json::from_slice(&bytes).ok()?;
+    let language = match settings.get("schema_version") {
+        Some(schema) if schema == 1 => settings["settings"]["language"].as_str(),
+        None => settings["language"].as_str(),
+        _ => None,
+    }?;
+    valid(language).then(|| language.to_owned())
+}
+
 fn translated(locale:&str,key:&str)->String {
     static CATALOG:std::sync::OnceLock<Value>=std::sync::OnceLock::new();
     let catalog=CATALOG.get_or_init(||serde_json::from_str(include_str!("language_extra.json")).expect("bundled UI translations"));
@@ -43,7 +64,13 @@ impl Language {
             let raw=std::fs::read(source).map_err(err)?;
             if raw.len()>1_000_000{return Err("The language settings are too large".into());}
             serde_json::from_slice::<Value>(&raw).ok().and_then(|v|v["language"].as_str().filter(|v|valid(v)).map(str::to_owned)).unwrap_or_else(||"system".into())
-        }else{"system".into()};
+        } else {
+            #[cfg(target_os = "linux")]
+            let migrated = v3_language(config);
+            #[cfg(not(target_os = "linux"))]
+            let migrated: Option<String> = None;
+            migrated.unwrap_or_else(|| "system".into())
+        };
         Ok(Self{selected:Mutex::new(selected),file,generation:AtomicU64::new(1),completed:AtomicU64::new(0),loading:AtomicBool::new(false),gate:tokio::sync::Mutex::new(()),applying:AtomicBool::new(false),work_english:AtomicBool::new(false)})
     }
     fn resolved(&self)->String {let s=self.selected.lock().unwrap();normalize(if s.as_str()=="system"{return normalize(&os_locale());}else{&s})}
@@ -163,6 +190,23 @@ pub async fn language_set(webview:Webview,app:tauri::AppHandle,language:String)-
 }
 #[cfg(test)]mod tests{
  use super::*;
+ #[cfg(target_os = "linux")]
+ #[test]
+ fn v3_language_is_used_until_v4_has_its_own_preference() {
+     let root = std::env::temp_dir().join(format!("vibez-language-migration-{}", std::process::id()));
+     let old = root.join("nl.lecomputeur.vibez3");
+     let current = root.join(APP_ID);
+     std::fs::create_dir_all(&old).unwrap();
+     std::fs::create_dir_all(&current).unwrap();
+     let source = r#"{"schema_version":1,"settings":{"language":"fr","zoom_factor":1.2}}"#;
+     std::fs::write(old.join("settings.json"), source).unwrap();
+     let preference = Language::load(&current).unwrap();
+     assert_eq!(preference.selected.lock().unwrap().as_str(), "fr");
+     preference.save("nl").unwrap();
+     assert_eq!(Language::load(&current).unwrap().selected.lock().unwrap().as_str(), "nl");
+     assert_eq!(std::fs::read_to_string(old.join("settings.json")).unwrap(), source);
+     std::fs::remove_dir_all(root).unwrap();
+ }
  #[test]fn locales_preserve_chinese_and_system_variants(){assert_eq!(normalize("nl_NL.UTF-8"),"nl");assert_eq!(normalize("zh-Hant-TW"),"zh-TW");assert_eq!(normalize("zh_CN"),"zh-CN");assert_eq!(normalize("unknown"),"en");assert!(!valid("../nl"));assert!(valid("system"));}
  #[test]fn native_dialog_labels_use_the_selected_locale(){assert_eq!(translated("de","chooseWorkspace"),"Ordner auswählen");assert_eq!(translated("fr","cancel"),"Annuler");assert_eq!(translated("unknown","cancel"),"Cancel");assert_eq!(translated("en","exportConversation"),"Export conversation");assert_eq!(translated("nl","exportConversation"),"Gesprek exporteren");assert_eq!(translated("unknown","exportConversation"),"Export conversation");}
  #[test]fn removed_russian_is_not_selectable_and_its_system_locale_falls_back_to_english(){assert!(!valid("ru"));assert_eq!(normalize("ru_RU.UTF-8"),"en");assert_eq!(translated("ru","chooseWorkspace"),"Choose folder");}
