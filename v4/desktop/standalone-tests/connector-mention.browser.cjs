@@ -2,19 +2,20 @@
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),{spawn}=require('node:child_process'),assert=require('node:assert/strict');
 const base=path.resolve(__dirname,'../..'),out=process.argv[2],pmRoot=process.argv[3]||path.join(__dirname,'editor-fixture/node_modules');fs.mkdirSync(out,{recursive:true});
 const source=fs.readFileSync(path.join(base,'desktop/src-tauri/src/connector_mention.js'),'utf8');
+const attachmentGuard=fs.readFileSync(path.join(base,'desktop/src-tauri/src/composer_attachments.js'),'utf8').replace('__VIBEZ_EMPTY_ATTACHMENT_MESSAGE__',JSON.stringify('Check the pasted content.'));
 const A='aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa',B='bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb',C='cccccccc-3333-4333-8333-cccccccccccc',E='eeeeeeee-5555-4555-8555-eeeeeeeeeeee';
 const url='https://chat.mistral.ai/work/projects/'+A,title='VibeZ · Fixture';
 const html=`<!doctype html><style>button,.ProseMirror{padding:12px;min-width:40px;min-height:20px}body{font-family:sans-serif}.ProseMirror{border:1px solid #aaa}</style><form><div id=root></div><button type=button id=menu>+</button><button type=submit id=send>Send</button></form><div id=overlay></div><script type=importmap>{"imports":{"prosemirror-model":"/vendor/prosemirror-model/dist/index.js","prosemirror-state":"/vendor/prosemirror-state/dist/index.js","prosemirror-view":"/vendor/prosemirror-view/dist/index.js","prosemirror-transform":"/vendor/prosemirror-transform/dist/index.js","orderedmap":"/vendor/orderedmap/dist/index.js"}}</script><script type=module>
 import {Schema} from 'prosemirror-model';import {EditorState,TextSelection} from 'prosemirror-state';import {EditorView} from 'prosemirror-view';
 const attrs=Object.fromEntries(['slashType','selectedValue','selectedLabel','selectedDescription','subType','icon','iconUrl','componentName','skillId'].map(k=>[k,{default:''}]));
-const schema=new Schema({nodes:{doc:{content:'paragraph+'},paragraph:{content:'inline*',group:'block',parseDOM:[{tag:'p'}],toDOM:()=>['p',0]},text:{group:'inline'},hard_break:{inline:true,group:'inline',selectable:false,parseDOM:[{tag:'br'}],toDOM:()=>['br']},slash:{attrs,inline:true,group:'inline',atom:true,parseDOM:[{tag:'span.slash-node',getAttrs:d=>Object.fromEntries(Object.keys(attrs).map(k=>[k,d.getAttribute(k)||'']))}],toDOM:n=>['span',{class:'slash-node',...n.attrs},n.attrs.selectedLabel]}},marks:{strong:{parseDOM:[{tag:'strong'}],toDOM:()=>['strong',0]}}});
+const schema=new Schema({nodes:{doc:{content:'paragraph+'},paragraph:{content:'inline*',group:'block',parseDOM:[{tag:'p'}],toDOM:()=>['p',0]},image:{inline:true,group:'inline',atom:true,attrs:{src:{default:null},alt:{default:null}},parseDOM:[{tag:'img',getAttrs:d=>({src:d.getAttribute('src'),alt:d.getAttribute('alt')})}],toDOM:n=>['img',n.attrs]},text:{group:'inline'},hard_break:{inline:true,group:'inline',selectable:false,parseDOM:[{tag:'br'}],toDOM:()=>['br']},slash:{attrs,inline:true,group:'inline',atom:true,parseDOM:[{tag:'span.slash-node',getAttrs:d=>Object.fromEntries(Object.keys(attrs).map(k=>[k,d.getAttribute(k)||'']))}],toDOM:n=>['span',{class:'slash-node',...n.attrs},n.attrs.selectedLabel]}},marks:{strong:{parseDOM:[{tag:'strong'}],toDOM:()=>['strong',0]}}});
 window.view=new EditorView(document.querySelector('#root'),{state:EditorState.create({schema}),nodeViews:{slash(node){const dom=document.createElement('span');dom.contentEditable='false';dom.textContent=node.attrs.selectedLabel;return{dom,update(n){if(n.type.name!=='slash')return false;dom.textContent=n.attrs.selectedLabel;return true;}};}}});
 window.setDoc=items=>{view.updateState(EditorState.create({schema,doc:schema.node('doc',null,[schema.node('paragraph',null,items.map(x=>typeof x==='string'?schema.text(x):schema.node('slash',x)))])}));};window.refs=()=>{const result=[];view.state.doc.descendants(n=>{if(n.type.name==='slash')result.push({...n.attrs});});return result;};window.doc=()=>view.state.doc.toJSON();window.clicks=0;document.querySelector('#menu').onclick=()=>{window.clicks++;document.querySelector('#overlay').innerHTML='<div role=dialog>User search</div>';};document.querySelector('form').onsubmit=e=>{e.preventDefault();window.lastSubmitted=doc();setDoc([]);};window.fixtureReady=true;
 </script>`;
 const profile=fs.mkdtempSync(path.join(os.tmpdir(),'vibez-direct-reference-'));let browser,socket,id=0;const awaiting=new Map(),errors=[],checks=[];const wait=ms=>new Promise(r=>setTimeout(r,ms));
 function cdp(method,params={}){return new Promise((resolve,reject)=>{const key=++id;awaiting.set(key,{resolve,reject});socket.send(JSON.stringify({id:key,method,params}));});}
 async function evaluate(expression){const r=await cdp('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw Error(JSON.stringify(r.exceptionDetails));return r.result.value;}
-async function fresh(target=url){await cdp('Page.navigate',{url:target});for(let n=0;n<150;n++){if(await evaluate('Boolean(window.fixtureReady)'))return;await wait(25);}throw Error('fixture load failed');}
+async function fresh(target=url,guard=true){await cdp('Page.navigate',{url:target});for(let n=0;n<150;n++){if(await evaluate('Boolean(window.fixtureReady)')){if(guard)await evaluate(attachmentGuard);return;}await wait(25);}throw Error('fixture load failed');}
 function config(target=url,p=A,id=B,label=title){return {project:p,connector_id:id,title:label,url:target,attach:true};}
 async function hint(value=config()){await evaluate(source.replace('__VIBEZ_CONNECTOR_CONTEXT__',JSON.stringify(value)));await wait(70);}
 async function refs(){return evaluate('refs()');}
@@ -259,5 +260,54 @@ await check('labels in menus rendered beside main keep their text',async()=>{
  assert.equal(await evaluate('document.querySelector("#line").textContent'),'Gebruikte: List directory','inside main the label is quieted');
  assert.equal(await evaluate('document.querySelector("#prow").innerText'),work,'a picker without menu roles beside main keeps the label');
 });
+
+// The report also occurs with self-typed Work messages. Inspect the actual
+// editor document at submit, not an AI description of the submitted message.
+// This is a local editor boundary test, NOT Mistral's network serializer.
+const typedRuns=[];
+await check('typed-message probe can detect an empty image when the model really contains one',async()=>{
+ await fresh();await evaluate('setDoc([]);view.dispatch(view.state.tr.insert(1,view.state.schema.nodes.image.create()))');
+ assert.equal(await evaluate('doc().content[0].content[0].type'),'image');
+});
+for(const mode of ['website-fixture','unguarded-inactive','unguarded-work-project','unguarded-work-paused','unguarded-work-conversation','guarded-work-project'])await check('self-typed Work messages contain no image artifacts: '+mode,async()=>{
+ const target=mode==='unguarded-work-conversation'?'https://chat.mistral.ai/work/'+C:url;
+ await fresh(target,mode.startsWith('guarded'));
+ await evaluate('document.documentElement.lang="de";window.typedProbe={trustedInputs:0,pastedFiles:0,submitted:[]};document.addEventListener("input",e=>{if(e.isTrusted&&e.target.closest?.(".ProseMirror"))window.typedProbe.trustedInputs++},true);document.addEventListener("paste",e=>{window.typedProbe.pastedFiles+=e.clipboardData?.files?.length||0},true);const prior=document.querySelector("form").onsubmit;document.querySelector("form").onsubmit=e=>{window.typedProbe.submitted.push(doc());return prior(e)}');
+ const linked=['unguarded-work-project','unguarded-work-conversation','guarded-work-project'].includes(mode);
+ const current=mode==='unguarded-inactive'?null:{...config(target),title:'vibezwork0123456789abcdef',attach:linked};
+ const refresh=async()=>{if(mode!=='website-fixture')await hint(current)};
+ const messages=[
+  'Ich plane eine kleine lokale App und entwerfe zuerst ihre Benutzeroberflaeche.',
+  'Auf der Startseite brauche ich die Bereiche Projekte, Einstellungen und Hilfe.',
+  'Bitte beschreibe die Navigation zwischen diesen Bereichen genauer.',
+  'Fasse den bisherigen Entwurf in drei kurzen Punkten zusammen.',
+  'Behalte die Navigation bei und beschreibe eine schmale Seitenleiste.',
+  'Dieses woertlich getippte Markdown-Beispiel muss erhalten bleiben: []() ![]().'
+ ];
+ let separators=0;
+ for(let turn=0;turn<messages.length;turn++){
+  await refresh();await evaluate('view.focus()');
+  await cdp('Input.insertText',{text:messages[turn]});await wait(25);await refresh();
+  const snapshot=await evaluate('(()=>{const images=[],references=[];view.state.doc.descendants(n=>{if(n.type.name==="image")images.push(n.attrs);if(n.type.name==="slash")references.push(n.attrs)});return {text:view.state.doc.textContent,images,references,domImages:[...view.dom.querySelectorAll("img")].map(e=>({className:e.className,src:e.getAttribute("src"),alt:e.getAttribute("alt")}))}})()');
+  assert.equal(snapshot.text,messages[turn]);assert.deepEqual(snapshot.images,[]);
+  // ProseMirror adds a decorative empty IMG beside a trailing atom on
+  // Chromium/Safari. It is not a model node or an uploaded image. Count it
+  // separately; any other DOM image is still a failure in a text-only test.
+  assert(snapshot.domImages.every(n=>n.className==='ProseMirror-separator'&&n.src===null&&n.alt===''),JSON.stringify({mode,turn,snapshot}));separators+=snapshot.domImages.length;
+  // The standard model-based HTML serializer also excludes the cursor
+  // helper. This does not assume which serializer the hosted Mistral uses.
+  const serializedImages=await evaluate('(async()=>{const {DOMSerializer}=await import("prosemirror-model");const root=document.createElement("div");root.append(DOMSerializer.fromSchema(view.state.schema).serializeFragment(view.state.doc.content));return root.querySelectorAll("img").length})()');
+  assert.equal(serializedImages,0);
+  assert.equal(snapshot.references.length,linked?1:0);for(const ref of snapshot.references)assert.equal(ref.subType,'connection');
+  await clickSend();
+  const sent=await evaluate('window.typedProbe.submitted.at(-1)');let imageCount=0,text='';const walk=n=>{if(n.type==='image')imageCount++;if(n.type==='text')text+=n.text;for(const c of n.content||[])walk(c)};walk(sent);
+  assert.equal(text,messages[turn]);assert.equal(imageCount,0);
+ }
+ const measured=await evaluate('({trustedInputs:window.typedProbe.trustedInputs,pastedFiles:window.typedProbe.pastedFiles,messages:window.typedProbe.submitted.length})');
+ assert(measured.trustedInputs>=messages.length);assert.equal(measured.pastedFiles,0);assert.equal(measured.messages,messages.length);
+ typedRuns.push({mode,...measured,typed_text_preserved:true,image_nodes_at_submit:0,standard_html_serialized_images:0,decorative_editor_separators_observed:separators});
+});
+fs.writeFileSync(path.join(out,'typed-messages.json'),JSON.stringify({passed:true,scope:'Offline real-ProseMirror editor document and trusted text input; not a live Mistral request or its network serializer',runs:typedRuns},null,2)+'\n');
+
 assert.deepEqual(errors,[]);fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({passed:true,real_ProseMirror:true,physical_windows_used:false,network_requests_to_Mistral:false,checks},null,2)+'\n');console.log('Passed '+checks.length+' real-editor browser cases.');
 }catch(e){fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({passed:false,error:String(e),checks},null,2)+'\n');throw e;}finally{if(socket)socket.close();if(browser){try{process.kill(-browser.pid,'SIGTERM');}catch{}await wait(150);}fs.rmSync(profile,{recursive:true,force:true});}})().catch(e=>{console.error(e);process.exitCode=1;});

@@ -516,3 +516,6 @@
 
 !/desktop/standalone-tests/editor-fixture/package.json
 !/desktop/standalone-tests/editor-fixture/package-lock.json
+
+!/desktop/src-tauri/src/composer_attachments.js
+!/desktop/standalone-tests/composer-attachments.browser.cjs
